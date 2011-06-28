@@ -186,6 +186,7 @@ enum {
 	SC_CARD_TYPE_IASECC_GEMALTO,
 	SC_CARD_TYPE_IASECC_OBERTHUR,
 	SC_CARD_TYPE_IASECC_SAGEM,
+	SC_CARD_TYPE_IASECC_AMOS
 };
 
 extern sc_card_driver_t *sc_get_default_driver(void);

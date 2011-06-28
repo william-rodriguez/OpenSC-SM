@@ -225,6 +225,7 @@ static int
 iasecc_select_mf(struct sc_card *card, struct sc_file **file_out)
 {
 	struct sc_context *ctx = card->ctx;
+	struct sc_file *mf_file = NULL;
 	struct sc_path path;
 	int rv;
 
@@ -235,29 +236,60 @@ iasecc_select_mf(struct sc_card *card, struct sc_file **file_out)
 
 	memset(&path, 0, sizeof(struct sc_path));
 	if (!card->ef_atr || !card->ef_atr->aid.len)   {
+		struct sc_apdu apdu;
+		unsigned char apdu_resp[SC_MAX_APDU_BUFFER_SIZE];
+
+		/* ISO 'select' command failes when not FCP data returned */
 		sc_format_path("3F00", &path);
 		path.type = SC_PATH_TYPE_FILE_ID;
-		rv = iso_ops->select_file(card, &path, file_out);
+
+		sc_format_apdu(card, &apdu, SC_APDU_CASE_3_SHORT, 0xA4, 0x00, 0x00);
+		apdu.lc = path.len;
+		apdu.data = path.value;
+		apdu.datalen = path.len;
+		apdu.resplen = sizeof(apdu_resp);
+		apdu.resp = apdu_resp;
+
+		rv = sc_transmit_apdu(card, &apdu);
+		LOG_TEST_RET(card->ctx, rv, "APDU transmit failed");
+		rv = sc_check_sw(card, apdu.sw1, apdu.sw2);
+		LOG_TEST_RET(card->ctx, rv, "Cannot select MF");
 	}
 	else   {
+		memset(&path, 0, sizeof(path));
 		path.type = SC_PATH_TYPE_DF_NAME;
 		memcpy(path.value, card->ef_atr->aid.value, card->ef_atr->aid.len);
 		path.len = card->ef_atr->aid.len;
 		rv = iasecc_select_file(card, &path, file_out);
 		LOG_TEST_RET(ctx, rv, "Unable to ROOT selection");
-
-		/* When selecting Root DF Oberthur's IAS/ECC card do not returns FCI data */
-		if (file_out && *file_out == NULL)   {
-			struct sc_file *mf_file = sc_file_new();
-			if (mf_file == NULL)
-				LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "Cannot allocate MF file");
-			mf_file->type = SC_FILE_TYPE_DF;
-			mf_file->path = path;
-
-			*file_out = mf_file;
-		}
 	}
+
+	/* Ignore the FCP of the MF, because:
+	 * - some cards do not return it;
+	 * - there is not need of it -- create/delete of the files in MF is not invisaged.
+	 */
+	mf_file = sc_file_new();
+	if (mf_file == NULL)
+		LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "Cannot allocate MF file");
+	mf_file->type = SC_FILE_TYPE_DF;
+	mf_file->path = path;
 	
+	if (card->cache.valid && card->cache.current_df)
+		 sc_file_free(card->cache.current_df);
+ 	card->cache.current_df = NULL;
+ 
+	if (card->cache.valid && card->cache.current_ef)
+ 		sc_file_free(card->cache.current_ef);
+ 	card->cache.current_ef = NULL;
+ 
+	sc_file_dup(&card->cache.current_df, mf_file);
+ 	card->cache.valid = 1;
+
+	if (file_out && *file_out == NULL)
+		*file_out = mf_file;
+	else
+ 		sc_file_free(mf_file);
+
 	LOG_FUNC_RETURN(ctx, rv);
 }
 
@@ -489,11 +521,41 @@ iasecc_init_sagem(struct sc_card *card)
 		
 		rv = iasecc_parse_ef_atr(card);
 	}
-	LOG_TEST_RET(ctx, rv, "ECC: ATR parse failed");
+	LOG_TEST_RET(ctx, rv, "IASECC: ATR parse failed");
 
 	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
 }
 
+
+static int
+iasecc_init_amos(struct sc_card *card)
+{
+	struct sc_context *ctx = card->ctx;
+	unsigned int flags;
+	int rv = 0;
+
+	LOG_FUNC_CALLED(ctx);
+
+	flags = IASECC_CARD_DEFAULT_FLAGS;
+
+	_sc_card_add_rsa_alg(card, 1024, flags, 0x10001);
+	_sc_card_add_rsa_alg(card, 2048, flags, 0x10001);
+
+	card->caps = SC_CARD_CAP_RNG;
+	card->caps |= SC_CARD_CAP_APDU_EXT; 
+	card->caps |= SC_CARD_CAP_USE_FCI_AC;
+
+	rv = iasecc_parse_ef_atr(card);
+	if (rv == SC_ERROR_FILE_NOT_FOUND)   {
+		rv = iasecc_select_mf(card, NULL);
+		LOG_TEST_RET(ctx, rv, "MF selection error");
+		
+		rv = iasecc_parse_ef_atr(card);
+	}
+	LOG_TEST_RET(ctx, rv, "IASECC: ATR parse failed");
+
+	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
+}
 
 static int
 iasecc_init(struct sc_card *card)
@@ -527,6 +589,8 @@ iasecc_init(struct sc_card *card)
 		rv = iasecc_init_oberthur(card);
 	else if (card->type == SC_CARD_TYPE_IASECC_SAGEM)
 		rv = iasecc_init_sagem(card);
+	else if (card->type == SC_CARD_TYPE_IASECC_AMOS)
+		rv = iasecc_init_amos(card);
 
 	if (!rv)   {
 		if (card->ef_atr && card->ef_atr->aid.len)   {
@@ -743,7 +807,8 @@ iasecc_select_file(struct sc_card *card, const struct sc_path *path,
 
 		if (card->type != SC_CARD_TYPE_IASECC_GEMALTO 
 				&& card->type != SC_CARD_TYPE_IASECC_OBERTHUR 
-				&& card->type != SC_CARD_TYPE_IASECC_SAGEM)
+				&& card->type != SC_CARD_TYPE_IASECC_SAGEM
+				&& card->type != SC_CARD_TYPE_IASECC_AMOS)
 			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Unsupported card");
 
 		if (lpath.type == SC_PATH_TYPE_FILE_ID)   {
@@ -752,11 +817,15 @@ iasecc_select_file(struct sc_card *card, const struct sc_path *path,
 				apdu.p1 = 0x01;
 				apdu.p2 = 0x04;
 			}
+			if (card->type == SC_CARD_TYPE_IASECC_AMOS)
+				apdu.p2 = 0x04;
 		}
 		else if (lpath.type == SC_PATH_TYPE_FROM_CURRENT)  {
 			apdu.p1 = 0x09;
 			if (card->type == SC_CARD_TYPE_IASECC_OBERTHUR)
 				apdu.p2 = 0x04;
+			if (card->type == SC_CARD_TYPE_IASECC_AMOS)
+				apdu.p2 = 0x04;	
 		}
 		else if (lpath.type == SC_PATH_TYPE_PARENT)   {
 			apdu.p1 = 0x03;
@@ -765,6 +834,8 @@ iasecc_select_file(struct sc_card *card, const struct sc_path *path,
 		}
 		else if (lpath.type == SC_PATH_TYPE_DF_NAME)   {
 			apdu.p1 = 0x04;
+			if (card->type == SC_CARD_TYPE_IASECC_AMOS)
+				apdu.p2 = 0x04;	
 		}
 		else   {
 			sc_log(ctx, "Invalid PATH type: 0x%X", lpath.type);
@@ -1709,7 +1780,10 @@ iasecc_pin_verify(struct sc_card *card, unsigned type, unsigned reference,
 	LOG_FUNC_CALLED(ctx);
 	sc_log(ctx, "Verify PIN(type:%X,ref:%i,data(len:%i,%p)", type, reference, data_len, data);
 
-	if (type == SC_AC_SCB)   {
+	if (type == SC_AC_AUT)   {
+		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "To be implemented");
+	}
+	else if (type == SC_AC_SCB)   {
 		if (reference & IASECC_SCB_METHOD_USER_AUTH)   {
 			type = SC_AC_SEN;
 			reference = reference & IASECC_SCB_METHOD_MASK_REF;
