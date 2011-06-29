@@ -271,6 +271,7 @@ int sc_disconnect_card(sc_card_t *card)
 	}
 
 #ifdef ENABLE_SM
+	/* release SM related resources */
 	sc_card_sm_unload(card);
 #endif
 
@@ -1165,7 +1166,7 @@ static int sc_card_sm_load(struct sc_card *card, const char *in_module)
 	SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, rv);
 }
 
-
+/* get SM related configuration settings and initialize SM session, SM module, ... */
 static int sc_card_sm_check(struct sc_card *card)   
 {
 	const char *sm = NULL, *module_filename = NULL, *module_data = NULL, *sm_mode = NULL;
@@ -1175,14 +1176,15 @@ static int sc_card_sm_check(struct sc_card *card)
 
 	SC_FUNC_CALLED(ctx, SC_LOG_DEBUG_NORMAL);
 
+	/* get the name of card specific SM configuration section */
 	atrblock = _sc_match_atr_block(ctx, card->driver, &card->atr);
 	if (atrblock == NULL) 
 		SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, SC_SUCCESS);
-		
 	sm = scconf_get_str(atrblock, "secure_messaging", NULL);
 	if (!sm)
 		SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, SC_SUCCESS);
 	
+	/* get SM configuration section by the name */
 	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "secure_messaging %s", sm);
         for (ii = 0; ctx->conf_blocks[ii]; ii++) {
 		scconf_block **blocks;
@@ -1199,6 +1201,7 @@ static int sc_card_sm_check(struct sc_card *card)
 	if (!sm_conf_block) 
 		SC_TEST_RET(ctx, SC_LOG_DEBUG_NORMAL, SC_ERROR_UNKNOWN, "SM configuration block not preset");
 
+	/* check if an external SM module has to be used */
 	module_filename = scconf_get_str(sm_conf_block, "module", NULL);  
 	if (module_filename)   {
 		rv = sc_card_sm_load(card, module_filename);
@@ -1207,6 +1210,7 @@ static int sc_card_sm_check(struct sc_card *card)
 		strncpy(card->sm_ctx.module.name, sm, sizeof(card->sm_ctx.module.name));
 	}
 
+	/* allocate resources for the external SM module */
 	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "'module_init' handler %p", card->sm_ctx.module.ops.module_init);
 	if (card->sm_ctx.module.ops.module_init)   {
 		module_data = scconf_get_str(sm_conf_block, "module_data", NULL);
@@ -1216,6 +1220,7 @@ static int sc_card_sm_check(struct sc_card *card)
 		SC_TEST_RET(ctx, SC_LOG_DEBUG_NORMAL, rv, "Cannot initialize SM module");
 	}
 
+	/* initialize SM session in the case of 'APDU TRANSMIT' SM mode */
 	sm_mode = scconf_get_str(sm_conf_block, "mode", NULL);
 	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SM mode '%s'; 'open' handler %p", sm_mode, card->sm_ctx.ops.open);
 	if (sm_mode && !strcasecmp("Transmit", sm_mode))   {

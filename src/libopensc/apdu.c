@@ -394,12 +394,14 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 		data_save = apdu->data;
 		apdu->data = sm_data;
 
+		/* Encode APDU using the card specific procedure */
 		r = card->sm_ctx.ops.encode_apdu(card, apdu);
 		if (r < 0)   {
 			sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "cannot do SM encoding of APDU");
 			goto done;
 		}
 	
+		/* Validate encoded APDU */
 		r = sc_check_apdu(card, apdu);
 		if (r < 0)   {
 			sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "cannot validate SM encoded APDU");
@@ -547,6 +549,7 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 	r = SC_SUCCESS;
 done:
 #ifdef ENABLE_SM
+	/* restore initial APDU data */
 	if (sm_data)   {
 		apdu->data = data_save;
 		free(sm_data);

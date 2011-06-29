@@ -91,6 +91,10 @@ extern "C" {
 #define SM_GP_SECURITY_ENC		0x03
 
 /* Global Platform (SCP01) data types */
+/* 
+ * @struct sm_type_params_gp 
+ * 	Global Platform SM channel parameters
+ */
 struct sm_type_params_gp {
 	unsigned level;
 	unsigned index;
@@ -99,6 +103,13 @@ struct sm_type_params_gp {
 	struct sc_cplc cplc;
 };
 
+/*
+ * @struct sm_gp_keyset
+ * 	Global Platform keyset:
+ * 	- version, index;
+ * 	- keyset presented in three parts: 'ENC', 'MAC' and 'KEK';
+ *	- keyset presented in continuous manner - raw or 'to be diversified'.
+ */
 struct sm_gp_keyset {
         int version;
         int index;
@@ -110,6 +121,10 @@ struct sm_gp_keyset {
         unsigned kmc_len;
 };
 
+/*
+ * @struct sm_gp_session
+ * 	Global Platform SM session data
+ */
 struct sm_gp_session {
 	unsigned char *session_enc, *session_mac, *session_kek;
 	unsigned char mac_icv[8];
@@ -117,23 +132,47 @@ struct sm_gp_session {
 
 
 /* CWA, IAS/ECC data types */
+/* 
+ * @struct sm_type_params_cwa 
+ */
 struct sm_type_params_cwa {
 	struct sc_iin iin;
 	struct sc_crt crt_at;
 };
 
+/* 
+ * @struct sm_cwa_keyset
+ * 	CWA keyset:
+ * 	- SDO reference;
+ * 	- 'ENC' and 'MAC' 3DES keys.
+ */
 struct sm_cwa_keyset {
 	unsigned sdo_reference;
 	unsigned char enc[16];
 	unsigned char mac[16];
 };
 
+/* 
+ * @struct sm_cwa_token_data
+ * 	CWA token data:
+ * 	- serial;
+ * 	- 'small' random;
+ *	- 'big' random.
+ */
 struct sm_cwa_token_data  {
 	unsigned char sn[8];
 	unsigned char rnd[8];
 	unsigned char k[32];
 };
 
+/* 
+ * @struct sm_cwa_session
+ * 	CWA working SM session data:
+ * 	- ICC and IFD token data;
+ * 	- ENC and MAC session keys;
+ * 	- SSC (SM Sequence Counter);
+ * 	- 'mutual authentication' data.
+ */
 struct sm_cwa_session {
 	struct sm_cwa_token_data icc;
 	struct sm_cwa_token_data ifd;
@@ -147,8 +186,9 @@ struct sm_cwa_session {
 	size_t mdata_len;
 };
 
-/* @struct sc_secure channel 
- * Structure with the data to open and maintain the Secure Messaging session.
+/* 
+ * @struct sc_secure channel 
+ * 	data type to open and maintain the Secure Messaging session.
  */
 struct sm_secure_channel {
 	union {
@@ -166,9 +206,13 @@ struct sm_secure_channel {
 };
 
 
-/* @struct sc_info is the placehold for the data about
- * the SM type and SM session state, command to execute by external SM module,
- * as well as information about the current card context.
+/* 
+ * @struct sc_info is the 
+ * 	placehold for the secure messaging working data:
+ * 	- SM type;
+ * 	- SM session state;
+ * 	- command to execute by external SM module;
+ * 	- data related to the current card context.
  */
 struct sm_info   {
 	char module_name[64];
@@ -201,6 +245,10 @@ struct sm_info   {
 	struct sm_secure_channel schannel;
 };
 
+/* 
+ * @struct sm_card_response
+ * 	data type to return card response.
+ */
 typedef struct sm_card_response   {
 	int num;
 	unsigned sw;
@@ -214,6 +262,14 @@ typedef struct sm_card_response   {
 struct sc_context;
 struct sc_card;
 
+/* 
+ * @struct sm_card_operations
+ * 	card driver handlers related to secure messaging (in 'APDU TRANSMIT' mode)
+ * 	- 'open' - initialize SM session;
+ * 	- 'encode apdu' - SM encoding of the raw APDU;
+ * 	- 'decrypt response' - decode card answer;
+ * 	- 'close' - close SM session.
+ */
 struct sm_card_operations {
 	int (*open)(struct sc_card *card);
 	int (*encode_apdu)(struct sc_card *card, struct sc_apdu *apdu);
@@ -222,6 +278,15 @@ struct sm_card_operations {
 	int (*close)(struct sc_card *card);
 };
 
+/* 
+ * @struct sm_module_operations
+ * 	API to use external SM modules:
+ * 	- 'initiliaze' - get APDU(s) to initialize SM session;
+ * 	- 'get apdus' - get secured APDUs to execute particular command;
+ * 	- 'finalize' - get APDU(s) to finalize SM session;
+ * 	- 'module init' - initialize external module (allocate data, read configuration, ...);
+ * 	- 'module cleanup' - free resources allocated by external module.
+ */
 struct sm_module_operations {
 	int (*initialize)(struct sc_context *ctx, struct sm_info *info,
 			struct sc_remote_data *out);
@@ -244,7 +309,12 @@ typedef struct sm_module {
 } sm_module_t;
 
 /* @struct sm_context 
- * SM context data
+ * 	SM context -- top level of the SM data type
+ * 	- SM mode ('ACL' or 'APDU TRANSMIT'), flags;
+ *	- working SM data;
+ *	- card operations related to SM in 'APDU TRANSMIT' mode;
+ *	- external SM module;
+ *	- 'lock'/'unlock' handlers to allow SM transfer in the locked card session.
  */
 typedef struct sm_context   {
 	unsigned sm_mode, sm_flags;
