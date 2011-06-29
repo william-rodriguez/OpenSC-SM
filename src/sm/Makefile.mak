@@ -2,7 +2,7 @@ TOPDIR = ..\..
 
 TARGET = smm-local.dll
 
-OBJECTS = smm-local.obj sm-common.obj sm-global-platform.obj sm-iasecc.obj sm-authentic.obj
+OBJECTS = smm-local.obj sm-common.obj sm-global-platform.obj sm-cwa14890.obj sm-card-iasecc.obj sm-card-authentic.obj
 
 all: $(TARGET)
 

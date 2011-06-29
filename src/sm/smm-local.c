@@ -54,30 +54,6 @@
 
 #include "sm-module.h"
 
-const unsigned char CardManagerAID[7] = {0xA0, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00};
-
-const unsigned char host_serial[8] = "\x11\x22\x33\x44\x55\x66\x77\x88";
-
-void * sc_module_init(char *name);
-char *sc_driver_version(void);
-
-static char *version = "0.0.1";
-
-void * 
-sc_module_init(char *name)
-{
-	printf("Initialize SM module %s\n", name);
-	return NULL;
-}
-
-
-char *
-sc_driver_version(void)
-{
-	return version;
-}
-
-
 static int
 sm_gp_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 {
@@ -248,10 +224,15 @@ sm_cwa_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 	return SC_SUCCESS;
 }
 
-
+/** API of the external SM module */
+/**
+ * Initialize
+ *
+ * Read keyset from the OpenSC configuration file,
+ * get and return the APDU(s) to initialize SM session.
+ */
 int 
-initialize(struct sc_context *ctx, struct sm_info *sm_info, 
-		struct sc_remote_data *out)
+initialize(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *out)
 {
 	int rv = SC_ERROR_NOT_SUPPORTED;
 
@@ -264,13 +245,15 @@ initialize(struct sc_context *ctx, struct sm_info *sm_info,
 	case SM_TYPE_GP_SCP01:
 		rv = sm_gp_config_get_keyset(ctx, sm_info);
 		LOG_TEST_RET(ctx, rv, "SM gp configuration error");
+
 		rv = sm_gp_initialize(ctx, sm_info, out);
 		LOG_TEST_RET(ctx, rv, "SM gp initializing error");
 		break;
 	case SM_TYPE_CWA14890:
-		rv = sm_iasecc_config_get_keyset(ctx, sm_info);
+		rv = sm_cwa_config_get_keyset(ctx, sm_info);
 		LOG_TEST_RET(ctx, rv, "SM iasecc configuration error");
-		rv = sm_iasecc_initialize(ctx, sm_info, out);
+
+		rv = sm_cwa_initialize(ctx, sm_info, out);
 		LOG_TEST_RET(ctx, rv, "SM iasecc initializing error");
 		break;
 	default:
@@ -281,6 +264,12 @@ initialize(struct sc_context *ctx, struct sm_info *sm_info,
 }
 
 
+/**
+ * Get APDU(s)
+ *
+ * Get securized APDU(s) corresponding 
+ * to the asked command.
+ */
 int
 get_apdus(struct sc_context *ctx, struct sm_info *sm_info, unsigned char *init_data, size_t init_len, 
 		struct sc_remote_data *out)
@@ -310,6 +299,11 @@ get_apdus(struct sc_context *ctx, struct sm_info *sm_info, unsigned char *init_d
 }
 
 
+/**
+ * Finalize
+ *
+ * Decode card answer(s)
+ */
 int
 finalize(struct sc_context *ctx, struct sm_info *sm_info, char *str_data, unsigned char *out, size_t out_len)
 {
@@ -330,7 +324,11 @@ finalize(struct sc_context *ctx, struct sm_info *sm_info, char *str_data, unsign
 	LOG_FUNC_RETURN(ctx, rv);
 }
 
-
+/**
+ * Module Init
+ *
+ * Module specific initialization
+ */
 int 
 module_init(struct sc_context *ctx, char *data)
 {
@@ -340,7 +338,11 @@ module_init(struct sc_context *ctx, char *data)
 
 }
 
-
+/**
+ * Module CleanUp
+ *
+ * Module specific cleanup
+ */
 int 
 module_cleanup(struct sc_context *ctx)
 {

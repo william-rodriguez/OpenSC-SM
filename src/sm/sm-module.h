@@ -66,7 +66,8 @@ void sm_gp_close_session(struct sc_context *ctx, struct sm_secure_channel *sc);
 
 
 /* CWA-14890 helper functions */
-int sm_cwa_initialize(struct sc_context *ctx, struct sm_info *sm_info, char *out, size_t *out_len);
+int sm_cwa_initialize(struct sc_context *ctx, struct sm_info *sm_info, 
+		struct sc_remote_data *out);
 int sm_cwa_get_apdus(struct sc_context *ctx, struct sm_info *sm_info, 
 		unsigned char *init_data, size_t init_len, struct sc_remote_data *out, int release_sm);
 int sm_cwa_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, char *str_data,
