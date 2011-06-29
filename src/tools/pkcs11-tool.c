@@ -83,7 +83,8 @@ enum {
 	OPT_PUK,
 	OPT_NEW_PIN,
 	OPT_LOGIN_TYPE,
-	OPT_TEST_EC
+	OPT_TEST_EC,
+	OPT_DERIVE
 };
 
 static const struct option options[] = {
@@ -96,6 +97,7 @@ static const struct option options[] = {
 
 	{ "sign",		0, NULL,		's' },
 	{ "hash",		0, NULL,		'h' },
+	{ "derive",		0, NULL,		OPT_DERIVE },
 	{ "mechanism",		1, NULL,		'm' },
 
 	{ "login",		0, NULL,		'l' },
@@ -146,6 +148,7 @@ static const char *option_help[] = {
 
 	"Sign some data",
 	"Hash some data",
+	"Derive a secret key using another key and some data",
 	"Specify mechanism (use -M for a list of supported mechanisms)",
 
 	"Log into the token first",
@@ -280,6 +283,7 @@ static void		show_dobj(CK_SESSION_HANDLE sess, CK_OBJECT_HANDLE obj);
 static void		sign_data(CK_SLOT_ID,
 				CK_SESSION_HANDLE, CK_OBJECT_HANDLE);
 static void		hash_data(CK_SLOT_ID, CK_SESSION_HANDLE);
+static void		derive_key(CK_SLOT_ID, CK_SESSION_HANDLE, CK_OBJECT_HANDLE);
 static int		gen_keypair(CK_SESSION_HANDLE,
 				CK_OBJECT_HANDLE *, CK_OBJECT_HANDLE *, const char *);
 static int 		write_object(CK_SESSION_HANDLE session);
@@ -333,6 +337,7 @@ int main(int argc, char * argv[])
 	int do_list_objects = 0;
 	int do_sign = 0;
 	int do_hash = 0;
+	int do_derive = 0;
 	int do_gen_keypair = 0;
 	int do_write_object = 0;
 	int do_read_object = 0;
@@ -576,6 +581,11 @@ int main(int argc, char * argv[])
 			do_test_ec = 1;
 			action_count++;
 			break;
+		case OPT_DERIVE:
+			need_session |= NEED_SESSION_RW;
+			do_derive = 1;
+			action_count++;
+			break;
 		default:
 			util_print_usage_and_die(app_name, options, option_help);
 		}
@@ -722,7 +732,7 @@ int main(int argc, char * argv[])
 		goto end;
 	}
 
-	if (do_sign) {
+	if (do_sign || do_derive) {
 		if (!find_object(session, CKO_PRIVATE_KEY, &object,
 					opt_object_id_len ? opt_object_id : NULL,
 					opt_object_id_len, 0))
@@ -737,6 +747,9 @@ int main(int argc, char * argv[])
 
 	if (do_hash)
 		hash_data(opt_slot, session);
+
+	if (do_derive)
+		derive_key(opt_slot, session, object);
 
 	if (do_gen_keypair) {
 		CK_OBJECT_HANDLE hPublicKey, hPrivateKey;
@@ -1355,6 +1368,94 @@ static void sign_data(CK_SLOT_ID slot, CK_SESSION_HANDLE session,
 	} else 
 #endif /* ENABLE_OPENSSL  && !OPENSSL_NO_EC && !OPENSSL_NO_ECDSA */
 	r = write(fd, sig_buffer, sig_len);
+	if (r < 0)
+		util_fatal("Failed to write to %s: %m", opt_output);
+	if (fd != 1)
+		close(fd);
+}
+
+static void derive_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session,
+		CK_OBJECT_HANDLE key)
+{
+	unsigned char	buffer[512];
+	CK_LONG			sig_len;
+	unsigned char	otherPublicKeyValue[2048]; /* Other guys public key */
+	CK_ULONG		ulotherPublicKeyValue = 0;
+	CK_MECHANISM	mech;
+	CK_OBJECT_CLASS newkey_class= CKO_SECRET_KEY;
+	CK_KEY_TYPE newkey_type = CKK_GENERIC_SECRET;
+	CK_BBOOL true = TRUE;
+	CK_OBJECT_HANDLE newkey = NULL;
+
+	CK_ATTRIBUTE 	newkey_template[] = {
+		{CKA_CLASS, &newkey_class, sizeof(newkey_class)},
+		{CKA_KEY_TYPE, &newkey_type, sizeof(newkey_type)},
+		{CKA_ENCRYPT, &true, sizeof(true)},
+		{CKA_DECRYPT, &true, sizeof(true)}
+	};
+	
+	CK_RV		rv;
+	int		fd, r;
+
+	if (!opt_mechanism_used) {
+		opt_mechanism = find_mechanism(slot, CKF_DERIVE|CKF_HW, 1, &opt_mechanism);
+		printf("Using derive algorithm %s\n",
+				p11_mechanism_to_name(opt_mechanism));
+	}
+
+	memset(&mech, 0, sizeof(mech));
+	mech.mechanism = opt_mechanism;
+
+	if (opt_input == NULL) 
+		fd = 0;
+	else if ((fd = open(opt_input, O_RDONLY|O_BINARY)) < 0) {
+		util_fatal("Cannot open %s: %m", opt_input);
+
+/*TODO should this be other data, rater then the other key.
+ * Could read other certificate and get the key
+ */
+		r = read(fd, otherPublicKeyValue, sizeof(otherPublicKeyValue));
+		ulotherPublicKeyValue = r;
+		
+	}
+	if (fd != 0)
+		close(fd);
+
+	switch(opt_mechanism) {
+#if defined(ENABLE_OPENSSL) && OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_EC) && !defined(OPENSSL_NO_ECDSA)
+		case CKM_ECDH1_COFACTOR_DERIVE:
+			{
+			CK_ECDH1_DERIVE_PARAMS ecdh_parms;
+
+			memset(&ecdh_parms, 0, sizeof(ecdh_parms));
+			ecdh_parms.kdf = CKD_NULL;
+			ecdh_parms.ulSharedDataLen = 0;
+			ecdh_parms.pSharedData = NULL;
+			ecdh_parms.ulPublicDataLen = ulotherPublicKeyValue;
+			ecdh_parms.pPublicData = otherPublicKeyValue;
+			mech.pParameter = &ecdh_parms;
+			mech.ulParameterLen = sizeof(ecdh_parms);
+			}
+			;;
+#endif /* ENABLE_OPENSSL  && !OPENSSL_NO_EC && !OPENSSL_NO_ECDSA */
+		/* TODO add RSA  but don not have card to test */
+		default:
+			util_fatal("mechanisum not support for derive\n");
+			;;
+	}
+
+	rv = p11->C_DeriveKey(session, &mech, key, newkey_template, 4, &newkey); 
+
+/*TODO get the key value and write to stdout or file */
+			
+
+	if (opt_output == NULL)
+		fd = 1;
+	else if ((fd = open(opt_output, O_CREAT|O_TRUNC|O_WRONLY|O_BINARY, S_IRUSR|S_IWUSR)) < 0) {
+		util_fatal("failed to open %s: %m", opt_output);
+	}
+
+	r = write(fd, buffer, sig_len);
 	if (r < 0)
 		util_fatal("Failed to write to %s: %m", opt_output);
 	if (fd != 1)

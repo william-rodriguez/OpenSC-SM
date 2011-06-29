@@ -136,8 +136,10 @@ typedef struct piv_private_data {
 	int  selected_obj; /* The index into the piv_objects last selected */
 	int  return_only_cert; /* return the cert from the object */
 	int  rwb_state; /* first time -1, 0, in middle, 1 at eof */
+	int operation; /* saved from set_security_env */
+	int algorithm; /* saved from set_security_env */
 	int key_ref; /* saved from set_security_env and */
-	int alg_id;  /* used in decrypt, signature */ 
+	int alg_id;  /* used in decrypt, signature, derive */ 
 	int key_size; /*  RSA: modulus_bits EC: field_length in bits */
 	u8* w_buf;   /* write_binary buffer */
 	size_t w_buf_len; /* length of w_buff */
@@ -1892,6 +1894,9 @@ static int piv_set_security_env(sc_card_t *card,
 			env->flags, env->operation, env->algorithm, env->algorithm_flags, 
 			env->algorithm_ref, env->key_ref[0], env->key_ref_len);
 
+	priv->operation = env->operation;
+	priv->algorithm = env->algorithm;
+
 	if (env->algorithm == SC_ALGORITHM_RSA) { 
 		priv->alg_id = 0x06; /* Say it is RSA, set 5, 6, 7 later */
 	} else if (env->algorithm == SC_ALGORITHM_EC) {
@@ -1949,7 +1954,11 @@ static int piv_validate_general_authentication(sc_card_t *card,
 	p = sbuf;
 	put_tag_and_len(0x7c, (2 + put_tag_and_len(0, datalen, NULL)) , &p);
 	put_tag_and_len(0x82, 0, &p);
-	put_tag_and_len(0x81, datalen, &p);
+	if (priv->operation == SC_SEC_OPERATION_DERIVE 
+			&& priv->algorithm == SC_ALGORITHM_EC) 
+		put_tag_and_len(0x85, datalen, &p);
+	else
+		put_tag_and_len(0x81, datalen, &p);
 
 	memcpy(p, data, datalen);
 	p += datalen;

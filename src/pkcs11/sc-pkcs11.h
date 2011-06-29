@@ -113,6 +113,11 @@ struct sc_pkcs11_object_ops {
 			CK_BYTE_PTR pEncryptedData, CK_ULONG ulEncryptedDataLen,
 			CK_BYTE_PTR pData, CK_ULONG_PTR pulDataLen);
 
+	CK_RV (*derive)(struct sc_pkcs11_session *, void *,
+			CK_MECHANISM_PTR,
+			CK_ATTRIBUTE_PTR,
+			CK_ULONG, CK_OBJECT_HANDLE_PTR);
+
 	/* Others to be added when implemented */
 };
 

@@ -117,10 +117,22 @@ struct pkcs15_data_object {
 #define data_p15obj		base.p15_object
 #define is_data(obj) (__p15_type(obj) == SC_PKCS15_TYPE_DATA_OBJECT)
 
+struct pkcs15_skey_object {
+	struct pkcs15_any_object    base;
+
+	struct sc_pkcs15_skey_info *info;
+	struct sc_pkcs15_skey *value;
+};
+
+#define skey_flags		base.base.flags
+#define skey_p15obj 	base.p15_object
+#define is_skey(obj) (__p15_type(obj) == SC_PKCS15_TYPE_SKEY_OBJECT)
+
 extern struct sc_pkcs11_object_ops pkcs15_cert_ops;
 extern struct sc_pkcs11_object_ops pkcs15_prkey_ops;
 extern struct sc_pkcs11_object_ops pkcs15_pubkey_ops;
 extern struct sc_pkcs11_object_ops pkcs15_dobj_ops;
+extern struct sc_pkcs11_object_ops pkcs15_skey_ops;
 
 #define GOST_PARAMS_OID_SIZE 9
 static const struct {
@@ -2433,6 +2445,7 @@ struct sc_pkcs11_object_ops pkcs15_cert_ops = {
 	NULL,
 	NULL,
 	NULL,
+	NULL,
 	NULL
 };
 
@@ -2797,6 +2810,28 @@ pkcs15_prkey_decrypt(struct sc_pkcs11_session *ses, void *obj,
 	return CKR_OK;
 }
 
+static CK_RV
+pkcs15_prkey_derive(struct sc_pkcs11_session *ses, void *obj,
+		CK_MECHANISM_PTR pMechanism,
+		CK_ATTRIBUTE_PTR pTemplate,
+		CK_ULONG ulAttributeCount,
+		CK_OBJECT_HANDLE_PTR phKey)
+{
+	struct pkcs15_fw_data *fw_data = (struct pkcs15_fw_data *) ses->slot->card->fw_data;
+	struct pkcs15_prkey_object *prkey;
+	int	rv, flags = 0;
+	
+	sc_debug(context, SC_LOG_DEBUG_NORMAL, "Initiating derivation\n");
+
+	prkey = (struct pkcs15_prkey_object *) obj;
+	
+	sc_debug(context, SC_LOG_DEBUG_NORMAL, "derivation %p %p %p %p %d %p\n", ses, obj, pMechanism, pTemplate, ulAttributeCount, phKey);
+
+/*TODO support derivation */
+	sc_debug(context, SC_LOG_DEBUG_NORMAL, "DERIVATION NOT SUPPORTED YET\n");
+	return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
 struct sc_pkcs11_object_ops pkcs15_prkey_ops = {
 	pkcs15_prkey_release,
 	pkcs15_prkey_set_attribute,
@@ -2806,7 +2841,8 @@ struct sc_pkcs11_object_ops pkcs15_prkey_ops = {
 	NULL,
 	pkcs15_prkey_sign,
 	NULL, /* unwrap */
-	pkcs15_prkey_decrypt
+	pkcs15_prkey_decrypt,
+	pkcs15_prkey_derive
 };
 
 /*
@@ -2987,6 +3023,7 @@ struct sc_pkcs11_object_ops pkcs15_pubkey_ops = {
 	NULL,
 	NULL,
 	NULL,
+	NULL,
 	NULL
 };
 
@@ -3128,8 +3165,186 @@ struct sc_pkcs11_object_ops pkcs15_dobj_ops = {
 	NULL,
 	NULL,
 	NULL,
+	NULL
 };
 
+/* PKCS#15 Secret Key Objects */
+/* TODO Currently only session objects */
+
+static void pkcs15_skey_release(void *object)
+{
+	__pkcs15_release_object((struct pkcs15_any_object *) object);
+}
+
+static CK_RV pkcs15_skey_set_attribute(struct sc_pkcs11_session *session,
+		void *object, CK_ATTRIBUTE_PTR attr)
+{
+	struct pkcs15_data_object *skey = (struct pkcs15_data_object*) object;
+	
+	return pkcs15_set_attrib(session, skey->base.p15_object, attr);
+}
+
+static int pkcs15_skey_get_value(struct sc_pkcs11_session *session,
+		struct pkcs15_skey_object *skey,
+		struct sc_pkcs15_skey **out_data)
+{
+	int rv;
+	struct sc_pkcs15_skey * skey_data = NULL;
+	struct pkcs15_fw_data *fw_data = 
+			(struct pkcs15_fw_data *) session->slot->card->fw_data;
+	sc_card_t *card = session->slot->card->card;
+
+	if (!out_data)
+		return SC_ERROR_INVALID_ARGUMENTS;
+
+	/*TODO could try and read extractable secret keys
+	 * but for now we only work with session objects 
+	 * derived from other keys 
+	 */  
+	if (skey->value && skey->value->data_len) {
+			skey_data= malloc(sizeof(struct sc_pkcs15_skey));
+			if (skey_data == NULL)
+				return SC_ERROR_OUT_OF_MEMORY;
+			memset(skey_data, 0, sizeof(struct sc_pkcs15_skey));
+			skey_data->data = malloc(skey_data->data_len);
+			if (skey_data->data == NULL) {
+				free(skey_data);
+				return SC_ERROR_OUT_OF_MEMORY;
+			}
+			skey_data->data_len = skey->value->data_len;
+			memcpy(skey_data->data, skey->value->data, skey->value->data_len);
+			*out_data = skey_data;
+			return 0;
+	}
+	return SC_ERROR_FILE_NOT_FOUND; 
+}
+
+static CK_RV pkcs15_skey_get_attribute(struct sc_pkcs11_session *session,
+				void *object,
+				CK_ATTRIBUTE_PTR attr)
+{
+	struct pkcs15_skey_object *skey = (struct pkcs15_skey_object*) object;
+	size_t len;
+	
+	switch (attr->type) {
+	case CKA_CLASS:
+		check_attribute_buffer(attr, sizeof(CK_OBJECT_CLASS));
+		*(CK_OBJECT_CLASS*)attr->pValue = CKO_SECRET_KEY;
+		break;
+	case CKA_TOKEN:
+/*TODO CHANGE, AS THIS NEEDS TO SUPPORT SESSION OBJECTS HERE */
+		check_attribute_buffer(attr, sizeof(CK_BBOOL));
+		*(CK_BBOOL*)attr->pValue = TRUE;
+		break;
+	case CKA_PRIVATE:
+		check_attribute_buffer(attr, sizeof(CK_BBOOL));
+		*(CK_BBOOL*)attr->pValue =
+			(skey->base.p15_object->flags & SC_PKCS15_CO_FLAG_PRIVATE) != 0;
+/*TODO is this the flag we want to use */
+		break;
+	case CKA_MODIFIABLE:
+		check_attribute_buffer(attr, sizeof(CK_BBOOL));
+		*(CK_BBOOL*)attr->pValue =
+			(skey->base.p15_object->flags & 0x02) != 0;
+/*TODO Why no definition of the flag */
+		break;
+	case CKA_LABEL:
+		len = strlen(skey->base.p15_object->label);
+		check_attribute_buffer(attr, len);
+		memcpy(attr->pValue, skey->base.p15_object->label, len);
+		break;
+	case CKA_KEY_TYPE:
+		check_attribute_buffer(attr, sizeof(CK_KEY_TYPE));
+		*(CK_OBJECT_CLASS*)attr->pValue = CKO_SECRET_KEY;
+		break;
+	case CKA_ENCRYPT:
+	case CKA_DECRYPT:
+	case CKA_SIGN:
+	case CKA_SIGN_RECOVER:
+	case CKA_WRAP:
+	case CKA_UNWRAP:
+	case CKA_VERIFY:
+	case CKA_VERIFY_RECOVER:
+	case CKA_DERIVE:
+		if (skey->info) 
+			return get_usage_bit(skey->info->usage, attr);
+		else 
+			return get_usage_bit(SC_PKCS15_PRKEY_USAGE_ENCRYPT
+					|SC_PKCS15_PRKEY_USAGE_DECRYPT
+					|SC_PKCS15_PRKEY_USAGE_WRAP
+					|SC_PKCS15_PRKEY_USAGE_UNWRAP, attr);
+		break;
+	case CKA_ID:
+		check_attribute_buffer(attr, skey->info->id.len);
+		memcpy(attr->pValue, skey->info->id.value, skey->info->id.len);
+		break;
+	case CKA_VALUE_LEN:
+		check_attribute_buffer(attr, sizeof(CK_ULONG));
+		if (skey->info->key_length == 0) {
+			CK_RV rv;
+			struct sc_pkcs15_skey *data = NULL;
+			
+			rv = pkcs15_skey_get_value(session, skey, &data);
+			if (rv == CKR_OK) {
+				skey->info->key_length = data->data_len;
+				*(CK_ULONG*)attr->pValue, skey->info->key_length;
+				if (data) {
+					if (data->data) {
+						memset(data->data, 0, data->data_len);
+						free(data->data);
+					}
+					free(data);
+				}
+			}
+		} else {
+			*(CK_ULONG*)attr->pValue, skey->info->key_length;
+		}
+		break;
+	case CKA_VALUE:
+		{
+			CK_RV rv;
+			struct sc_pkcs15_skey *data = NULL;
+			
+			rv = pkcs15_skey_get_value(session, skey, &data);
+			if (rv == CKR_OK) {
+				skey->info->key_length = data->data_len;
+				rv = data_value_to_attr(attr, data);
+			}
+			if (data) {
+				if (data->data) {
+					memset(data->data, 0, data->data_len);
+					free(data->data);
+				}
+				free(data);
+			}
+			if (rv != CKR_OK)
+				return rv;
+		}
+		break;
+	default:
+		return CKR_ATTRIBUTE_TYPE_INVALID;
+	}
+	
+	return CKR_OK;
+}
+
+
+/*
+ *  Secret key objects, currently used only to retrieve derived session key 
+ */
+
+struct sc_pkcs11_object_ops pkcs15_skey_ops = {
+	pkcs15_skey_release,
+	pkcs15_skey_set_attribute,
+	pkcs15_skey_get_attribute,
+	sc_pkcs11_any_cmp_attribute,
+	pkcs15_any_destroy,
+	NULL,
+	NULL, 
+	NULL, /* unwrap */
+	NULL,
+	NULL
+};
 
 /*
  * get_attribute helpers

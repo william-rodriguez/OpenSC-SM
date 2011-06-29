@@ -392,6 +392,20 @@ struct sc_pkcs15_pubkey_info {
 };
 typedef struct sc_pkcs15_pubkey_info sc_pkcs15_pubkey_info_t;
 
+struct sc_pkcs15_skey_info {
+	struct sc_pkcs15_id id;
+	unsigned int usage, access_flags;
+	int native, key_reference;
+	size_t key_length; 
+	int algo_refs[SC_MAX_SUPPORTED_ALGORITHMS];
+	struct sc_path path; /* if on card */
+};
+typedef struct sc_pkcs15_skey_info sc_pkcs15_skey_info_t;
+
+#define sc_pkcs15_skey sc_pkcs15_data
+#define sc_pkcs15_skey_t sc_pkcs15_data_t
+
+
 #define SC_PKCS15_TYPE_CLASS_MASK		0xF00
 
 #define SC_PKCS15_TYPE_PRKEY			0x100
