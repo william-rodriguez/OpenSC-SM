@@ -253,6 +253,16 @@ app default {
 	card_atr 3b:ff:11:00:ff:80:b1:fe:45:1f:03:00:68:d2:76:00:00:28:ff:05:1e:31:80:00:90:00:a6 {
 		force_protocol = t0;
 	}
+
+	# Oberthur's AuthentIC v3.2.2
+	card_atr 3B:DD:18:00:81:31:FE:45:80:F9:A0:00:00:00:77:01:00:70:0A:90:00:8B {
+		type = 11100;
+		driver = "authentic";
+		name = "AuthentIC v3.1";
+
+		# Name of SM configuration sub-section
+		# secure_messaging = local_authentic;
+	}
 	
 	# IAS/ECC cards
 	#card_atr 3B:7F:96:00:00:00:31:B9:64:40:70:14:10:73:94:01:80:82:90:00 {
@@ -274,6 +284,29 @@ app default {
         #        name = "Morpho YpsID S3 IAS/ECC";
         #        # secure_messaging = local_morpho_YpsID_S3;
         #}
+
+	secure_messaging local_authentic  {
+		#path to external SM module
+		#module = /usr/local/lib/opensc/libsmm-local.so;
+		
+		# specific data to tune the module initialization
+		#module_data = "Here can be your SM module init data";
+
+		# SM mode: 
+		# 'transmit' -- in this mode the procedure to securize an APDU is called by the OpenSC general 
+                #               APDU transmit procedure.
+		# 		In this mode all APDUs, except the ones filtered by the card specific procedure,
+                #               are securized.
+                # 'acl' -- in this mode APDU are securized only if needed by the ACLs of the command to be executed.
+                #
+		#mode = transmit;
+
+		# SM type specific flags
+		# flags = 0x78;           # 0x78 -- level 3, channel 0
+
+		# Default KMC of the GP Card Manager for the Oberthur's Java cards
+		# kmc = "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00";
+	}
 
 	# Below are the framework specific configuration blocks.
 
