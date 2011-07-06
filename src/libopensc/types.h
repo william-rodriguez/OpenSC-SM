@@ -314,10 +314,8 @@ typedef struct sc_serial_number {
  * Structure to supply the linked APDU data used in 
  * communication with the external (SM) modules.
  */
-#define SC_REMOTE_APDU_FLAG_FATAL
-#define SC_REMOTE_APDU_FLAG_LAST
-#define SC_REMOTE_APDU_FLAG_RETURN_ANSWER
-#define SC_REMOTE_APDU_FLAG_GET_RESPONSE
+#define SC_REMOTE_APDU_FLAG_NOT_FATAL		0x01 
+#define SC_REMOTE_APDU_FLAG_RETURN_ANSWER	0x02
 struct sc_remote_apdu {
 	unsigned char sbuf[2*SC_MAX_APDU_BUFFER_SIZE];
 	unsigned char rbuf[2*SC_MAX_APDU_BUFFER_SIZE];
