@@ -1764,6 +1764,22 @@ iasecc_pin_is_verified(struct sc_card *card, struct sc_pin_cmd_data *pin_cmd_dat
 	LOG_FUNC_RETURN(ctx, rv);
 }
 
+static int
+iasecc_ext_auth(struct sc_card *card, unsigned skey_ref, int *tries_left)
+{
+	struct sc_context *ctx = card->ctx;
+	int rv;
+
+	LOG_FUNC_CALLED(ctx);
+	sc_log(ctx, "Verify AuthKey(skey:%x)", skey_ref);
+
+	if (card->sm_ctx.sm_mode == SM_MODE_NONE)
+		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Cannot do 'External Authentication' without SM activated ");
+
+	rv = iasecc_sm_external_authentication(card, skey_ref, tries_left);
+
+	LOG_FUNC_RETURN(ctx, rv);
+}
 
 static int
 iasecc_pin_verify(struct sc_card *card, unsigned type, unsigned reference,
@@ -1778,7 +1794,8 @@ iasecc_pin_verify(struct sc_card *card, unsigned type, unsigned reference,
 	sc_log(ctx, "Verify PIN(type:%X,ref:%i,data(len:%i,%p)", type, reference, data_len, data);
 
 	if (type == SC_AC_AUT)   {
-		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "To be implemented");
+		rv =  iasecc_ext_auth(card, reference, tries_left);
+		LOG_FUNC_RETURN(ctx, rv);
 	}
 	else if (type == SC_AC_SCB)   {
 		if (reference & IASECC_SCB_METHOD_USER_AUTH)   {

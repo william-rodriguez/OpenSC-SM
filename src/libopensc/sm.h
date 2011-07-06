@@ -90,6 +90,11 @@ extern "C" {
 #define SM_GP_SECURITY_MAC		0x01
 #define SM_GP_SECURITY_ENC		0x03
 
+struct sc_cmd_ext_auth {
+	unsigned skey_ref;
+	unsigned char challenge[8];
+};
+
 /* Global Platform (SCP01) data types */
 /* 
  * @struct sm_type_params_gp 
@@ -221,6 +226,7 @@ struct sm_info   {
 	unsigned cmd;
 	union {
 		struct sc_apdu *apdu_to_encode;
+		struct sc_cmd_ext_auth ext_auth;
 	} cmd_params;
 
 	unsigned sm_type;
@@ -328,6 +334,8 @@ typedef struct sm_context   {
 	unsigned long (*app_lock)(void);
 	void (*app_unlock)(void);
 } sm_context_t;
+
+int iasecc_sm_external_authentication(struct sc_card *, unsigned, int *);
 
 #ifdef __cplusplus
 }
