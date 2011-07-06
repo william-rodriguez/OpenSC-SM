@@ -90,11 +90,6 @@ extern "C" {
 #define SM_GP_SECURITY_MAC		0x01
 #define SM_GP_SECURITY_ENC		0x03
 
-struct sc_cmd_ext_auth {
-	unsigned skey_ref;
-	unsigned char challenge[8];
-};
-
 /* Global Platform (SCP01) data types */
 /* 
  * @struct sm_type_params_gp 
@@ -137,11 +132,11 @@ struct sm_gp_session {
 
 
 /* CWA, IAS/ECC data types */
+
 /* 
  * @struct sm_type_params_cwa 
  */
 struct sm_type_params_cwa {
-	struct sc_iin iin;
 	struct sc_crt crt_at;
 };
 
@@ -220,13 +215,12 @@ struct sm_secure_channel {
  * 	- data related to the current card context.
  */
 struct sm_info   {
-	char module_name[64];
+	char config_section[64];
 	unsigned card_type;
 
 	unsigned cmd;
 	union {
 		struct sc_apdu *apdu_to_encode;
-		struct sc_cmd_ext_auth ext_auth;
 	} cmd_params;
 
 	unsigned sm_type;
@@ -238,8 +232,6 @@ struct sm_info   {
 	struct sc_serial_number serialnr;
 	   
 	unsigned security_condition;
-
-	int status;
 
 	struct sc_path current_path_df;
 	struct sc_path current_path_ef;
@@ -308,7 +300,7 @@ struct sm_module_operations {
 };
 
 typedef struct sm_module {
-	char name[64];
+	char filename[128];
 	void *handle;
 
 	struct sm_module_operations ops;
@@ -323,6 +315,7 @@ typedef struct sm_module {
  *	- 'lock'/'unlock' handlers to allow SM transfer in the locked card session.
  */
 typedef struct sm_context   {
+	char config_section[64];
 	unsigned sm_mode, sm_flags;
 
 	struct sm_info info;
