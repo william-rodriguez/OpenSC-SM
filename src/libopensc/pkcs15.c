@@ -726,8 +726,8 @@ static int sc_pkcs15_bind_internal(sc_pkcs15_card_t *p15card, struct sc_aid *aid
 	/* Enumerate apps now */
 	if (card->app_count < 0) {
 		err = sc_enum_apps(card);
-		if (err != SC_ERROR_FILE_NOT_FOUND)
-			LOG_TEST_RET(ctx, err, "unable to enumerate apps");
+		if (err != SC_SUCCESS)
+			sc_log(ctx, "unable to enumerate apps: %s", sc_strerror(err));
 	}
 	p15card->file_app = sc_file_new();
 	if (p15card->file_app == NULL) {
@@ -767,7 +767,7 @@ static int sc_pkcs15_bind_internal(sc_pkcs15_card_t *p15card, struct sc_aid *aid
 	/* If the above test failed on cards without EF(DIR),
 	 * try to continue read ODF from 3F005031. -aet
 	 */
-	if ((err == SC_ERROR_FILE_NOT_FOUND) && (card->app_count < 1)) {
+	if ((err != SC_SUCCESS) && (card->app_count < 1)) {
 		sc_format_path("3F00", &p15card->file_app->path);
 		err = SC_SUCCESS;
 	}
