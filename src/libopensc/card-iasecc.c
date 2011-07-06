@@ -48,8 +48,6 @@
 
 #include "iasecc.h"
 
-#define ALLOW_IGNORE_EXTERNAL_AUTHENTICATION
-
 #define IASECC_CARD_DEFAULT_FLAGS ( 0			\
 		| SC_ALGORITHM_ONBOARD_KEY_GEN		\
 		| SC_ALGORITHM_RSA_PAD_ISO9796		\
@@ -2123,11 +2121,7 @@ iasecc_pin_reset(struct sc_card *card, struct sc_pin_cmd_data *data, int *tries_
 	scb = sdo.docp.scbs[IASECC_ACLS_CHV_RESET];
 	do   {
 		unsigned need_all = scb & IASECC_SCB_METHOD_NEED_ALL ? 1 : 0;
-		int ignore_ext_auth = 0;
 
-#ifdef ALLOW_IGNORE_EXTERNAL_AUTHENTICATION
-		ignore_ext_auth = ((scb & IASECC_SCB_METHOD_EXT_AUTH) && !need_all && (scb & IASECC_SCB_METHOD_SM));
-#endif
 		if (scb & IASECC_SCB_METHOD_USER_AUTH)   {
 			sc_log(ctx, "Try to verify PUK code: pin1.data:%p, pin1.len:%i", data->pin1.data, data->pin1.len);
 			rv = iasecc_pin_verify(card, SC_AC_SEN, scb & IASECC_SCB_METHOD_MASK_REF, 
@@ -2139,11 +2133,12 @@ iasecc_pin_reset(struct sc_card *card, struct sc_pin_cmd_data *data, int *tries_
 				break;
 		}
 
-		if ((scb & IASECC_SCB_METHOD_EXT_AUTH) && !ignore_ext_auth)
-			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Not yet");
-
 		if (scb & IASECC_SCB_METHOD_SM)
 			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Not yet");
+
+		if (scb & IASECC_SCB_METHOD_EXT_AUTH)
+			sc_log(ctx, "Hope that external authentication has been already done...");
+
 	} while(0);
 
 	iasecc_sdo_free_fields(card, &sdo);
