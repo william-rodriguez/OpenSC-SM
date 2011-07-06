@@ -107,9 +107,6 @@ sm_cwa_encode_external_auth_data(struct sc_context *ctx, struct sm_cwa_session *
 
 	sc_log(ctx, "IFD.RND %s", sc_dump_hex(session_data->ifd.rnd, 8));
 	sc_log(ctx, "IFD.SN  %s", sc_dump_hex(session_data->ifd.sn, 8));
-	sc_log(ctx, "IFD.K   %s", sc_dump_hex(session_data->ifd.k, 32));
-	sc_log(ctx, "ICC.RND %s", sc_dump_hex(session_data->icc.rnd, 8));
-	sc_log(ctx, "ICC.SN  %s", sc_dump_hex(session_data->icc.sn, 8));
 
 	memcpy(out + 0, session_data->icc.rnd, 8);
 	memcpy(out + 8, session_data->icc.sn, 8);
@@ -338,12 +335,12 @@ sm_cwa_initialize(struct sc_context *ctx, struct sm_info *sm_info, struct sc_rem
 	if (sm_info->cmd == SM_CMD_EXTERNAL_AUTH)   {
 		offs = sm_cwa_encode_external_auth_data(ctx, session_data, buf, sizeof(buf));
 		if (offs != 0x10)
-			SC_FUNC_RETURN(ctx, 1, offs);
+			LOG_FUNC_RETURN(ctx, offs);
 	}
 	else   {
 		offs = sm_cwa_encode_mutual_auth_data(ctx, session_data, buf, sizeof(buf));
 		if (offs != 0x40)
-			SC_FUNC_RETURN(ctx, 1, offs);
+			LOG_FUNC_RETURN(ctx, offs);
 	}
 
 	sc_log(ctx, "S(%i) %s", offs, sc_dump_hex(buf, offs));
@@ -353,31 +350,25 @@ sm_cwa_initialize(struct sc_context *ctx, struct sm_info *sm_info, struct sc_rem
 
 	sc_log(ctx, "ENCed(%i) %s", encrypted_len, sc_dump_hex(encrypted, encrypted_len));
 
-	offs = 0;
-	memcpy(buf + offs, encrypted, encrypted_len);
-	offs += encrypted_len;
+	memcpy(buf, encrypted, encrypted_len);
+	offs = encrypted_len;
 
 	rv = sm_cwa_get_mac(ctx, keyset->mac, &icv, buf, offs, &cblock, 1);
 	LOG_TEST_RET(ctx, rv, "sm_ecc_get_mac() failed");
 	sc_log(ctx, "MACed(%i) %s", sizeof(cblock), sc_dump_hex(cblock, sizeof(cblock)));
 
-	if (sm_info->cmd == SM_CMD_EXTERNAL_AUTH)
-		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "For a moment EXTERNAL AUTHENTICATION not supported");
-
 	apdu->cse = SC_APDU_CASE_4_SHORT;
-        apdu->cla = 0x00;
-        apdu->ins = 0x82;
-        apdu->p1 =  0x00;
-        apdu->p2 =  0x00;
-        apdu->lc =  encrypted_len + sizeof(cblock);
-        apdu->le = encrypted_len + sizeof(cblock);
-        apdu->datalen = encrypted_len + sizeof(cblock);
+	apdu->cla = 0x00;
+	apdu->ins = 0x82;
+	apdu->p1 =  0x00;
+	apdu->p2 =  0x00;
+	apdu->lc =  encrypted_len + sizeof(cblock);
+	apdu->le = encrypted_len + sizeof(cblock);
+	apdu->datalen = encrypted_len + sizeof(cblock);
 	memcpy(new_rapdu->sbuf, encrypted, encrypted_len);
 	memcpy(new_rapdu->sbuf + encrypted_len, cblock, sizeof(cblock));
 
 	free(encrypted);
-	encrypted = NULL;
-
 	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
 }
 
