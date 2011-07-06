@@ -1207,7 +1207,8 @@ static int sc_card_sm_check(struct sc_card *card)
 		rv = sc_card_sm_load(card, module_filename);
 		SC_TEST_RET(ctx, SC_LOG_DEBUG_NORMAL, rv, "Failed to load SM module");
 
-		strncpy(card->sm_ctx.module.name, sm, sizeof(card->sm_ctx.module.name));
+		strncpy(card->sm_ctx.module.filename, module_filename, sizeof(card->sm_ctx.module.filename));
+		strncpy(card->sm_ctx.config_section, sm, sizeof(card->sm_ctx.config_section));
 	}
 
 	/* allocate resources for the external SM module */

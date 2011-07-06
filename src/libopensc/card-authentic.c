@@ -2244,7 +2244,8 @@ authentic_sm_open(struct sc_card *card)
 	LOG_FUNC_CALLED(ctx);
 
 	memset(&card->sm_ctx.info, 0, sizeof(card->sm_ctx.info));
-	memcpy(card->sm_ctx.info.module_name, card->sm_ctx.module.name, sizeof(card->sm_ctx.info.module_name));
+	memcpy(card->sm_ctx.info.config_section, card->sm_ctx.config_section, sizeof(card->sm_ctx.info.config_section));
+	sc_log(ctx, "card->sm_ctx.info.module_name '%s'", card->sm_ctx.info.config_section);
 
 	rv = authentic_sm_acl_init (card, &card->sm_ctx.info, SM_CMD_INITIALIZE, init_data, &init_data_len);
 	LOG_TEST_RET(ctx, rv, "authentIC: cannot open SM");

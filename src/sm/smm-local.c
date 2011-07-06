@@ -63,9 +63,9 @@ sm_gp_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 	size_t hex_len = sizeof(hex);
 	int rv, ii;
 
-	sc_log(ctx, "SM get KMC from config section '%s'", sm_info->module_name);
+	sc_log(ctx, "SM get KMC from config section '%s'", sm_info->config_section);
         for (ii = 0; ctx->conf_blocks[ii]; ii++) {
-		blocks = scconf_find_blocks(ctx->conf, ctx->conf_blocks[ii], "secure_messaging", sm_info->module_name);
+		blocks = scconf_find_blocks(ctx->conf, ctx->conf_blocks[ii], "secure_messaging", sm_info->config_section);
 		if (blocks) {
 			sm_conf_block = blocks[0];
 			free(blocks);
@@ -108,8 +108,8 @@ sm_cwa_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 	size_t hex_len = sizeof(hex);
 	int rv, ii, ref = crt_at->refs[0] & IASECC_OBJECT_REF_MAX;
 
-        for (ii = 0; ctx->conf_blocks[ii]; ii++) {
-		blocks = scconf_find_blocks(ctx->conf, ctx->conf_blocks[ii], "secure_messaging", sm_info->module_name);
+	for (ii = 0; ctx->conf_blocks[ii]; ii++) {
+		blocks = scconf_find_blocks(ctx->conf, ctx->conf_blocks[ii], "secure_messaging", sm_info->config_section);
 		if (blocks) {
 			sm_conf_block = blocks[0];
 			free(blocks);
