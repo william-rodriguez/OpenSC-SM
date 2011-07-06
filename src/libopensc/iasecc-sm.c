@@ -34,13 +34,37 @@
 #include "iasecc.h"
 #include "authentic.h"
 
+static int
+iasecc_sm_execute(struct sc_card *card, struct sc_remote_data *rdata,
+		unsigned char *out, size_t *out_len)
+{
+	struct sc_context *ctx = card->ctx;
+	struct sc_remote_apdu *rapdu = rdata->data;
+	int rv = SC_SUCCESS;
+
+	LOG_FUNC_CALLED(ctx);
+	while (rapdu)   {
+		rv = sc_transmit_apdu(card, &rapdu->apdu);
+        	LOG_TEST_RET(ctx, rv, "iasecc_sm_execute() failed to execute r-APDU");
+		rv = sc_check_sw(card, rapdu->apdu.sw1, rapdu->apdu.sw2);
+		if (rv < 0 && !(rapdu->apdu.flags & SC_REMOTE_APDU_FLAG_NOT_FATAL))
+			LOG_TEST_RET(ctx, rv, "iasecc_sm_execute() fatal error %i");
+
+		if (out && out_len && rapdu->apdu.flags & SC_REMOTE_APDU_FLAG_RETURN_ANSWER)   {
+			/* TODO: decode and gather data answers */
+		}
+
+		rapdu = rapdu->next;
+	}
+	LOG_FUNC_RETURN(ctx, rv);
+}
+
 
 int
 iasecc_sm_external_authentication(struct sc_card *card, unsigned skey_ref, int *tries_left)
 {
 	struct sc_context *ctx = card->ctx;
 	struct sm_info *sm_info = &card->sm_ctx.info;
-	struct sc_cmd_ext_auth *ext_auth = &sm_info->cmd_params.ext_auth;
 	unsigned char mbuf[SC_MAX_APDU_BUFFER_SIZE*4], rbuf[SC_MAX_APDU_BUFFER_SIZE*4], tbuf[SC_MAX_APDU_BUFFER_SIZE*4];
 	size_t mbuf_len = sizeof(mbuf), rbuf_len = sizeof(rbuf), tbuf_len = sizeof(rbuf);
 	struct sc_remote_data rdata;
@@ -51,11 +75,14 @@ iasecc_sm_external_authentication(struct sc_card *card, unsigned skey_ref, int *
 	LOG_FUNC_CALLED(ctx);
 	sc_log(ctx, "iasecc_sm_external_authentication(): SKey ref %i", skey_ref);
 
+	strncpy(sm_info->config_section, card->sm_ctx.config_section, sizeof(sm_info->config_section));
 	sm_info->cmd = SM_CMD_EXTERNAL_AUTH;
 	sm_info->serialnr = card->serialnr;
 	sm_info->card_type = card->type;
 	sm_info->sm_type = SM_TYPE_CWA14890;
-	ext_auth->skey_ref = skey_ref;
+	sm_info->sm_params.cwa.crt_at.usage = IASECC_UQB_AT_EXTERNAL_AUTHENTICATION;
+	sm_info->sm_params.cwa.crt_at.algo = IASECC_ALGORITHM_ROLE_AUTH;
+	sm_info->sm_params.cwa.crt_at.refs[0] = skey_ref;
 
 	offs = 0;
 	sbuf[offs++] = IASECC_CRT_TAG_ALGO;
@@ -75,32 +102,18 @@ iasecc_sm_external_authentication(struct sc_card *card, unsigned skey_ref, int *
 	rv = sc_check_sw(card, apdu.sw1, apdu.sw2);
 	LOG_TEST_RET(ctx, rv, "iasecc_sm_external_authentication(): set SE error");
 
-	rv = sc_get_challenge(card, ext_auth->challenge, sizeof(ext_auth->challenge));
+	rv = sc_get_challenge(card, sm_info->schannel.card_challenge, sizeof(sm_info->schannel.card_challenge));
 	LOG_TEST_RET(ctx, rv, "iasecc_sm_external_authentication(): set SE error");
 
 	sc_remote_data_init(&rdata);
         rv = card->sm_ctx.module.ops.initialize(ctx, sm_info, &rdata);
         LOG_TEST_RET(ctx, rv, "SM: INITIALIZE failed");
 
-#if 0
-	rv = sm_iasecc_initialize (card, &sm_info, mdata, &mdata_len);
-	LOG_TEST_RET(ctx, rv, "sm_iasecc_external_authentication(): init failed");
+	sc_log(ctx, "sm_iasecc_external_authentication(): rdata length %i\n", rdata.length);
 
-	sc_log(ctx, "sm_iasecc_external_authentication() mdata(%i) '%s'\n", mdata_len, mdata);
-
-	rv = sm_execute (card, &sm_info, mdata, mdata_len, rdata, &rdata_len);
-	if (rv)   {
-		sm_info.status = rv;
-		iasecc_sm_release (card, &sm_info, NULL, 0);
-		LOG_TEST_RET(ctx, rv, "iasecc_sm_pin_reset(): execute failed");
-	}
-
-	rv = iasecc_sm_release (card, &sm_info, rdata, rdata_len);
-	LOG_TEST_RET(ctx, rv, "iasecc_sm_pin_reset(): release failed");
+	rv = iasecc_sm_execute (card, &rdata, NULL, 0);
+	LOG_TEST_RET(ctx, rv, "sm_iasecc_external_authentication(): execute failed");
 
 	LOG_FUNC_RETURN(ctx, rv);
-#else
-	LOG_FUNC_RETURN(ctx, SC_ERROR_NOT_SUPPORTED);
-#endif
 }
 
