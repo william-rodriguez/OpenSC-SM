@@ -1766,6 +1766,7 @@ static int
 iasecc_ext_auth(struct sc_card *card, unsigned skey_ref, int *tries_left)
 {
 	struct sc_context *ctx = card->ctx;
+#ifdef ENABLE_SM
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
@@ -1775,8 +1776,10 @@ iasecc_ext_auth(struct sc_card *card, unsigned skey_ref, int *tries_left)
 		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Cannot do 'External Authentication' without SM activated ");
 
 	rv = iasecc_sm_external_authentication(card, skey_ref, tries_left);
-
 	LOG_FUNC_RETURN(ctx, rv);
+#else
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "builded without support of SM and External Authentication");
+#endif
 }
 
 static int

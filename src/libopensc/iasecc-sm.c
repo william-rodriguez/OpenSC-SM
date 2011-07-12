@@ -39,6 +39,7 @@ iasecc_sm_execute(struct sc_card *card, struct sc_remote_data *rdata,
 		unsigned char *out, size_t *out_len)
 {
 	struct sc_context *ctx = card->ctx;
+#ifdef ENABLE_SM	
 	struct sc_remote_apdu *rapdu = rdata->data;
 	int rv = SC_SUCCESS;
 
@@ -57,6 +58,9 @@ iasecc_sm_execute(struct sc_card *card, struct sc_remote_data *rdata,
 		rapdu = rapdu->next;
 	}
 	LOG_FUNC_RETURN(ctx, rv);
+#else
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "builded without support of SM and External Authentication");
+#endif
 }
 
 
@@ -64,6 +68,7 @@ int
 iasecc_sm_external_authentication(struct sc_card *card, unsigned skey_ref, int *tries_left)
 {
 	struct sc_context *ctx = card->ctx;
+#ifdef ENABLE_SM	
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	unsigned char mbuf[SC_MAX_APDU_BUFFER_SIZE*4], rbuf[SC_MAX_APDU_BUFFER_SIZE*4], tbuf[SC_MAX_APDU_BUFFER_SIZE*4];
 	size_t mbuf_len = sizeof(mbuf), rbuf_len = sizeof(rbuf), tbuf_len = sizeof(rbuf);
@@ -115,5 +120,8 @@ iasecc_sm_external_authentication(struct sc_card *card, unsigned skey_ref, int *
 	LOG_TEST_RET(ctx, rv, "sm_iasecc_external_authentication(): execute failed");
 
 	LOG_FUNC_RETURN(ctx, rv);
+#else
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "builded without support of SM and External Authentication");
+#endif
 }
 
