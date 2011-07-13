@@ -550,8 +550,8 @@ iasecc_init_amos(struct sc_card *card)
 		
 		rv = iasecc_parse_ef_atr(card);
 	}
-	LOG_TEST_RET(ctx, rv, "IASECC: ATR parse failed");
 
+	LOG_TEST_RET(ctx, rv, "IASECC: ATR parse failed");
 	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
 }
 
@@ -607,7 +607,8 @@ iasecc_init(struct sc_card *card)
 		rv = iasecc_get_serialnr(card, NULL);
 	}
 
-	sc_log(ctx, "EF.ATR(aid:'%s')", sc_dump_hex(card->ef_atr->aid.value, card->ef_atr->aid.len));
+	if (!rv)
+		sc_log(ctx, "EF.ATR(aid:'%s')", sc_dump_hex(card->ef_atr->aid.value, card->ef_atr->aid.len));
 	LOG_FUNC_RETURN(ctx, rv);
 }
 
@@ -1778,7 +1779,7 @@ iasecc_ext_auth(struct sc_card *card, unsigned skey_ref, int *tries_left)
 	rv = iasecc_sm_external_authentication(card, skey_ref, tries_left);
 	LOG_FUNC_RETURN(ctx, rv);
 #else
-	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "builded without support of SM and External Authentication");
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of SM and External Authentication");
 #endif
 }
 

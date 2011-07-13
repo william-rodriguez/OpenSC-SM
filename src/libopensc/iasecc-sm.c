@@ -59,7 +59,7 @@ iasecc_sm_execute(struct sc_card *card, struct sc_remote_data *rdata,
 	}
 	LOG_FUNC_RETURN(ctx, rv);
 #else
-	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "builded without support of SM and External Authentication");
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of SM and External Authentication");
 #endif
 }
 
