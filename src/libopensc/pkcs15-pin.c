@@ -64,6 +64,7 @@ static const struct sc_asn1_entry c_asn1_type_authkey_attr[] = {
 };
 static const struct sc_asn1_entry c_asn1_auth_type[] = {
 	{ "authType",      SC_ASN1_CHOICE, 0, 0, NULL, NULL },
+	{ NULL, 0, 0, 0, NULL, NULL }
 };
 static const struct sc_asn1_entry c_asn1_auth_type_choice[] = {
         { "pin", SC_ASN1_PKCS15_OBJECT, SC_ASN1_TAG_SEQUENCE | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL, NULL },
