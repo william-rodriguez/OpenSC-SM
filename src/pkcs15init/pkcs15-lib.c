@@ -666,17 +666,22 @@ sc_pkcs15init_finalize_profile(struct sc_card *card, struct sc_profile *profile,
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
-	if (!aid || !aid->len)
-		LOG_FUNC_RETURN(ctx, SC_SUCCESS);
-
 	if (card->app_count < 0)
 		sc_enum_apps(card);
 
-	sc_log(ctx, "finalize profile for AID %s", sc_dump_hex(aid->value, aid->len));
-	app = sc_find_app(card, aid);
-	if (!app)   {
-		sc_log(ctx, "Cannot find oncard application");
-		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+	if (aid)   {
+		sc_log(ctx, "finalize profile for AID %s", sc_dump_hex(aid->value, aid->len));
+		app = sc_find_app(card, aid);
+		if (!app)   {
+			sc_log(ctx, "Cannot find oncard application");
+			LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+		}
+	}
+	else if (card->app_count == 1) {
+		app = card->app[0];
+	}
+	else   {
+		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Need AID defined in this context");
 	}
 	
 	sc_log(ctx, "Finalize profile with application '%s'", app->label);

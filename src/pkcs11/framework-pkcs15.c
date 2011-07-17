@@ -175,7 +175,7 @@ static CK_RV pkcs15_bind(struct sc_pkcs11_card *p11card)
 
 	rv = register_mechanisms(p11card);
 	if (rv != CKR_OK) {
-		sc_debug(context, SC_LOG_DEBUG_NORMAL, "register_mechanisms failed: 0x%x", rv);
+		sc_debug(context, SC_LOG_DEBUG_NORMAL, "register_mechanisms failed: %i", rv);
 		return rv;
 	}
 
@@ -1388,6 +1388,12 @@ static CK_RV pkcs15_init_pin(struct sc_pkcs11_card *p11card,
 		return sc_to_cryptoki_error(rc, "C_InitPIN");
 	}
 
+	rc = sc_pkcs15init_finalize_profile(p11card->card, profile, NULL);
+	if (rc != CKR_OK) {
+		sc_debug(context, SC_LOG_DEBUG_NORMAL, "Cannot finalize profile: %i", rc);
+		return sc_to_cryptoki_error(rc, "C_InitPIN");
+	}
+
 	memset(&args, 0, sizeof(args));
 	args.label = "User PIN";
 	args.pin = pPin;
@@ -1851,6 +1857,12 @@ static CK_RV pkcs15_create_object(struct sc_pkcs11_card *p11card,
 		return sc_to_cryptoki_error(rc, "C_CreateObject");
 	}
 
+	rc = sc_pkcs15init_finalize_profile(p11card->card, profile, NULL);
+	if (rc != CKR_OK) {
+		sc_debug(context, SC_LOG_DEBUG_NORMAL, "Cannot finalize profile: %i", rc);
+		return sc_to_cryptoki_error(rc, "C_CreateObject");
+	}
+
 	switch (_class) {
 	case CKO_PRIVATE_KEY:
 		rv = pkcs15_create_private_key(p11card, slot, profile,
@@ -2008,6 +2020,12 @@ static CK_RV pkcs15_gen_keypair(struct sc_pkcs11_card *p11card,
 		return sc_to_cryptoki_error(rc, "C_GenerateKeyPair");
 	}
 
+	rc = sc_pkcs15init_finalize_profile(p11card->card, profile, NULL);
+	if (rc != CKR_OK) {
+		sc_debug(context, SC_LOG_DEBUG_NORMAL, "Cannot finalize profile: %i", rc);
+		return sc_to_cryptoki_error(rc, "C_GenerateKeyPair");
+	}
+
 	memset(&keygen_args, 0, sizeof(keygen_args));
 	memset(&pub_args, 0, sizeof(pub_args));
 
@@ -2162,6 +2180,12 @@ static CK_RV pkcs15_any_destroy(struct sc_pkcs11_session *session, void *object)
 		return sc_to_cryptoki_error(rv, "C_DestroyObject");
 	}
 
+	rv = sc_pkcs15init_finalize_profile(card->card, profile, NULL);
+	if (rv != CKR_OK) {
+		sc_debug(context, SC_LOG_DEBUG_NORMAL, "Cannot finalize profile: %i", rv);
+		return sc_to_cryptoki_error(rv, "C_DestroyObject");
+	}
+
 	/* Delete object in smartcard */
 	rv = sc_pkcs15init_delete_object(fw_data->p15_card, profile, obj->base.p15_object);
 	if (rv >= 0) {
@@ -2236,6 +2260,12 @@ static CK_RV pkcs15_set_attrib(struct sc_pkcs11_session *session,
 	rc = sc_pkcs15init_bind(p11card->card, "pkcs15", NULL, &profile);
 	if (rc < 0) {
 		sc_unlock(p11card->card);
+		return sc_to_cryptoki_error(rc, "C_SetAttributeValue");
+	}
+
+	rc = sc_pkcs15init_finalize_profile(p11card->card, profile, NULL);
+	if (rc != CKR_OK) {
+		sc_debug(context, SC_LOG_DEBUG_NORMAL, "Cannot finalize profile: %i", rc);
 		return sc_to_cryptoki_error(rc, "C_SetAttributeValue");
 	}
 
