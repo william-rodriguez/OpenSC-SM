@@ -569,17 +569,6 @@ iasecc_init(struct sc_card *card)
 	if (private_data == NULL)
 		LOG_FUNC_RETURN(ctx, SC_ERROR_OUT_OF_MEMORY);
 
-	for(ii=0;iasecc_known_atrs[ii].atr;ii++)   {
-		if (card->type == iasecc_known_atrs[ii].type)   {
-			card->name = iasecc_known_atrs[ii].name;
-			card->flags = iasecc_known_atrs[ii].flags;
-			break;
-		}
-	}
-
-	if (!iasecc_known_atrs[ii].atr)
-		LOG_FUNC_RETURN(ctx, SC_ERROR_NO_CARD_SUPPORT);
-
 	card->cla  = 0x00;
 	card->drv_data = private_data;
 
@@ -591,6 +580,9 @@ iasecc_init(struct sc_card *card)
 		rv = iasecc_init_sagem(card);
 	else if (card->type == SC_CARD_TYPE_IASECC_AMOS)
 		rv = iasecc_init_amos(card);
+	else
+		LOG_FUNC_RETURN(ctx, SC_ERROR_NO_CARD_SUPPORT);
+
 
 	if (!rv)   {
 		if (card->ef_atr && card->ef_atr->aid.len)   {
