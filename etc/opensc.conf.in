@@ -284,6 +284,13 @@ app default {
         #        name = "Morpho YpsID S3 IAS/ECC";
         #        # secure_messaging = local_morpho_YpsID_S3;
         #}
+        #card_atr 3B:3B:DF:18:FF:81:91:FE:1F:C3:00:31:B8:64:0C:01:EC:C1:73:94:01:80:82:90:00:B3 {
+        #        type = 25004;
+        #        driver = "iasecc";
+        #        name = "Amos IAS/ECC v1.0.1";
+        #        secure_messaging = local_amos;
+        #}
+
 
 	secure_messaging local_authentic  {
 		#path to external SM module
