@@ -1127,14 +1127,40 @@ DWORD WINAPI CardRSADecrypt(__in PCARD_DATA pCardData,
 
 	/*inversion donnees*/
 	for(ui = 0; ui < pInfo->cbData; ui++) pbuf[ui] = pInfo->pbData[pInfo->cbData-ui-1];
+	logprintf(pCardData, 2, "Data to be decrypted(%i):\n", pInfo->cbData);
+	loghex(pCardData, 7, pbuf, pInfo->cbData);
+	r = sc_pkcs15_decipher(vs->p15card, vs->pkey, opt_crypt_flags, pbuf, pInfo->cbData, pbuf2, pInfo->cbData);
+	logprintf(pCardData, 2, "sc_pkcs15_decipher returned %d\n", r);
+	/* FIXME: 
+	 * On-card padding do not supported by the minidriver specification version 6.
+	 * Here follows a temporary (until the OpenSC minidriver will be updated to specification v7) hack 
+	 * for the cards that do have no RSA_RAW mechanism allowed (IAS/ECC).
+	 */
+	if (r == SC_ERROR_NOT_SUPPORTED)   {
+		int rr;
+		rr = sc_pkcs15_decipher(vs->p15card, vs->pkey, opt_crypt_flags | SC_ALGORITHM_RSA_PAD_PKCS1, 
+				pbuf, pInfo->cbData, pbuf2, pInfo->cbData);
+		logprintf(pCardData, 2, "sc_pkcs15_decipher rreturned %d\n", rr);
+		if (rr > 0 && rr <= pInfo->cbData - 9)   {
+			/* add pkcs1 02 padding */
+			memset(pbuf, 0x30, pInfo->cbData);
+			*(pbuf + 0) = 0;
+			*(pbuf + 1) = 2;
+			memcpy(pbuf + pInfo->cbData - r, pbuf2, r);
+			*(pbuf + pInfo->cbData - r - 1) = 0;
 
-	r = sc_pkcs15_decipher(vs->p15card, vs->pkey,
-		opt_crypt_flags, pbuf, pInfo->cbData, pbuf2, pInfo->cbData);
-	logprintf(pCardData, 2, "sc_pkcs15_decipher return %d\n", r);
-	if ( r != pInfo->cbData || r < 0) {
-		logprintf(pCardData, 2, "sc_pkcs15_decipher erreur %s\n", \
-			sc_strerror(r));
+			memcpy(pbuf2, pbuf, pInfo->cbData);
+
+			r = rr;
+		}
 	}
+	if ( r < 0)   {
+		logprintf(pCardData, 2, "sc_pkcs15_decipher erreur %s\n", sc_strerror(r));
+		return SCARD_E_INVALID_VALUE;
+	}
+
+	logprintf(pCardData, 2, "decrypted data(%i):\n", pInfo->cbData);
+	loghex(pCardData, 7, pbuf2, r);
 
 	/*inversion donnees */
         for(ui = 0; ui < pInfo->cbData; ui++) pInfo->pbData[ui] = pbuf2[pInfo->cbData-ui-1];
