@@ -81,6 +81,7 @@ int sc_pkcs15_decipher(struct sc_pkcs15_card *p15card,
 	unsigned long pad_flags = 0, sec_flags = 0;
 
 	LOG_FUNC_CALLED(ctx);
+	sc_log(ctx, "security operation flags 0x%X", flags);
 
 	memset(&senv, 0, sizeof(senv));
 
