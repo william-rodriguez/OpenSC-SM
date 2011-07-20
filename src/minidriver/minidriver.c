@@ -1143,17 +1143,24 @@ DWORD WINAPI CardRSADecrypt(__in PCARD_DATA pCardData,
 		logprintf(pCardData, 2, "sc_pkcs15_decipher rreturned %d\n", rr);
 		if (rr > 0 && rr <= pInfo->cbData - 9)   {
 			/* add pkcs1 02 padding */
+			logprintf(pCardData, 2, "Add padding '%s'", "PKCS#1 BT02 padding");
 			memset(pbuf, 0x30, pInfo->cbData);
+			logprintf(pCardData, 2, "Add padding '%s'", "here we are");
 			*(pbuf + 0) = 0;
 			*(pbuf + 1) = 2;
+			logprintf(pCardData, 2, "Add padding '%s'", "here we are");
 			memcpy(pbuf + pInfo->cbData - r, pbuf2, r);
+			logprintf(pCardData, 2, "Add padding '%s'", "here we are");
 			*(pbuf + pInfo->cbData - r - 1) = 0;
+			logprintf(pCardData, 2, "Add padding '%s'", "here we are");
 
 			memcpy(pbuf2, pbuf, pInfo->cbData);
+			logprintf(pCardData, 2, "Add padding '%s'", "here we are");
 
 			r = rr;
 		}
 	}
+	logprintf(pCardData, 2, "rv '%i'", r);
 	if ( r < 0)   {
 		logprintf(pCardData, 2, "sc_pkcs15_decipher erreur %s\n", sc_strerror(r));
 		return SCARD_E_INVALID_VALUE;
