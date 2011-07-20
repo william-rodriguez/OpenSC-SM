@@ -1149,9 +1149,9 @@ DWORD WINAPI CardRSADecrypt(__in PCARD_DATA pCardData,
 			*(pbuf + 0) = 0;
 			*(pbuf + 1) = 2;
 			logprintf(pCardData, 2, "Add padding '%s'", "here we are");
-			memcpy(pbuf + pInfo->cbData - r, pbuf2, r);
+			memcpy(pbuf + pInfo->cbData - rr, pbuf2, rr);
 			logprintf(pCardData, 2, "Add padding '%s'", "here we are");
-			*(pbuf + pInfo->cbData - r - 1) = 0;
+			*(pbuf + pInfo->cbData - rr - 1) = 0;
 			logprintf(pCardData, 2, "Add padding '%s'", "here we are");
 
 			memcpy(pbuf2, pbuf, pInfo->cbData);
