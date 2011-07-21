@@ -680,11 +680,11 @@ sc_pkcs15init_finalize_profile(struct sc_card *card, struct sc_profile *profile,
 	else if (card->app_count == 1) {
 		app = card->app[0];
 	}
-	else   {
+	else if (card->app_count > 1) {
 		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Need AID defined in this context");
 	}
 	
-	sc_log(ctx, "Finalize profile with application '%s'", app->label);
+	sc_log(ctx, "Finalize profile with application '%s'", app ? app->label : "default");
 	rv = sc_profile_finish(profile, app);
 
 	sc_log(ctx, "sc_pkcs15init_finalize_profile() returns %i", rv);
@@ -1179,12 +1179,15 @@ sc_pkcs15init_init_prkdf(struct sc_pkcs15_card *p15card,
 	/* See if we need to select a key reference for this object */
 	if (profile->ops->select_key_reference) {
 		while (1) {
+			sc_log(ctx, "Look for usable key reference starting from %i", key_info->key_reference);
 			r = profile->ops->select_key_reference(profile, p15card, key_info);
 			LOG_TEST_RET(ctx, r, "Failed to select card specific key reference");
 
 			r = sc_pkcs15_find_prkey_by_reference(p15card, &key_info->path, key_info->key_reference, NULL);
-			if (r == SC_ERROR_OBJECT_NOT_FOUND)
+			if (r == SC_ERROR_OBJECT_NOT_FOUND)  {
+				sc_log(ctx, "Will use key reference %i", key_info->key_reference);
 				break;
+			}
 
 			if (r != 0) 
 				/* Other error trying to retrieve pin obj */
