@@ -1082,7 +1082,8 @@ iasecc_fcp_encode(struct sc_card *card, struct sc_file *file, unsigned char *out
 	}
 
 	printf("TODO: Encode contactless ACLs and life cycle status for all IAS/ECC cards\n");
-	if (card->type == SC_CARD_TYPE_IASECC_SAGEM)  {
+	if (card->type == SC_CARD_TYPE_IASECC_SAGEM || 
+			card->type == SC_CARD_TYPE_IASECC_AMOS )  {
 		unsigned char status = 0;
 
 		buf[offs++] = IASECC_FCP_TAG_ACLS;
@@ -1095,7 +1096,7 @@ iasecc_fcp_encode(struct sc_card *card, struct sc_file *file, unsigned char *out
 		offs += nn_smb;
 
 		/* Same ACLs for contactless */
-		buf[offs++] = IASECC_DOCP_TAG_ACLS_CONTACTLESS;
+		buf[offs++] = IASECC_FCP_TAG_ACLS_CONTACTLESS;
 		buf[offs++] = nn_smb + 1;
 		buf[offs++] = amb;
 		memcpy(buf + offs, smbs, nn_smb);
@@ -3191,8 +3192,10 @@ iasecc_get_free_reference(struct sc_card *card, struct iasecc_ctl_get_free_refer
 		sz = *(sdo->docp.size.value + 0) * 0x100 + *(sdo->docp.size.value + 1);
 		sc_log(ctx, "SDO(idx:%i) size %i; key_size %i", idx, sz, ctl_data->key_size);
 
-		if (sz != ctl_data->key_size / 8) 
+		if (sz != ctl_data->key_size / 8)   { 
+			sc_log(ctx, "key index %i ignored: different key sizes %i/%i", idx, sz, ctl_data->key_size / 8);
 			continue;
+		}
 
 		if (sdo->docp.non_repudiation.value)   {
 			sc_log(ctx, "non repudiation flag %X", sdo->docp.non_repudiation.value[0]);
