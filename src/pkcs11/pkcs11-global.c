@@ -607,8 +607,10 @@ CK_RV C_WaitForSlotEvent(CK_FLAGS flags,   /* blocking/nonblocking flag */
 	sc_debug(context, SC_LOG_DEBUG_NORMAL, "C_WaitForSlotEvent(block=%d)", !(flags & CKF_DONT_BLOCK));
 	/* Not all pcsc-lite versions implement consistently used functions as they are */
 	/* FIXME: add proper checking into build to check correct pcsc-lite version for SCardStatusChange/SCardCancel */
+#if 0
 	if (!(flags & CKF_DONT_BLOCK))
 		return CKR_FUNCTION_NOT_SUPPORTED;
+#endif
 	rv = sc_pkcs11_lock();
 	if (rv != CKR_OK)
 		return rv;
