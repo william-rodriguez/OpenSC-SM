@@ -838,8 +838,11 @@ static void pkcs15_init_slot(struct sc_pkcs15_card *p15card,
 		slot->token_info.ulMaxPinLen = 8;
 		slot->token_info.ulMinPinLen = 4;
 	}
+#if 0
+FIXME: configurable option
 	if (p15card->flags & SC_PKCS15_CARD_FLAG_EMULATED)
 	        slot->token_info.flags |= CKF_WRITE_PROTECTED;
+#endif
 
 	sc_debug(context, SC_LOG_DEBUG_NORMAL, "Initialized token '%s' in slot 0x%lx", tmp, slot->id);
 }
