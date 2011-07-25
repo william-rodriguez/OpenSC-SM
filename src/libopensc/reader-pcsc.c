@@ -1100,6 +1100,7 @@ static int pcsc_wait_for_event(sc_context_t *ctx, unsigned int event_mask, sc_re
 	}
 
 	rv = gpriv->SCardGetStatusChange(gpriv->pcsc_wait_ctx, 0, rgReaderStates, num_watch);
+	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SCardGetStatusChange() rv 0x%X on %i readers to watch", rv, num_watch);
 	if (rv != SCARD_S_SUCCESS) {
 		if (rv != (LONG)SCARD_E_TIMEOUT) {
 			PCSC_LOG(ctx, "SCardGetStatusChange(1) failed", rv);
@@ -1180,7 +1181,7 @@ static int pcsc_wait_for_event(sc_context_t *ctx, unsigned int event_mask, sc_re
 			dwtimeout = timeout;
 
 		rv = gpriv->SCardGetStatusChange(gpriv->pcsc_wait_ctx, dwtimeout, rgReaderStates, num_watch);
-
+		sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SCardGetStatusChange() rv 0x%X on %i readers to watch", rv, num_watch);
 		if (rv == (LONG) SCARD_E_CANCELLED) {
 			/* C_Finalize was called, events don't matter */
 			r = SC_ERROR_EVENT_TIMEOUT;
