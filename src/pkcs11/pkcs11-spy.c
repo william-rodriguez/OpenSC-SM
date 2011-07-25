@@ -26,6 +26,9 @@
 #include <windows.h>
 #include <winreg.h>
 #include <limits.h>
+#else
+#include <sys/time.h>
+#include <time.h>
 #endif
 
 #define CRYPTOKI_EXPORTS
@@ -228,7 +231,26 @@ static CK_RV init_spy(void)
 static void enter(const char *function)
 {
   static int count = 0;
-  fprintf(spy_output, "\n\n%d: %s\n", count++, function);
+#ifdef _WIN32
+         SYSTEMTIME st;
+#else
+	struct tm *tm;
+	struct timeval tv;
+	char time_string[40];
+#endif
+
+	fprintf(spy_output, "\n%d: %s\n", count++, function);
+#ifdef _WIN32
+        GetLocalTime(&st);
+        fprintf(spy_output, "%i-%02i-%02i %02i:%02i:%02i.%03i\n", st.wYear, st.wMonth, st.wDay,
+			st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+#else
+	gettimeofday (&tv, NULL);
+	tm = localtime (&tv.tv_sec);
+	strftime (time_string, sizeof(time_string), "%F %H:%M:%S", tm);
+	fprintf(spy_output, "%s.%03ld\n", time_string, tv.tv_usec / 1000);
+#endif
+
 }
 
 static CK_RV retne(CK_RV rv)

@@ -3796,10 +3796,9 @@ static int test_card_detection(int wait_for_event)
 	while (1) {
 		printf("Please press return to continue, x to exit: ");
 		fflush(stdout);
-		if (fgets(buffer, sizeof(buffer), stdin) == NULL
-		|| buffer[0] == 'x')
+		if (fgets(buffer, sizeof(buffer), stdin) == NULL || buffer[0] == 'x')
 			break;
-		
+
 		if (wait_for_event) {
 			printf("Calling C_WaitForSlotEvent: ");
 			fflush(stdout);
