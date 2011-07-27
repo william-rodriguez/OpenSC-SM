@@ -31,9 +31,6 @@ enum {
 	SC_CARD_TYPE_GENERIC_BASE = 0,
 	SC_CARD_TYPE_GENERIC,
 
-	/* Cards without registered type, yet */
-	SC_CARD_TYPE_TEST_BASE = 500,
-
 	/* cardos driver */
 	SC_CARD_TYPE_CARDOS_BASE = 1000,
 	SC_CARD_TYPE_CARDOS_GENERIC,
