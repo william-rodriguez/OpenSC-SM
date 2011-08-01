@@ -1983,14 +1983,6 @@ DWORD WINAPI CardRSADecrypt(__in PCARD_DATA pCardData,
 		return SCARD_E_NO_MEMORY;
 
 	/*inversion donnees*/
-<<<<<<< HEAD
-	for(ui = 0; ui < pInfo->cbData; ui++) pbuf[ui] = pInfo->pbData[pInfo->cbData-ui-1];
-	logprintf(pCardData, 2, "Data to be decrypted(%i):\n", pInfo->cbData);
-	loghex(pCardData, 7, pbuf, pInfo->cbData);
-	r = sc_pkcs15_decipher(vs->p15card, vs->pkey, opt_crypt_flags, pbuf, pInfo->cbData, pbuf2, pInfo->cbData);
-	logprintf(pCardData, 2, "sc_pkcs15_decipher returned %d\n", r);
-	/* FIXME: 
-=======
 	for(ui = 0; ui < pInfo->cbData; ui++) 
 		pbuf[ui] = pInfo->pbData[pInfo->cbData-ui-1];
 	logprintf(pCardData, 2, "Data to be decrypted (inverted):\n");
@@ -2000,24 +1992,16 @@ DWORD WINAPI CardRSADecrypt(__in PCARD_DATA pCardData,
 	r = sc_pkcs15_decipher(vs->p15card, pkey, opt_crypt_flags, pbuf, pInfo->cbData, pbuf2, pInfo->cbData);
 	logprintf(pCardData, 2, "sc_pkcs15_decipher returned %d\n", r);
 	/* FIXME: Invalid comments: 
->>>>>>> 483fa4b1d025d8ef43bdabe4287b9f358439efbe
 	 * On-card padding do not supported by the minidriver specification version 6.
 	 * Here follows a temporary (until the OpenSC minidriver will be updated to specification v7) hack 
 	 * for the cards that do have no RSA_RAW mechanism allowed (IAS/ECC).
 	 */
 	if (r == SC_ERROR_NOT_SUPPORTED)   {
 		int rr;
-<<<<<<< HEAD
-		rr = sc_pkcs15_decipher(vs->p15card, vs->pkey, opt_crypt_flags | SC_ALGORITHM_RSA_PAD_PKCS1, 
-				pbuf, pInfo->cbData, pbuf2, pInfo->cbData);
-		logprintf(pCardData, 2, "sc_pkcs15_decipher rreturned %d\n", rr);
-		if (rr > 0 && rr <= pInfo->cbData - 9)   {
-=======
 		rr = sc_pkcs15_decipher(vs->p15card, pkey, opt_crypt_flags | SC_ALGORITHM_RSA_PAD_PKCS1, 
 				pbuf, pInfo->cbData, pbuf2, pInfo->cbData);
 		logprintf(pCardData, 2, "sc_pkcs15_decipher rreturned %d\n", rr);
 		if (rr > 0 && (unsigned)rr <= pInfo->cbData - 9)   {
->>>>>>> 483fa4b1d025d8ef43bdabe4287b9f358439efbe
 			/* add pkcs1 02 padding */
 			logprintf(pCardData, 2, "Add padding '%s'", "PKCS#1 BT02 padding");
 			memset(pbuf, 0x30, pInfo->cbData);
