@@ -769,11 +769,11 @@ md_set_cardcf(PCARD_DATA pCardData, struct md_file *file, CARD_CACHE_FILE_FORMAT
 
 	empty.bVersion = 0;
 	empty.bPinsFreshness = 0;
+	
+	/*TODO: this should be replaced by 'lastUpdate' from tokenInfo or equivalent */
 	empty.wContainersFreshness = rand()%30000;
-	empty.wFilesFreshness = rand()%30000;	
-	empty.wContainersFreshness = 1;
-	empty.wFilesFreshness = 1;	
-	logprintf(pCardData, 3, "empty.wContainersFreshness %i\n", empty.wContainersFreshness);
+	empty.wFilesFreshness = rand()%30000;
+
 	if (!data)
 		data = &empty;
 
