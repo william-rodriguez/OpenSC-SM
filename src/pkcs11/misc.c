@@ -199,11 +199,13 @@ CK_RV attr_extract(CK_ATTRIBUTE_PTR pAttr, void *ptr, size_t * sizep)
 			size = sizeof(CK_KEY_TYPE);
 			break;
 		case CKA_PRIVATE:
+		case CKA_TOKEN:
 			size = sizeof(CK_BBOOL);
 			break;
 		case CKA_CERTIFICATE_TYPE:
 			size = sizeof(CK_CERTIFICATE_TYPE);
 			break;
+		case CKA_VALUE_LEN:
 		case CKA_MODULUS_BITS:
 			size = sizeof(CK_ULONG);
 			break;

@@ -474,6 +474,8 @@ sc_pkcs11_signature_release(sc_pkcs11_operation_t *operation)
 	struct signature_data *data;
 
 	data = (struct signature_data *) operation->priv_data;
+	if (!data)
+	    return;
 	sc_pkcs11_release_operation(&data->md);
 	memset(data, 0, sizeof(*data));
 	free(data);
@@ -741,6 +743,102 @@ sc_pkcs11_decr(struct sc_pkcs11_session *session,
 	return rv;
 }
 
+/* Derive one key from another, and return results in created object */
+CK_RV
+sc_pkcs11_deri(struct sc_pkcs11_session *session,
+	CK_MECHANISM_PTR pMechanism,
+	struct sc_pkcs11_object * basekey,
+	CK_KEY_TYPE key_type,
+	CK_SESSION_HANDLE hSession,
+	CK_OBJECT_HANDLE hdkey,
+	struct sc_pkcs11_object * dkey)
+{
+
+	struct sc_pkcs11_card *p11card;
+	sc_pkcs11_operation_t *operation;
+	sc_pkcs11_mechanism_type_t *mt;
+	CK_BYTE_PTR keybuf = NULL; 
+	CK_ULONG ulDataLen = 0;
+	CK_ATTRIBUTE template[] = {CKA_VALUE, keybuf, 0};
+
+	CK_RV rv;
+
+
+	if (!session || !session->slot
+	 || !(p11card = session->slot->card))	    
+		return CKR_ARGUMENTS_BAD;
+
+	/* See if we support this mechanism type */
+	mt = sc_pkcs11_find_mechanism(p11card, pMechanism->mechanism, CKF_DERIVE);
+	if (mt == NULL)
+		return CKR_MECHANISM_INVALID;
+
+	/* See if compatible with key type */
+	if (mt->key_type != key_type)
+		return CKR_KEY_TYPE_INCONSISTENT;
+
+
+	rv = session_start_operation(session, SC_PKCS11_OPERATION_DERIVE, mt, &operation);
+	if (rv != CKR_OK)
+		return rv;
+
+	memcpy(&operation->mechanism, pMechanism, sizeof(CK_MECHANISM));
+	
+	/* Get the size of the data to be returned
+	 * If the card could derive a key an leave it on the card
+	 * then no data is returned.
+	 * If the card returns the data, we will store it in the sercet key CKA_VALUE
+	 */
+	
+	ulDataLen = 0;
+	rv = operation->type->derive(operation, basekey,
+	    pMechanism->pParameter, pMechanism->ulParameterLen, 
+	    NULL, &ulDataLen);
+	if (rv != CKR_OK)
+	    goto out;
+
+	if (ulDataLen > 0)
+	    keybuf = calloc(1,ulDataLen);
+	else
+	    keybuf = calloc(1,8); /* pass in  dummy buffer */
+
+        if (!keybuf) {
+	    rv = CKR_HOST_MEMORY;
+	    goto out;
+	}
+
+	/* Now do the actuall derivation */
+
+	rv = operation->type->derive(operation, basekey,
+	    pMechanism->pParameter, pMechanism->ulParameterLen,
+	    keybuf, &ulDataLen);
+	if (rv != CKR_OK)
+	    goto out;
+
+
+/* add the CKA_VALUE attribute to the template if it was returned
+ * if not assume it is on the card...
+ * But for now PIV with ECDH returns the generic key data 
+ * TODO need to support truncation, if CKA_VALUE_LEN < ulDataLem 
+ */
+	if (ulDataLen > 0) {
+	    template[0].pValue = keybuf;
+	    template[0].ulValueLen = ulDataLen;
+
+	    dkey->ops->set_attribute(session, dkey, &template[0]);
+
+	    memset(keybuf,0,ulDataLen);
+	}
+
+out:
+	session_stop_operation(session, SC_PKCS11_OPERATION_DERIVE);
+
+	if (keybuf)
+	    free(keybuf);
+	return rv;
+} 
+	    
+
 /*
  * Initialize a signature operation
  */
@@ -776,6 +874,19 @@ sc_pkcs11_decrypt(sc_pkcs11_operation_t *operation,
 				pData, pulDataLen);
 }
 
+static CK_RV
+sc_pkcs11_derive(sc_pkcs11_operation_t *operation,
+	    struct sc_pkcs11_object *basekey,
+	    CK_BYTE_PTR pmechParam, CK_ULONG ulmechParamLen,
+	    CK_BYTE_PTR pData, CK_ULONG_PTR pulDataLen)
+{
+	
+	return basekey->ops->derive(operation->session,
+		    basekey,
+		    &operation->mechanism,
+		    pmechParam, ulmechParamLen,
+		    pData, pulDataLen);
+}
 /*
  * Create new mechanism type for a mechanism supported by
  * the card
@@ -814,7 +925,7 @@ sc_pkcs11_new_fw_mechanism(CK_MECHANISM_TYPE mech,
 		/* TODO */
 	}
 	if (pInfo->flags & CKF_DERIVE) {
-		/* TODO: -DEE  CKM_ECDH1_COFACTOR_DERIVE for PIV */
+		mt->derive = sc_pkcs11_derive;
 	}
 	if (pInfo->flags & CKF_DECRYPT) {
 		mt->decrypt_init = sc_pkcs11_decrypt_init;

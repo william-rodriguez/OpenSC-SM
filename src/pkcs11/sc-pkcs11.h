@@ -115,8 +115,8 @@ struct sc_pkcs11_object_ops {
 
 	CK_RV (*derive)(struct sc_pkcs11_session *, void *,
 			CK_MECHANISM_PTR,
-			CK_ATTRIBUTE_PTR,
-			CK_ULONG, CK_OBJECT_HANDLE_PTR);
+			CK_BYTE_PTR pSeedData, CK_ULONG ulSeedDataLen,
+			CK_BYTE_PTR pDerived, CK_ULONG_PTR pulDerivedLen);
 
 	/* Others to be added when implemented */
 };
@@ -225,6 +225,7 @@ enum {
 	SC_PKCS11_OPERATION_VERIFY,
 	SC_PKCS11_OPERATION_DIGEST,
 	SC_PKCS11_OPERATION_DECRYPT,
+	SC_PKCS11_OPERATION_DERIVE,
 	SC_PKCS11_OPERATION_MAX
 };
 
@@ -264,6 +265,10 @@ struct sc_pkcs11_mechanism_type {
 	CK_RV		  (*decrypt_init)(sc_pkcs11_operation_t *,
 					struct sc_pkcs11_object *);
 	CK_RV		  (*decrypt)(sc_pkcs11_operation_t *,
+					CK_BYTE_PTR, CK_ULONG,
+					CK_BYTE_PTR, CK_ULONG_PTR);
+	CK_RV		  (*derive)(sc_pkcs11_operation_t *,
+					struct sc_pkcs11_object *, 
 					CK_BYTE_PTR, CK_ULONG,
 					CK_BYTE_PTR, CK_ULONG_PTR);
 	/* mechanism specific data */
@@ -387,6 +392,11 @@ CK_RV sc_pkcs11_verif_final(struct sc_pkcs11_session *, CK_BYTE_PTR, CK_ULONG);
 #endif
 CK_RV sc_pkcs11_decr_init(struct sc_pkcs11_session *, CK_MECHANISM_PTR, struct sc_pkcs11_object *, CK_MECHANISM_TYPE);
 CK_RV sc_pkcs11_decr(struct sc_pkcs11_session *, CK_BYTE_PTR, CK_ULONG, CK_BYTE_PTR, CK_ULONG_PTR);
+CK_RV sc_pkcs11_deri(struct sc_pkcs11_session *, CK_MECHANISM_PTR,
+		    struct sc_pkcs11_object *, CK_KEY_TYPE, 
+		    CK_SESSION_HANDLE,
+		    CK_OBJECT_HANDLE,
+		    struct sc_pkcs11_object *);
 sc_pkcs11_mechanism_type_t *sc_pkcs11_find_mechanism(struct sc_pkcs11_card *,
 				CK_MECHANISM_TYPE, unsigned int);
 sc_pkcs11_mechanism_type_t *sc_pkcs11_new_fw_mechanism(CK_MECHANISM_TYPE,
