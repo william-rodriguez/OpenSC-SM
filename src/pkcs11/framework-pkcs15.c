@@ -2359,6 +2359,32 @@ kpgen_done:
 	return rv;
 }
 #endif
+static CK_RV pkcs15_skey_destroy(struct sc_pkcs11_session *session, void *object)
+{
+	struct pkcs15_data_object *obj = (struct pkcs15_data_object*) object;
+	struct pkcs15_any_object *any_obj = (struct pkcs15_any_object*) object;
+	struct sc_pkcs11_card *card = session->slot->card;
+	struct pkcs15_fw_data *fw_data = (struct pkcs15_fw_data *) card->fw_data;
+	int rv;
+
+	/* TODO assuming this is a session only object. */
+	rv = sc_lock(card->card);
+	if (rv < 0)
+		return sc_to_cryptoki_error(rv, "C_DestroyObject");
+
+	/* Oppose to pkcs15_add_object */
+	--any_obj->refcount; /* correct refcont */
+	list_delete(&session->slot->objects, any_obj);
+	/* Delete object in pkcs15 */
+	rv = __pkcs15_delete_object(fw_data, any_obj);
+
+	sc_unlock(card->card);
+
+	if (rv < 0)
+		return sc_to_cryptoki_error(rv, "C_DestroyObject");
+
+	return CKR_OK;
+}
 
 static CK_RV pkcs15_any_destroy(struct sc_pkcs11_session *session, void *object)
 {
@@ -3588,7 +3614,7 @@ struct sc_pkcs11_object_ops pkcs15_skey_ops = {
 	pkcs15_skey_set_attribute,
 	pkcs15_skey_get_attribute,
 	sc_pkcs11_any_cmp_attribute,
-	pkcs15_any_destroy,
+	pkcs15_skey_destroy,
 	NULL,
 	NULL, 
 	NULL, /* unwrap */

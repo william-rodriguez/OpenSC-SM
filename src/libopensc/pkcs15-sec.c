@@ -177,7 +177,8 @@ int sc_pkcs15_decipher(struct sc_pkcs15_card *p15card,
 int sc_pkcs15_derive(struct sc_pkcs15_card *p15card,
 		       const struct sc_pkcs15_object *obj,
 		       unsigned long flags,
-		       const u8 * in, size_t inlen, u8 *out, size_t *poutlen)
+		       const u8 * in, size_t inlen, u8 *out, 
+		       unsigned long *poutlen)
 {
 	sc_context_t *ctx = p15card->card->ctx;
 	int r;
