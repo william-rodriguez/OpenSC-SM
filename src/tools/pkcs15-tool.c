@@ -1179,7 +1179,7 @@ static void print_pin_info(const struct sc_pkcs15_object *obj)
 			(unsigned long)pin_attrs->min_length, (unsigned long)pin_attrs->max_length,
 			(unsigned long)pin_attrs->stored_length);
 		printf("\tPad char       : 0x%02X\n", pin_attrs->pad_char);
-		printf("\tReference      : %d\n", pin_attrs->reference);
+		printf("\tReference      : %d (0x%02X)\n", pin_attrs->reference, pin_attrs->reference);
 		if (pin_attrs->type < NELEMENTS(pin_types))
 			printf("\tType           : %s\n", pin_types[pin_attrs->type]);
 		else
