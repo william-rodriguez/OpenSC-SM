@@ -1506,8 +1506,9 @@ sc_pkcs15init_store_certificate(struct sc_pkcs15_card *p15card,
 		struct sc_pkcs15_object **res_obj)
 {
 	struct sc_context *ctx = p15card->card->ctx;
-	struct sc_pkcs15_cert_info *cert_info;
-	struct sc_pkcs15_object *object;
+	struct sc_pkcs15_cert_info *cert_info = NULL;
+	struct sc_pkcs15_object *object = NULL;
+	struct sc_pkcs15_object *key_object = NULL;
 	const char	*label;
 	int		r;
 
@@ -1545,7 +1546,18 @@ sc_pkcs15init_store_certificate(struct sc_pkcs15_card *p15card,
 		r = sc_pkcs15init_add_object(p15card, profile, SC_PKCS15_CDF, object);
 		/* TODO: update private key PKCS#15 object with the certificate's attributes */
 	}
-	
+
+	if (r >= 0)   {
+		r = sc_pkcs15_prkey_attrs_from_cert(p15card, object, &key_object);
+		if (r)   {
+			r = 0;
+		}
+		else if (key_object)   {
+			r = sc_pkcs15init_update_any_df(p15card, profile, key_object->df, 0);
+			sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "sc_pkcs15init_store_certificate() update_any_df returned %i", r);		        
+		}
+	}
+
 	if (r < 0)
 		sc_pkcs15_free_object(object);
 

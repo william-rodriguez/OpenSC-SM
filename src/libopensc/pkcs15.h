@@ -797,6 +797,10 @@ int sc_pkcs15_encode_unusedspace(sc_context_t *ctx,
 			 struct sc_pkcs15_card *p15card,
 			 u8 **buf, size_t *buflen);
 
+/* Deduce private key attributes from cerresponding certificate */
+int sc_pkcs15_prkey_attrs_from_cert(struct sc_pkcs15_card *, struct sc_pkcs15_object *,
+		struct sc_pkcs15_object **);
+
 void sc_pkcs15_free_prkey_info(sc_pkcs15_prkey_info_t *key);
 void sc_pkcs15_free_pubkey_info(sc_pkcs15_pubkey_info_t *key);
 void sc_pkcs15_free_cert_info(sc_pkcs15_cert_info_t *cert);
