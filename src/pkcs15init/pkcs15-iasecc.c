@@ -142,6 +142,8 @@ iasecc_pkcs15_erase_card(struct sc_profile *profile, struct sc_pkcs15_card *p15c
 			obj_type = SC_PKCS15_TYPE_PUBKEY;
 		else if (df->type == SC_PKCS15_CDF)
 			obj_type = SC_PKCS15_TYPE_CERT;
+		else if (df->type == SC_PKCS15_DODF)
+			obj_type = SC_PKCS15_TYPE_DATA_OBJECT;
 		else 
 			continue;
 
@@ -155,6 +157,8 @@ iasecc_pkcs15_erase_card(struct sc_profile *profile, struct sc_pkcs15_card *p15c
 		if (rv == SC_ERROR_FILE_NOT_FOUND)
 			continue;
 		LOG_TEST_RET(ctx, rv, "Cannot select object file");
+
+		profile->dirty = 1;
 
 		rv = sc_erase_binary(p15card->card, 0, file->size, 0);
 		if (rv == SC_ERROR_SECURITY_STATUS_NOT_SATISFIED)   {
@@ -1395,52 +1399,47 @@ iasecc_store_cert(struct sc_pkcs15_card *p15card, struct sc_profile *profile,
 }
 
 
-/*
- * FIXME: Implement 'store data object'
 static int 
-iasecc_store_opaqueDO(struct sc_pkcs15_card *p15card, struct sc_profile *profile, 
-		struct sc_pkcs15_object *object, struct sc_pkcs15_id *id, 
+iasecc_store_data_object(struct sc_pkcs15_card *p15card, struct sc_profile *profile, 
+		struct sc_pkcs15_object *object,  
 		struct sc_pkcs15_der *data, struct sc_path *path)
 {
+#define MAX_OBJS 32
 	struct sc_context *ctx = p15card->card->ctx;
 	struct sc_card *card = p15card->card;
-	struct sc_pkcs15_object *p15objects[0x40];
-	struct sc_file *cfile = NULL, *pfile = NULL, *parent = NULL;
+	struct sc_pkcs15_object *p15objects[MAX_OBJS];
+	struct sc_file *cfile = NULL, *file = NULL, *parent = NULL;
 	int rv, nn_objs, indx, ii;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "iasecc_store_opaqueDO() id '%s'", sc_pkcs15_print_id(id));
-	sc_log(ctx, "iasecc_store_opaqueDO() authID '%s'", sc_pkcs15_print_id(&object->auth_id));
-	nn_objs = sc_pkcs15_get_objects(p15card, SC_PKCS15_TYPE_DATA_OBJECT, p15objects, 0x40);
+//	sc_log(ctx, "iasecc_store_data_object() id '%s'", sc_pkcs15_print_id(id));
+	sc_log(ctx, "iasecc_store_data_object() authID '%s'", sc_pkcs15_print_id(&object->auth_id));
+	nn_objs = sc_pkcs15_get_objects(p15card, SC_PKCS15_TYPE_DATA_OBJECT, p15objects, MAX_OBJS);
 	LOG_TEST_RET(ctx, nn_objs, "IasEcc get pkcs15 DATA objects error");
 
-	for(indx = 1; indx < 0x40; indx++)   {
+	for(indx = 1; indx < MAX_OBJS; indx++)   {
 		struct sc_path fpath;
 
-		rv = iasecc_pkcs15_new_file(profile, card, SC_PKCS15_TYPE_DATA_OBJECT, indx, &pfile);
-		LOG_TEST_RET(ctx, rv, "iasecc_store_opaqueDO() pkcs15 new DATA file error");
+		rv = iasecc_pkcs15_new_file(profile, card, SC_PKCS15_TYPE_DATA_OBJECT, indx, &file);
+		LOG_TEST_RET(ctx, rv, "iasecc_store_data_object() pkcs15 new DATA file error");
 
-		fpath = pfile->path;
-
+		fpath = file->path;
 		for (ii=0; ii<nn_objs; ii++)   {
 			struct sc_pkcs15_data_info *info = (struct sc_pkcs15_data_info *)p15objects[ii]->data;
 			int file_id = info->path.value[info->path.len - 2] * 0x100 + info->path.value[info->path.len - 1];
 
-			sc_log(ctx, "iasecc_store_opaqueDO() %i: file_id 0x%X, pfile->id 0x%X\n", ii, file_id, pfile->id);
-			if (pfile->id == file_id)
+			sc_log(ctx, "iasecc_store_data_object() %i: file_id 0x%X, pfile->id 0x%X\n", ii, file_id, file->id);
+			if (file->id == file_id)
 			   break;
 		}
 
 		if (ii == nn_objs)
 			break;
-		
-		if (pfile)
-			sc_file_free(pfile);
-		pfile = NULL;
+		sc_file_free(file);
 	}
 
-	if (indx == 0x40)
-		LOG_TEST_RET(ctx, SC_ERROR_TOO_MANY_OBJECTS, "iasecc_store_opaqueDO() too many DATA objects.");
+	if (indx == MAX_OBJS)
+		LOG_TEST_RET(ctx, SC_ERROR_TOO_MANY_OBJECTS, "iasecc_store_data_object() too many DATA objects.");
 
 	do  {
 		const struct sc_acl_entry *acl;
@@ -1448,71 +1447,75 @@ iasecc_store_opaqueDO(struct sc_pkcs15_card *p15card, struct sc_profile *profile
 		memset(object->access_rules, 0, sizeof(object->access_rules));
 
 		object->access_rules[0].access_mode = SC_PKCS15_ACCESS_RULE_MODE_READ;
-		acl = sc_file_get_acl_entry(pfile, SC_AC_OP_READ);
-		sc_log(ctx, "iasecc_store_opaqueDO() READ method %i", acl->method);
+		acl = sc_file_get_acl_entry(file, SC_AC_OP_READ);
+		sc_log(ctx, "iasecc_store_data_object() READ method %i", acl->method);
 		if (acl->method == SC_AC_IDA) 
 			iasecc_reference_to_pkcs15_id (acl->key_ref, &object->access_rules[0].auth_id);
 
 		object->access_rules[1].access_mode = SC_PKCS15_ACCESS_RULE_MODE_UPDATE;
-		acl = sc_file_get_acl_entry(pfile, SC_AC_OP_UPDATE);
-		sc_log(ctx, "iasecc_store_opaqueDO() UPDATE method %i", acl->method);
+		acl = sc_file_get_acl_entry(file, SC_AC_OP_UPDATE);
+		sc_log(ctx, "iasecc_store_data_object() UPDATE method %i", acl->method);
 		if (acl->method == SC_AC_IDA) 
 			iasecc_reference_to_pkcs15_id (acl->key_ref, &object->access_rules[1].auth_id);
 
+		object->access_rules[2].access_mode = SC_PKCS15_ACCESS_RULE_MODE_DELETE;
+		acl = sc_file_get_acl_entry(file, SC_AC_OP_DELETE);
+		sc_log(ctx, "iasecc_store_data_object() UPDATE method %i", acl->method);
+		if (acl->method == SC_AC_IDA) 
+			iasecc_reference_to_pkcs15_id (acl->key_ref, &object->access_rules[2].auth_id);
+
 	} while(0);
 
-	rv = iasecc_file_convert_acls(ctx, profile, pfile);
-	LOG_TEST_RET(ctx, rv, "iasecc_store_opaqueDO() cannot convert profile ACLs");
+	rv = iasecc_file_convert_acls(ctx, profile, file);
+	LOG_TEST_RET(ctx, rv, "iasecc_store_data_object() cannot convert profile ACLs");
+	
+	rv = sc_profile_get_parent(profile, "public-data", &parent);
+	LOG_TEST_RET(ctx, rv, "iasecc_store_data_object() cannot get object parent");
+	sc_log(ctx, "iasecc_store_data_object() parent path '%s'\n", sc_print_path(&parent->path));
 
-	sc_log(ctx, "sc_pkcs15init_store_opaqueDO() indx %i; pfile->parent.len %i\n", indx, pfile->parent_path.len);
-	sc_log(ctx, "sc_pkcs15init_store_opaqueDO() profile parent path '%s'\n", sc_print_path(&pfile->parent_path));
+	rv = sc_select_file(card, &parent->path, NULL);
+	LOG_TEST_RET(ctx, rv, "iasecc_store_data_object() cannot select parent");
 
-	rv = sc_select_file(card, &pfile->parent_path, &parent);
-	LOG_TEST_RET(ctx, rv, "iasecc_store_opaqueDO() cannot select DATA's parent");
-	sc_log(ctx, "iasecc_store_opaqueDO() parent path '%s'\n", sc_print_path(&parent->path));
-
-	sc_ctx_suppress_errors_on(ctx);
-	rv = sc_select_file(card, &pfile->path, &cfile);
-	sc_ctx_suppress_errors_off(ctx);
+	rv = sc_select_file(card, &file->path, &cfile);
 	if (!rv)   {
 		rv = sc_pkcs15init_authenticate(profile, p15card, cfile, SC_AC_OP_DELETE);
-		LOG_TEST_RET(ctx, rv, "iasecc_store_opaqueDO() DELETE authentication failed");
+		LOG_TEST_RET(ctx, rv, "iasecc_store_data_object() DELETE authentication failed");
 
 		rv = iasecc_pkcs15_delete_file(p15card, profile, cfile);
-		LOG_TEST_RET(ctx, rv, "s_pkcs15init_store_opaqueDO() delete pkcs15 file error");
+		LOG_TEST_RET(ctx, rv, "s_pkcs15init_store_data_object() delete pkcs15 file error");
 	}
 	else if (rv != SC_ERROR_FILE_NOT_FOUND)   {
-		LOG_TEST_RET(ctx, rv, "iasecc_store_opaqueDO() select file error");
+		LOG_TEST_RET(ctx, rv, "iasecc_store_data_object() select file error");
 	}
 
 	rv = sc_pkcs15init_authenticate(profile, p15card, parent, SC_AC_OP_CREATE);
-	LOG_TEST_RET(ctx, rv, "iasecc_store_opaqueDO() parent CREATE authentication failed");
+	LOG_TEST_RET(ctx, rv, "iasecc_store_data_object() parent CREATE authentication failed");
 
-	pfile->size = data->len;
-	rv = sc_create_file(card, pfile);
-	LOG_TEST_RET(ctx, rv, "iasecc_store_opaqueDO() cannot create DATA file");
+	file->size = data->len;
+	rv = sc_create_file(card, file);
+	LOG_TEST_RET(ctx, rv, "iasecc_store_data_object() cannot create DATA file");
 
-	rv = sc_pkcs15init_authenticate(profile, p15card, pfile, SC_AC_OP_UPDATE);
-	LOG_TEST_RET(ctx, rv, "iasecc_store_opaqueDO() data file UPDATE authentication failed");
+	rv = sc_pkcs15init_authenticate(profile, p15card, file, SC_AC_OP_UPDATE);
+	LOG_TEST_RET(ctx, rv, "iasecc_store_data_object() data file UPDATE authentication failed");
 
 	rv = sc_update_binary(card, 0, data->value, data->len, 0);
-	LOG_TEST_RET(ctx, rv, "iasecc_store_opaqueDO() update DATA file failed");
+	LOG_TEST_RET(ctx, rv, "iasecc_store_data_object() update DATA file failed");
 
 	if (path)
-		*path = pfile->path;
+		*path = file->path;
 
 	if (parent)
 		sc_file_free(parent);
 
-	if (pfile)
-		sc_file_free(pfile);
+	if (file)
+		sc_file_free(file);
 
 	if (cfile)
 		sc_file_free(cfile);
 
 	LOG_FUNC_RETURN(ctx, rv);
+#undef MAX_OBJS
 }
-*/
 
 
 static int 
@@ -1533,24 +1536,22 @@ iasecc_emu_store_data(struct sc_pkcs15_card *p15card, struct sc_profile *profile
 	case SC_PKCS15_TYPE_CERT:
 		rv = iasecc_store_cert(p15card, profile, object, data, path);
 		break;
-/*
 	case SC_PKCS15_TYPE_DATA_OBJECT:
-		rv = iasecc_store_opaqueDO(p15card, profile, object, id, data, path);
+		rv = iasecc_store_data_object(p15card, profile, object, data, path);
 		break;
-*/
 	}
 		
 	LOG_FUNC_RETURN(ctx, rv);
 }
 
-
+/*
 static int
 iasecc_emu_update_tokeninfo(struct sc_profile *profile, struct sc_pkcs15_card *p15card,
 		struct sc_pkcs15_tokeninfo *tinfo)
 {
 	LOG_FUNC_RETURN(p15card->card->ctx, SC_SUCCESS);
 }
-
+*/
 
 static struct sc_pkcs15init_operations 
 sc_pkcs15init_iasecc_operations = {
@@ -1572,7 +1573,7 @@ sc_pkcs15init_iasecc_operations = {
 	/* pkcs15init emulation */
 	NULL, 
 	NULL, 
-	iasecc_emu_update_tokeninfo,
+	NULL, 	/* iasecc_emu_update_tokeninfo */
 	NULL,
 	iasecc_emu_store_data,
 
