@@ -207,7 +207,6 @@ int sc_pkcs15_decode_prkdf_entry(struct sc_pkcs15_card *p15card,
 	for (i=0; i<SC_MAX_SUPPORTED_ALGORITHMS && (asn1_supported_algorithms + i)->name; i++)
 		sc_format_asn1_entry(asn1_supported_algorithms + i, &info.algo_refs[i], NULL, 0);
 	sc_format_asn1_entry(asn1_com_key_attr + 5, asn1_supported_algorithms, NULL, 0);
-	sc_format_asn1_entry(asn1_com_prkey_attr + 0, &info.subject.value, &info.subject.len, 0);
 
 	sc_format_asn1_entry(asn1_com_prkey_attr + 0, &info.subject.value, &info.subject.len, 0);
 
@@ -272,6 +271,8 @@ int sc_pkcs15_decode_prkdf_entry(struct sc_pkcs15_card *p15card,
 	}
 	memcpy(obj->data, &info, sizeof(info));
 
+	sc_debug(ctx, SC_LOG_DEBUG_ASN1, "Key Subject %s", sc_dump_hex(info.subject.value, info.subject.len));
+	sc_debug(ctx, SC_LOG_DEBUG_ASN1, "Key path %s", sc_print_path(&info.path));
 	return 0;
 }
 
@@ -383,7 +384,7 @@ int sc_pkcs15_encode_prkdf_entry(sc_context_t *ctx, const struct sc_pkcs15_objec
 	}
 	sc_format_asn1_entry(asn1_com_key_attr + 5, asn1_supported_algorithms, NULL, prkey->algo_refs[0] != 0);
 
-	sc_format_asn1_entry(asn1_com_prkey_attr + 0, prkey->subject.value, &prkey->subject.len, prkey->subject.len != 0);
+	sc_format_asn1_entry(asn1_com_prkey_attr + 0, prkey->subject.value ? prkey->subject.value : "", &prkey->subject.len, 1);
 
 	r = sc_asn1_encode(ctx, asn1_prkey, buf, buflen);
 
