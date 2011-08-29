@@ -34,6 +34,11 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 #include <openssl/err.h>
+#if OPENSSL_VERSION_NUMBER >= 0x10000000L
+	#ifndef OPENSSL_NO_EC
+	#include <openssl/ec.h>
+	#endif
+#endif
 #endif
 
 /*
@@ -382,7 +387,8 @@ int sc_pkcs15_encode_prkdf_entry(sc_context_t *ctx, const struct sc_pkcs15_objec
 	}
 	sc_format_asn1_entry(asn1_com_key_attr + 5, asn1_supported_algorithms, NULL, prkey->algo_refs[0] != 0);
 
-	sc_format_asn1_entry(asn1_com_prkey_attr + 0, prkey->subject.value ? prkey->subject.value : "", &prkey->subject.len, 1);
+	sc_format_asn1_entry(asn1_com_prkey_attr + 0, 
+			prkey->subject.value ? prkey->subject.value : (unsigned char *)"", &prkey->subject.len, 1);
 
 	r = sc_asn1_encode(ctx, asn1_prkey, buf, buflen);
 
@@ -518,4 +524,82 @@ void sc_pkcs15_free_prkey_info(sc_pkcs15_prkey_info_t *key)
 	sc_pkcs15_free_key_params(&key->params);
 
 	free(key);
+}
+
+int
+sc_pkcs15_convert_bignum(sc_pkcs15_bignum_t *dst, const void *src)
+{
+#ifdef ENABLE_OPENSSL
+	const BIGNUM *bn = (const BIGNUM *)src;
+
+	if (bn == 0)
+		return 0;
+	dst->len = BN_num_bytes(bn);
+	dst->data = malloc(dst->len);
+	BN_bn2bin(bn, dst->data);
+	return 1;
+#else
+	return 0;
+#endif
+}
+
+int 
+sc_pkcs15_convert_prkey(struct sc_pkcs15_prkey *pkcs15_key, void *evp_key)
+{
+#ifdef ENABLE_OPENSSL
+	EVP_PKEY *pk = (EVP_PKEY *)evp_key;
+
+	switch (pk->type) {
+	case EVP_PKEY_RSA: {
+		struct sc_pkcs15_prkey_rsa *dst = &pkcs15_key->u.rsa;
+		RSA *src = EVP_PKEY_get1_RSA(pk);
+
+		pkcs15_key->algorithm = SC_ALGORITHM_RSA;
+		if (!sc_pkcs15_convert_bignum(&dst->modulus, src->n)
+		 || !sc_pkcs15_convert_bignum(&dst->exponent, src->e)
+		 || !sc_pkcs15_convert_bignum(&dst->d, src->d)
+		 || !sc_pkcs15_convert_bignum(&dst->p, src->p)
+		 || !sc_pkcs15_convert_bignum(&dst->q, src->q))
+			return SC_ERROR_NOT_SUPPORTED;
+		if (src->iqmp && src->dmp1 && src->dmq1) {
+			sc_pkcs15_convert_bignum(&dst->iqmp, src->iqmp);
+			sc_pkcs15_convert_bignum(&dst->dmp1, src->dmp1);
+			sc_pkcs15_convert_bignum(&dst->dmq1, src->dmq1);
+		}
+		RSA_free(src);
+		break;
+		}
+	case EVP_PKEY_DSA: {
+		struct sc_pkcs15_prkey_dsa *dst = &pkcs15_key->u.dsa;
+		DSA *src = EVP_PKEY_get1_DSA(pk);
+
+		pkcs15_key->algorithm = SC_ALGORITHM_DSA;
+		sc_pkcs15_convert_bignum(&dst->pub, src->pub_key);
+		sc_pkcs15_convert_bignum(&dst->p, src->p);
+		sc_pkcs15_convert_bignum(&dst->q, src->q);
+		sc_pkcs15_convert_bignum(&dst->g, src->g);
+		sc_pkcs15_convert_bignum(&dst->priv, src->priv_key);
+		DSA_free(src);
+		break;
+		}
+#if OPENSSL_VERSION_NUMBER >= 0x10000000L && !defined(OPENSSL_NO_EC)
+	case NID_id_GostR3410_2001: {
+		struct sc_pkcs15_prkey_gostr3410 *dst = &pkcs15_key->u.gostr3410;
+		EC_KEY *src = EVP_PKEY_get0(pk);
+
+		assert(src);
+		pkcs15_key->algorithm = SC_ALGORITHM_GOSTR3410;
+		assert(EC_KEY_get0_private_key(src));
+		sc_pkcs15_convert_bignum(&dst->d, EC_KEY_get0_private_key(src));
+		break;
+		}
+#endif /* OPENSSL_VERSION_NUMBER >= 0x10000000L && !defined(OPENSSL_NO_EC) */
+	default:
+		return SC_ERROR_NOT_SUPPORTED;
+	}
+
+	return SC_SUCCESS;
+#else
+	return SC_ERROR_NOT_IMPLEMENTED;
+#endif
 }

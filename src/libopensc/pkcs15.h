@@ -826,6 +826,11 @@ int sc_pkcs15_add_supported_algo_ref(struct sc_pkcs15_object *,
 
 int sc_pkcs15_fix_ec_parameters(struct sc_context *, struct sc_pkcs15_ec_parameters *);
 
+/* Convert the OpenSSL key data type into the OpenSC key */
+int sc_pkcs15_convert_bignum(sc_pkcs15_bignum_t *dst, const void *bignum);
+int sc_pkcs15_convert_prkey(struct sc_pkcs15_prkey *key, void *evp_key);
+int sc_pkcs15_convert_pubkey(struct sc_pkcs15_pubkey *key, void *evp_key);
+
 /* New object search API.
  * More complex, but also more powerful.
  */
