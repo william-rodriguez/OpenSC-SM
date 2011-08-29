@@ -49,6 +49,7 @@ typedef unsigned char u8;
  * 'c_asn1_supported_algorithms' in src/libopensc/pkcs15.c 
  */
 #define SC_MAX_SUPPORTED_ALGORITHMS     8
+#define SC_MAX_SE_NUM			8
 
 struct sc_lv_data {
 	unsigned char *value;

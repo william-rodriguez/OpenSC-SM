@@ -228,7 +228,7 @@ static void sc_asn1_print_object_id(const u8 * buf, size_t buflen)
 
 static void sc_asn1_print_generalizedtime(const u8 * buf, size_t buflen)
 {
-	int ii;
+	size_t ii;
 	for (ii=0; ii<buflen; ii++)
 		printf("%c", *(buf + ii));
 }
@@ -927,76 +927,122 @@ static int asn1_encode_path(sc_context_t *ctx, const sc_path_t *path,
 	return r;	
 }
 
+
+static const struct sc_asn1_entry c_asn1_se[2] = {
+	{ "seInfo", SC_ASN1_STRUCT, SC_ASN1_TAG_SEQUENCE | SC_ASN1_CONS, 0, NULL, NULL },
+	{ NULL, 0, 0, 0, NULL, NULL }
+};
+
 static const struct sc_asn1_entry c_asn1_se_info[4] = {
-	{ "se",     SC_ASN1_INTEGER, SC_ASN1_TAG_INTEGER, 0, NULL, NULL },
-	{ "owner",  SC_ASN1_OBJECT,  SC_ASN1_TAG_OBJECT,  SC_ASN1_OPTIONAL, NULL, NULL },
-	{ "aid",    SC_ASN1_OCTET_STRING, SC_ASN1_TAG_OCTET_STRING, SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "se",   SC_ASN1_INTEGER, SC_ASN1_TAG_INTEGER, 0, NULL, NULL },
+	{ "owner",SC_ASN1_OBJECT, SC_ASN1_TAG_OBJECT, SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "aid",  SC_ASN1_OCTET_STRING, SC_ASN1_TAG_OCTET_STRING, SC_ASN1_OPTIONAL, NULL, NULL },
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
 
 static int asn1_decode_se_info(sc_context_t *ctx, const u8 *obj, size_t objlen,
                                sc_pkcs15_sec_env_info_t ***se, size_t *num, int depth)
 {
-	sc_pkcs15_sec_env_info_t **ses;
+	struct sc_pkcs15_sec_env_info **ses;
+	const unsigned char *ptr = obj;
+	size_t idx, ptrlen = objlen;
+	int ret, i;
 
-	const unsigned char *p;
-	size_t plen, idx = 0, size = 8, left = size;
-	int    ret = SC_SUCCESS;
-
-	p = sc_asn1_find_tag(ctx, obj, objlen, 0x30, &plen);
-	if (p == NULL) 
-		return SC_ERROR_INVALID_ASN1_OBJECT;
-
-	ses = calloc(size, sizeof(sc_pkcs15_sec_env_info_t *));
+	ses = calloc(SC_MAX_SE_NUM, sizeof(sc_pkcs15_sec_env_info_t *));
 	if (ses == NULL)
 		return SC_ERROR_OUT_OF_MEMORY;
 
-	while (plen != 0) {
+	for (idx=0; idx < SC_MAX_SE_NUM && ptrlen; )   {
+		struct sc_asn1_entry asn1_se[2];
 		struct sc_asn1_entry asn1_se_info[4];
+		struct sc_pkcs15_sec_env_info si;
 
-		sc_pkcs15_sec_env_info_t *si = calloc(1, sizeof(sc_pkcs15_sec_env_info_t));
-		if (si == NULL) {
+		sc_copy_asn1_entry(c_asn1_se, asn1_se);
+		sc_copy_asn1_entry(c_asn1_se_info, asn1_se_info);
+
+		si.aid.len = sizeof(si.aid.value);
+		sc_format_asn1_entry(asn1_se_info + 0, &si.se, NULL, 0);
+		sc_format_asn1_entry(asn1_se_info + 1, &si.owner, NULL, 0);
+		sc_format_asn1_entry(asn1_se_info + 2, &si.aid.value, &si.aid.len, 0);
+		sc_format_asn1_entry(asn1_se + 0, asn1_se_info, NULL, 0);
+
+		ret = asn1_decode(ctx, asn1_se, ptr, ptrlen, &ptr, &ptrlen, 0, depth+1);
+		if (ret != SC_SUCCESS)
+			goto err;
+		if (!(asn1_se_info[1].flags & SC_ASN1_PRESENT))
+			for (i=0;i<SC_MAX_OBJECT_ID_OCTETS;i++)
+				si.owner.value[i] = -1;
+
+		ses[idx] = calloc(1, sizeof(sc_pkcs15_sec_env_info_t));
+		if (ses[idx] == NULL) {
 			ret = SC_ERROR_OUT_OF_MEMORY;
 			goto err;
 		}
 
-		si->aid.len = sizeof(si->aid.value);
-		sc_copy_asn1_entry(c_asn1_se_info, asn1_se_info);
-		sc_format_asn1_entry(asn1_se_info + 0, &si->se, NULL, 0);
-		sc_format_asn1_entry(asn1_se_info + 1, &si->owner, NULL, 0);
-		sc_format_asn1_entry(asn1_se_info + 2, &si->aid.value, &si->aid.len, 0);
-		ret = asn1_decode(ctx, asn1_se_info, p, plen, &p, &plen, 0, depth+1);
-		if (ret != SC_SUCCESS) {
-			free(si);
-			ret = SC_ERROR_INVALID_ASN1_OBJECT;
-			goto err;
-		}
-		if (--left == 0) {
-			sc_pkcs15_sec_env_info_t **np;
-			size <<= 1;
-			np = realloc(ses, sizeof(sc_pkcs15_sec_env_info_t *) * size);
-			if (np == NULL) {
-				free(si);
-				ret = SC_ERROR_OUT_OF_MEMORY;
-				goto err;
-			}
-			ses  = np;
-			left = size >> 1;
-		}
-		ses[idx++] = si;
+		memcpy(ses[idx], &si, sizeof(struct sc_pkcs15_sec_env_info));
+		idx++;
 	}
+
+	*se  = ses;
+	*num = idx;
+	ret = SC_SUCCESS;
 err:
-	if (ret == SC_SUCCESS) {
-		*se  = ses;
-		*num = idx;
-	} else {
-		size_t i;
+	if (ret != SC_SUCCESS) {
 		for (i = 0; i < idx; i++)
-			free(ses[i]);
+			if (ses[i])
+				free(ses[i]);
 		free(ses);
 	} 
 
 	return ret;	
+}
+
+
+static int asn1_encode_se_info(sc_context_t *ctx,
+		struct sc_pkcs15_sec_env_info **se, size_t se_num,
+		unsigned char **buf, size_t *bufsize, int depth)
+{
+	unsigned char *ptr = NULL, *out = NULL;
+	size_t ptrlen = 0, outlen = 0, idx;
+	int ret;
+
+	for (idx=0; idx < se_num; idx++)   {
+		struct sc_asn1_entry asn1_se[2];
+		struct sc_asn1_entry asn1_se_info[4];
+
+		sc_copy_asn1_entry(c_asn1_se, asn1_se);
+		sc_copy_asn1_entry(c_asn1_se_info, asn1_se_info);
+
+		sc_format_asn1_entry(asn1_se_info + 0, &se[idx]->se, NULL, 1);
+		if (se[idx]->owner.value[0] != -1)
+			sc_format_asn1_entry(asn1_se_info + 1, &se[idx]->owner, NULL, 1);
+		if (se[idx]->aid.len)
+			sc_format_asn1_entry(asn1_se_info + 2, &se[idx]->aid.value, &se[idx]->aid.len, 1);
+		sc_format_asn1_entry(asn1_se + 0, asn1_se_info, NULL, 1);
+
+		ret = sc_asn1_encode(ctx, asn1_se, &ptr, &ptrlen);
+		if (ret != SC_SUCCESS)
+			goto err;
+
+		out = (unsigned char *) realloc(out, outlen + ptrlen);
+		if (!out)   {
+			ret = SC_ERROR_OUT_OF_MEMORY;
+			goto err;
+		}
+		memcpy(out + outlen, ptr, ptrlen);
+		outlen += ptrlen;
+		free(ptr);
+		ptr = NULL;
+		ptrlen = 0;
+	}
+
+	*buf = out;
+	*bufsize = outlen;
+	ret = SC_SUCCESS;
+err:
+	if (ret != SC_SUCCESS && out != NULL)
+		free(out);
+	return ret;
 }
 
 
@@ -1349,8 +1395,7 @@ static int asn1_decode(sc_context_t *ctx, struct sc_asn1_entry *asn1,
 	for (idx = 0; asn1[idx].name != NULL; idx++) {
 		entry = &asn1[idx];
 
-		sc_debug(ctx, SC_LOG_DEBUG_ASN1,
-			"Looking for '%s', tag 0x%x%s%s\n",
+		sc_debug(ctx, SC_LOG_DEBUG_ASN1, "Looking for '%s', tag 0x%x%s%s\n",
 			entry->name, entry->tag, choice? ", CHOICE" : "",
 			(entry->flags & SC_ASN1_OPTIONAL)? ", OPTIONAL": "");
 
@@ -1555,6 +1600,11 @@ static int asn1_encode_entry(sc_context_t *ctx, const struct sc_asn1_entry *entr
 		break;
 	case SC_ASN1_ALGORITHM_ID:
 		r = sc_asn1_encode_algorithm_id(ctx, &buf, &buflen, (const struct sc_algorithm_id *) parm, depth);
+		break;
+	case SC_ASN1_SE_INFO:
+		if (!len)
+			return SC_ERROR_INVALID_ASN1_OBJECT;
+		r = asn1_encode_se_info(ctx, (struct sc_pkcs15_sec_env_info **)parm, *len, &buf, &buflen, depth);
 		break;
 	case SC_ASN1_CALLBACK:
 		r = callback_func(ctx, entry->arg, &buf, &buflen, depth);
