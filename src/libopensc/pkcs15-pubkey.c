@@ -30,6 +30,18 @@
 #include "asn1.h"
 #include "pkcs15.h"
 
+#ifdef ENABLE_OPENSSL
+#include <openssl/rsa.h>
+#include <openssl/dsa.h>
+#include <openssl/evp.h>
+#include <openssl/err.h>
+#if OPENSSL_VERSION_NUMBER >= 0x10000000L
+	#ifndef OPENSSL_NO_EC
+	#include <openssl/ec.h>
+	#endif
+#endif
+#endif
+
 static const struct sc_asn1_entry c_asn1_pkinfo[] = {
 	{ "algorithm", SC_ASN1_ALGORITHM_ID,  SC_ASN1_TAG_SEQUENCE | SC_ASN1_CONS, 0, NULL, NULL },
 	{ "subjectPublicKey", SC_ASN1_BIT_STRING_NI, SC_ASN1_TAG_BIT_STRING, SC_ASN1_ALLOC, NULL, NULL},
@@ -330,7 +342,8 @@ int sc_pkcs15_encode_pukdf_entry(sc_context_t *ctx,
 		sc_format_asn1_entry(asn1_com_key_attr + 4, &pubkey->key_reference, NULL, 1);
 	sc_format_asn1_entry(asn1_pubkey + 0, asn1_pubkey_choice, NULL, 1);
 
-	sc_format_asn1_entry(asn1_com_pubkey_attr + 0, pubkey->subject.value ? pubkey->subject.value : "", & pubkey->subject.len, 1);
+	sc_format_asn1_entry(asn1_com_pubkey_attr + 0, 
+			pubkey->subject.value ? pubkey->subject.value : (unsigned char *)"", &pubkey->subject.len, 1);
 
 	r = sc_asn1_encode(ctx, asn1_pubkey, buf, buflen);
 
@@ -1058,3 +1071,81 @@ sc_pkcs15_fix_ec_parameters(struct sc_context *ctx, struct sc_pkcs15_ec_paramete
 
 	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
 }
+
+
+int sc_pkcs15_convert_pubkey(struct sc_pkcs15_pubkey *pkcs15_key, void *evp_key)
+{
+#ifdef ENABLE_OPENSSL
+	EVP_PKEY *pk = (EVP_PKEY *)evp_key;
+
+	switch (pk->type) {
+	case EVP_PKEY_RSA: {
+		struct sc_pkcs15_pubkey_rsa *dst = &pkcs15_key->u.rsa;
+		RSA *src = EVP_PKEY_get1_RSA(pk);
+
+		pkcs15_key->algorithm = SC_ALGORITHM_RSA;
+		if (!sc_pkcs15_convert_bignum(&dst->modulus, src->n) || !sc_pkcs15_convert_bignum(&dst->exponent, src->e))
+			return SC_ERROR_INVALID_DATA;
+		RSA_free(src);
+		break;
+		}
+	case EVP_PKEY_DSA: {
+		struct sc_pkcs15_pubkey_dsa *dst = &pkcs15_key->u.dsa;
+		DSA *src = EVP_PKEY_get1_DSA(pk);
+
+		pkcs15_key->algorithm = SC_ALGORITHM_DSA;
+		sc_pkcs15_convert_bignum(&dst->pub, src->pub_key);
+		sc_pkcs15_convert_bignum(&dst->p, src->p);
+		sc_pkcs15_convert_bignum(&dst->q, src->q);
+		sc_pkcs15_convert_bignum(&dst->g, src->g);
+		DSA_free(src);
+		break;
+		}
+#if OPENSSL_VERSION_NUMBER >= 0x10000000L && !defined(OPENSSL_NO_EC)
+	case NID_id_GostR3410_2001: {
+		struct sc_pkcs15_pubkey_gostr3410 *dst = &pkcs15_key->u.gostr3410;
+		EC_KEY *eckey = EVP_PKEY_get0(pk);
+		const EC_POINT *point;
+		BIGNUM *X, *Y;
+		int r = 0;
+
+		assert(eckey);
+		point = EC_KEY_get0_public_key(eckey);
+		if (!point)
+			return SC_ERROR_INTERNAL;
+		X = BN_new();
+		Y = BN_new();
+		if (X && Y && EC_KEY_get0_group(eckey))
+			r = EC_POINT_get_affine_coordinates_GFp(EC_KEY_get0_group(eckey),
+					point, X, Y, NULL);
+		if (r == 1) {
+			dst->xy.len = BN_num_bytes(X) + BN_num_bytes(Y);
+			dst->xy.data = malloc(dst->xy.len);
+			if (dst->xy.data) {
+				BN_bn2bin(Y, dst->xy.data);
+				BN_bn2bin(X, dst->xy.data + BN_num_bytes(Y));
+				r = sc_mem_reverse(dst->xy.data, dst->xy.len);
+				if (!r)
+					r = 1;
+				pkcs15_key->algorithm = SC_ALGORITHM_GOSTR3410;
+			}
+			else
+				r = -1;
+		}
+		BN_free(X);
+		BN_free(Y);
+		if (r != 1)
+			return SC_ERROR_INTERNAL;
+		break;
+		}
+#endif /* OPENSSL_VERSION_NUMBER >= 0x10000000L && !defined(OPENSSL_NO_EC) */
+	default:
+		return SC_ERROR_NOT_SUPPORTED;
+	}
+
+	return 0;
+#else
+	return SC_ERROR_NOT_IMPLEMENTED;
+#endif
+}
+

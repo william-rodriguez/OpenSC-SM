@@ -296,3 +296,6 @@ sc_print_cache
 sc_find_app
 sc_remote_data_init
 sc_crc32
+sc_pkcs15_convert_bignum
+sc_pkcs15_convert_prkey
+sc_pkcs15_convert_pubkey
