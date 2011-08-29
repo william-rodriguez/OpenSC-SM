@@ -1360,6 +1360,10 @@ sc_pkcs15init_store_private_key(struct sc_pkcs15_card *p15card,
 	r = profile->ops->store_key(profile, p15card, object, &key);
 	LOG_TEST_RET(ctx, r, "Card specific 'store key' failed");
 
+	sc_pkcs15_free_object_content(object);
+	r = sc_pkcs15init_encode_prvkey_content(p15card, &key, object);
+	LOG_TEST_RET(ctx, r, "Failed to encode public key");
+
 	/* Now update the PrKDF */
 	r = sc_pkcs15init_add_object(p15card, profile, SC_PKCS15_PRKDF, object);
 

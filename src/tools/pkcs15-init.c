@@ -64,6 +64,7 @@
 #include "libopensc/log.h"
 #include "libopensc/cards.h"
 #include "pkcs15init/pkcs15-init.h"
+#include "pkcs15init/profile.h"
 #include "util.h"
 
 #undef GET_KEY_ECHO_OFF
@@ -132,6 +133,7 @@ enum {
 	OPT_VERIFY_PIN,
 	OPT_SANITY_CHECK,
 	OPT_BIND_TO_AID,
+	OPT_UPDATE_LAST_UPDATE,
 
 	OPT_PIN1     = 0x10000,	/* don't touch these values */
 	OPT_PUK1     = 0x10001,
@@ -180,6 +182,7 @@ const struct option	options[] = {
 	{ "authority",		no_argument,	   NULL,	OPT_AUTHORITY },
 	{ "key-usage",		required_argument, NULL,	'u' },
 	{ "finalize",		no_argument,       NULL,   	'F' },
+	{ "update-last-update",	no_argument,       NULL,	OPT_UPDATE_LAST_UPDATE},
 
 	{ "extractable",	no_argument, NULL,		OPT_EXTRACTABLE },
 	{ "insecure",		no_argument, NULL,		OPT_INSECURE },
@@ -237,6 +240,7 @@ static const char *		option_help[] = {
 	"Mark certificate as a CA certificate",
 	"Specify X.509 key usage (use \"--key-usage help\" for more information)",
 	"Finish initialization phase of the smart card",
+	"Update 'lastUpdate' attribut of tokenInfo",
 
 	"Private key stored as an extractable key",
 	"Insecure mode: do not require a PIN for private key",
@@ -270,6 +274,7 @@ enum {
 	ACTION_DELETE_OBJECTS,
 	ACTION_CHANGE_ATTRIBUTES,
 	ACTION_SANITY_CHECK,
+	ACTION_UPDATE_LAST_UPDATE,
 
 	ACTION_MAX
 };
@@ -542,6 +547,9 @@ main(int argc, char **argv)
 			break;
 		case ACTION_SANITY_CHECK:
 			r = do_sanity_check(profile);
+			break;
+		case ACTION_UPDATE_LAST_UPDATE:
+			profile->dirty = 1;
 			break;
 		default:
 			util_fatal("Action not yet implemented\n");
@@ -2430,6 +2438,9 @@ handle_option(const struct option *opt)
 		break;
 	case OPT_SANITY_CHECK:
 		this_action = ACTION_SANITY_CHECK;
+		break;
+	case OPT_UPDATE_LAST_UPDATE:
+		this_action = ACTION_UPDATE_LAST_UPDATE;
 		break;
 	default:
 		util_print_usage_and_die(app_name, options, option_help);
