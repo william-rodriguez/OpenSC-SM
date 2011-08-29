@@ -45,8 +45,10 @@ static const struct sc_asn1_entry c_asn1_com_key_attr[] = {
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
 
-static const struct sc_asn1_entry c_asn1_com_pubkey_attr[] = {
-	/* FIXME */
+#define C_ASN1_COM_PUBKEY_ATTR_SIZE 2
+static const struct sc_asn1_entry c_asn1_com_pubkey_attr[C_ASN1_COM_PUBKEY_ATTR_SIZE] = {
+	{ "subjectName", SC_ASN1_OCTET_STRING, SC_ASN1_TAG_SEQUENCE | SC_ASN1_CONS,
+		SC_ASN1_EMPTY_ALLOWED | SC_ASN1_ALLOC | SC_ASN1_OPTIONAL, NULL, NULL },
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
 
@@ -115,7 +117,8 @@ int sc_pkcs15_decode_pukdf_entry(struct sc_pkcs15_card *p15card,
 	size_t usage_len = sizeof(info.usage);
 	size_t af_len = sizeof(info.access_flags);
 	struct sc_pkcs15_der *der = &obj->content;
-	struct sc_asn1_entry asn1_com_key_attr[6], asn1_com_pubkey_attr[1];
+	struct sc_asn1_entry asn1_com_key_attr[6];
+	struct sc_asn1_entry asn1_com_pubkey_attr[C_ASN1_COM_PUBKEY_ATTR_SIZE];
 	struct sc_asn1_entry asn1_rsakey_value_choice[3];
 	struct sc_asn1_entry asn1_rsakey_attr[4], asn1_rsa_type_attr[2];
 	struct sc_asn1_entry asn1_dsakey_attr[2], asn1_dsa_type_attr[2];
@@ -140,6 +143,8 @@ int sc_pkcs15_decode_pukdf_entry(struct sc_pkcs15_card *p15card,
 	sc_copy_asn1_entry(c_asn1_gostr3410key_attr, asn1_gostr3410key_attr);
 	sc_copy_asn1_entry(c_asn1_com_pubkey_attr, asn1_com_pubkey_attr);
 	sc_copy_asn1_entry(c_asn1_com_key_attr, asn1_com_key_attr);
+
+	sc_format_asn1_entry(asn1_com_pubkey_attr + 0, &info.subject.value, &info.subject.len, 0);
 
 	sc_format_asn1_entry(asn1_pubkey_choice + 0, &rsakey_obj, NULL, 0);
 	sc_format_asn1_entry(asn1_pubkey_choice + 1, &dsakey_obj, NULL, 0);
@@ -233,7 +238,7 @@ int sc_pkcs15_encode_pukdf_entry(sc_context_t *ctx,
 				 const struct sc_pkcs15_object *obj,
 				 u8 **buf, size_t *buflen)
 {
-	struct sc_asn1_entry asn1_com_key_attr[6], asn1_com_pubkey_attr[1];
+	struct sc_asn1_entry asn1_com_key_attr[6], asn1_com_pubkey_attr[C_ASN1_COM_PUBKEY_ATTR_SIZE];
 	struct sc_asn1_entry asn1_rsakey_value_choice[3];
 	struct sc_asn1_entry asn1_rsakey_attr[4], asn1_rsa_type_attr[2];
 	struct sc_asn1_entry asn1_dsakey_attr[2], asn1_dsa_type_attr[2];
@@ -324,6 +329,8 @@ int sc_pkcs15_encode_pukdf_entry(sc_context_t *ctx,
 	if (pubkey->key_reference >= 0)
 		sc_format_asn1_entry(asn1_com_key_attr + 4, &pubkey->key_reference, NULL, 1);
 	sc_format_asn1_entry(asn1_pubkey + 0, asn1_pubkey_choice, NULL, 1);
+
+	sc_format_asn1_entry(asn1_com_pubkey_attr + 0, pubkey->subject.value ? pubkey->subject.value : "", & pubkey->subject.len, 1);
 
 	r = sc_asn1_encode(ctx, asn1_pubkey, buf, buflen);
 
