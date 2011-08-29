@@ -2546,6 +2546,9 @@ sc_pkcs15init_update_any_df(struct sc_pkcs15_card *p15card,
 		r = sc_pkcs15init_update_odf(p15card, profile);
 	LOG_TEST_RET(ctx, r, "Failed to encode or update ODF");
 
+	if (r > 0)
+		r = SC_SUCCESS;
+
 	LOG_FUNC_RETURN(ctx, r);
 }
 
@@ -2602,6 +2605,8 @@ sc_pkcs15init_add_object(struct sc_pkcs15_card *p15card, struct sc_profile *prof
 	if (r < 0 && object_added)
 		sc_pkcs15_remove_object(p15card, object);
 
+	if (r > 0)
+		r = SC_SUCCESS;
 	LOG_FUNC_RETURN(ctx, r);
 }
 
