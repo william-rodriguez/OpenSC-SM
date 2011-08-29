@@ -1176,6 +1176,13 @@ struct sc_algorithm_info * sc_card_find_gostr3410_alg(sc_card_t *card,
  */
 void sc_remote_data_init(struct sc_remote_data *rdata);
 
+/**
+ * Get CRC-32 digest
+ * @param value pointer to data used for CRC calculation
+ * @param len length of data used for CRC calculation
+ */
+unsigned sc_crc32(unsigned char *value, size_t len);
+
 struct sc_card_error {
 	unsigned int SWs;
 	int errorno;

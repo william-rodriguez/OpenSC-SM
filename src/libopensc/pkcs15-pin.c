@@ -512,6 +512,10 @@ void sc_pkcs15_pincache_add(struct sc_pkcs15_card *p15card, struct sc_pkcs15_obj
 		sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "PIN caching not enabled");
 		return;
 	}
+	else if (auth_info->auth_type != SC_PKCS15_PIN_AUTH_TYPE_PIN)   {
+		sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "only 'PIN' auth. object can be cached");
+		return;
+	}
 
 	/* If the PIN protects an object with user consent, don't cache it */
 

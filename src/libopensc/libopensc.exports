@@ -197,6 +197,7 @@ sc_pkcs15_parse_tokeninfo
 sc_pkcs15_parse_unusedspace
 sc_pkcs15_pincache_clear
 sc_pkcs15_print_id
+sc_pkcs15_prkey_attrs_from_cert
 sc_pkcs15_read_cached_file
 sc_pkcs15_read_certificate
 sc_pkcs15_read_data_object
@@ -292,3 +293,4 @@ sc_card_find_rsa_alg
 sc_print_cache
 sc_find_app
 sc_remote_data_init
+sc_crc32
