@@ -1554,7 +1554,7 @@ sc_pkcs15init_store_certificate(struct sc_pkcs15_card *p15card,
 		}
 		else if (key_object)   {
 			r = sc_pkcs15init_update_any_df(p15card, profile, key_object->df, 0);
-			sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "sc_pkcs15init_store_certificate() update_any_df returned %i", r);		        
+			sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "sc_pkcs15init_store_certificate() update_any_df returned %i", r);
 		}
 	}
 

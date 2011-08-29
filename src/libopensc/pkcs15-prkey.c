@@ -60,9 +60,7 @@ static const struct sc_asn1_entry c_asn1_com_key_attr[C_ASN1_COM_KEY_ATTR_SIZE] 
 	{ "accessFlags", SC_ASN1_BIT_FIELD, SC_ASN1_TAG_BIT_STRING, SC_ASN1_OPTIONAL, NULL, NULL },
 	{ "keyReference",SC_ASN1_INTEGER, SC_ASN1_TAG_INTEGER, SC_ASN1_OPTIONAL, NULL, NULL },
 /* IAS/ECC and ECC(CEN/TS 15480-2:2007) defines 'algReference' member of 'CommonKeyAttributes'.
- * It's absent in PKCS#15 v1.1 .
- * Will see if any card will really need it.
- */
+ * It's absent in PKCS#15 v1.1 . */
 	{ "algReference", SC_ASN1_STRUCT, SC_ASN1_CONS | SC_ASN1_CTX | 1, SC_ASN1_OPTIONAL, NULL, NULL },
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
@@ -291,15 +289,15 @@ int sc_pkcs15_encode_prkdf_entry(sc_context_t *ctx, const struct sc_pkcs15_objec
 	struct sc_asn1_entry asn1_prk_gostr3410_attr[C_ASN1_PRK_GOSTR3410_ATTR_SIZE];
 	struct sc_asn1_entry asn1_prkey[C_ASN1_PRKEY_SIZE];
 	struct sc_asn1_entry asn1_supported_algorithms[C_ASN1_SUPPORTED_ALGORITHMS_SIZE];
-	struct sc_asn1_pkcs15_object rsa_prkey_obj = { 
+	struct sc_asn1_pkcs15_object rsa_prkey_obj = {
 		(struct sc_pkcs15_object *) obj, asn1_com_key_attr,
 		asn1_com_prkey_attr, asn1_prk_rsa_attr
 	};
 	struct sc_asn1_pkcs15_object dsa_prkey_obj = {
 		(struct sc_pkcs15_object *) obj, asn1_com_key_attr,
-		asn1_com_prkey_attr, asn1_prk_dsa_attr 
+		asn1_com_prkey_attr, asn1_prk_dsa_attr
 	};
-	struct sc_asn1_pkcs15_object gostr3410_prkey_obj =  { 
+	struct sc_asn1_pkcs15_object gostr3410_prkey_obj = {
 		(struct sc_pkcs15_object *) obj,
 		asn1_com_key_attr, asn1_com_prkey_attr,
 		asn1_prk_gostr3410_attr
@@ -395,7 +393,7 @@ int sc_pkcs15_encode_prkdf_entry(sc_context_t *ctx, const struct sc_pkcs15_objec
 }
 
 int
-sc_pkcs15_prkey_attrs_from_cert(struct sc_pkcs15_card *p15card, struct sc_pkcs15_object *cert_object, 
+sc_pkcs15_prkey_attrs_from_cert(struct sc_pkcs15_card *p15card, struct sc_pkcs15_object *cert_object,
 		struct sc_pkcs15_object **out_key_object)
 {
 	struct sc_context *ctx = p15card->card->ctx;
@@ -436,7 +434,7 @@ sc_pkcs15_prkey_attrs_from_cert(struct sc_pkcs15_card *p15card, struct sc_pkcs15
 
 	ptr = buff;
 	rv = i2d_X509_NAME(X509_get_subject_name(x), &ptr);
-	if (rv <= 0) 
+	if (rv <= 0)
 		SC_TEST_RET(ctx, SC_LOG_DEBUG_NORMAL, SC_ERROR_INTERNAL, "Get subject name error");
 
 	key_info->subject.value = malloc(rv);

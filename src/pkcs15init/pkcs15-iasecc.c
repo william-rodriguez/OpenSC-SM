@@ -1400,8 +1400,8 @@ iasecc_store_cert(struct sc_pkcs15_card *p15card, struct sc_profile *profile,
 
 
 static int 
-iasecc_store_data_object(struct sc_pkcs15_card *p15card, struct sc_profile *profile, 
-		struct sc_pkcs15_object *object,  
+iasecc_store_data_object(struct sc_pkcs15_card *p15card, struct sc_profile *profile,
+		struct sc_pkcs15_object *object,
 		struct sc_pkcs15_der *data, struct sc_path *path)
 {
 #define MAX_OBJS 32
@@ -1461,14 +1461,14 @@ iasecc_store_data_object(struct sc_pkcs15_card *p15card, struct sc_profile *prof
 		object->access_rules[2].access_mode = SC_PKCS15_ACCESS_RULE_MODE_DELETE;
 		acl = sc_file_get_acl_entry(file, SC_AC_OP_DELETE);
 		sc_log(ctx, "iasecc_store_data_object() UPDATE method %i", acl->method);
-		if (acl->method == SC_AC_IDA) 
+		if (acl->method == SC_AC_IDA)
 			iasecc_reference_to_pkcs15_id (acl->key_ref, &object->access_rules[2].auth_id);
 
 	} while(0);
 
 	rv = iasecc_file_convert_acls(ctx, profile, file);
 	LOG_TEST_RET(ctx, rv, "iasecc_store_data_object() cannot convert profile ACLs");
-	
+
 	rv = sc_profile_get_parent(profile, "public-data", &parent);
 	LOG_TEST_RET(ctx, rv, "iasecc_store_data_object() cannot get object parent");
 	sc_log(ctx, "iasecc_store_data_object() parent path '%s'\n", sc_print_path(&parent->path));

@@ -998,7 +998,7 @@ err:
 }
 
 
-static int asn1_encode_se_info(sc_context_t *ctx, 
+static int asn1_encode_se_info(sc_context_t *ctx,
 		struct sc_pkcs15_sec_env_info **se, size_t se_num,
 		unsigned char **buf, size_t *bufsize, int depth)
 {
@@ -1042,7 +1042,7 @@ static int asn1_encode_se_info(sc_context_t *ctx,
 err:
 	if (ret != SC_SUCCESS && out != NULL)
 		free(out);
-	return ret;	
+	return ret;
 }
 
 

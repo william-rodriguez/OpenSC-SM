@@ -246,7 +246,7 @@ int sc_pkcs15_encode_tokeninfo(sc_context_t *ctx,
 		if (sc_hex_to_bin(ti->serial_number, serial, &serial_len) < 0)
 			return SC_ERROR_INVALID_ARGUMENTS;
 		sc_format_asn1_entry(asn1_toki + 1, serial, &serial_len, 1);
-	} 
+	}
 	else   {
 		sc_format_asn1_entry(asn1_toki + 1, NULL, NULL, 0);
 	}
@@ -254,15 +254,15 @@ int sc_pkcs15_encode_tokeninfo(sc_context_t *ctx,
 	if (ti->manufacturer_id != NULL) {
 		mnfid_len = strlen(ti->manufacturer_id);
 		sc_format_asn1_entry(asn1_toki + 2, ti->manufacturer_id, &mnfid_len, 1);
-	} 
+	}
 	else    {
 		sc_format_asn1_entry(asn1_toki + 2, NULL, NULL, 0);
 	}
-	
+
 	if (ti->label != NULL) {
 		label_len = strlen(ti->label);
 		sc_format_asn1_entry(asn1_toki + 3, ti->label, &label_len, 1);
-	} 
+	}
 	else   {
 		sc_format_asn1_entry(asn1_toki + 3, NULL, NULL, 0);
 	}
@@ -270,7 +270,7 @@ int sc_pkcs15_encode_tokeninfo(sc_context_t *ctx,
 	if (ti->flags) {
 		flags_len = sizeof(ti->flags);
 		sc_format_asn1_entry(asn1_toki + 5, &ti->flags, &flags_len, 1);
-	} 
+	}
 	else   {
 		sc_format_asn1_entry(asn1_toki + 5, NULL, NULL, 0);
 	}
@@ -286,7 +286,7 @@ int sc_pkcs15_encode_tokeninfo(sc_context_t *ctx,
 		sc_format_asn1_entry(asn1_toki + 8, asn1_supported_algorithms, NULL, 1);
 	else
 		sc_format_asn1_entry(asn1_toki + 8, NULL, NULL, 0);
-	
+
 	sc_format_asn1_entry(asn1_toki + 9, NULL, NULL, 0);
 	sc_format_asn1_entry(asn1_toki + 10, NULL, NULL, 0);
 
@@ -294,7 +294,7 @@ int sc_pkcs15_encode_tokeninfo(sc_context_t *ctx,
 		last_upd_len = strlen(ti->last_update);
 		sc_format_asn1_entry(asn1_last_update + 0, ti->last_update, &last_upd_len, 1);
 		sc_format_asn1_entry(asn1_toki + 11, asn1_last_update, NULL, 1);
-	} 
+	}
 	else   {
 		sc_format_asn1_entry(asn1_toki + 11, NULL, NULL, 0);
 	}
@@ -784,8 +784,8 @@ static int sc_pkcs15_bind_internal(sc_pkcs15_card_t *p15card, struct sc_aid *aid
 	/* Enumerate apps now */
 	if (card->app_count < 0) {
 		err = sc_enum_apps(card);
-		if (err != SC_ERROR_FILE_NOT_FOUND)
-			LOG_TEST_RET(ctx, err, "unable to enumerate apps");
+		if (err != SC_SUCCESS)
+			sc_log(ctx, "unable to enumerate apps: %s", sc_strerror(err));
 	}
 	p15card->file_app = sc_file_new();
 	if (p15card->file_app == NULL) {
@@ -825,7 +825,7 @@ static int sc_pkcs15_bind_internal(sc_pkcs15_card_t *p15card, struct sc_aid *aid
 	/* If the above test failed on cards without EF(DIR),
 	 * try to continue read ODF from 3F005031. -aet
 	 */
-	if ((err == SC_ERROR_FILE_NOT_FOUND) && (card->app_count < 1)) {
+	if ((err != SC_SUCCESS) && (card->app_count < 1)) {
 		sc_format_path("3F00", &p15card->file_app->path);
 		err = SC_SUCCESS;
 	}
