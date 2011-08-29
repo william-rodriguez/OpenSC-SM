@@ -87,8 +87,6 @@ static int	do_store_private_key(struct sc_profile *);
 static int	do_store_public_key(struct sc_profile *, EVP_PKEY *);
 static int	do_store_certificate(struct sc_profile *);
 static int	do_update_certificate(struct sc_profile *);
-static int	do_convert_private_key(struct sc_pkcs15_prkey *, EVP_PKEY *);
-static int	do_convert_public_key(struct sc_pkcs15_pubkey *, EVP_PKEY *);
 static int	do_convert_cert(sc_pkcs15_der_t *, X509 *);
 static int	is_cacert_already_present(struct sc_pkcs15init_certargs *);
 static int	do_finalize_card(sc_card_t *, struct sc_profile *);
@@ -854,7 +852,8 @@ do_store_private_key(struct sc_profile *profile)
 		}
 	}
 
-	if ((r = do_convert_private_key(&args.key, pkey)) < 0)
+	r = sc_pkcs15_convert_prkey(&args.key, pkey);
+	if (r < 0)
 		return r;
 	init_gost_params(&args.params.gost, pkey);
 
@@ -1001,7 +1000,7 @@ do_store_public_key(struct sc_profile *profile, EVP_PKEY *pkey)
 	if (pkey == NULL)
 		r = do_read_public_key(opt_infile, opt_format, &pkey);
 	if (r >= 0) {
-		r = do_convert_public_key(&args.key, pkey);
+		r = sc_pkcs15_convert_pubkey(&args.key, pkey);
 		if (r >= 0)
 			init_gost_params(&args.params.gost, pkey);
 	}
@@ -2132,142 +2131,6 @@ do_read_data_object(const char *name, u8 **out, size_t *outlen)
         }
 
 	*outlen = filesize;
-	return 0;
-}
-
-static int
-do_convert_bignum(sc_pkcs15_bignum_t *dst, const BIGNUM *src)
-{
-	if (src == 0)
-		return 0;
-	dst->len = BN_num_bytes(src);
-	dst->data = malloc(dst->len);
-	BN_bn2bin(src, dst->data);
-	return 1;
-}
-
-static int do_convert_private_key(struct sc_pkcs15_prkey *key, EVP_PKEY *pk)
-{
-	switch (pk->type) {
-	case EVP_PKEY_RSA: {
-		struct sc_pkcs15_prkey_rsa *dst = &key->u.rsa;
-		RSA *src = EVP_PKEY_get1_RSA(pk);
-
-		key->algorithm = SC_ALGORITHM_RSA;
-		if (!do_convert_bignum(&dst->modulus, src->n)
-		 || !do_convert_bignum(&dst->exponent, src->e)
-		 || !do_convert_bignum(&dst->d, src->d)
-		 || !do_convert_bignum(&dst->p, src->p)
-		 || !do_convert_bignum(&dst->q, src->q))
-			util_fatal("Invalid/incomplete RSA key.\n");
-		if (src->iqmp && src->dmp1 && src->dmq1) {
-			do_convert_bignum(&dst->iqmp, src->iqmp);
-			do_convert_bignum(&dst->dmp1, src->dmp1);
-			do_convert_bignum(&dst->dmq1, src->dmq1);
-		}
-		RSA_free(src);
-		break;
-		}
-	case EVP_PKEY_DSA: {
-		struct sc_pkcs15_prkey_dsa *dst = &key->u.dsa;
-		DSA *src = EVP_PKEY_get1_DSA(pk);
-
-		key->algorithm = SC_ALGORITHM_DSA;
-		do_convert_bignum(&dst->pub, src->pub_key);
-		do_convert_bignum(&dst->p, src->p);
-		do_convert_bignum(&dst->q, src->q);
-		do_convert_bignum(&dst->g, src->g);
-		do_convert_bignum(&dst->priv, src->priv_key);
-		DSA_free(src);
-		break;
-		}
-#if OPENSSL_VERSION_NUMBER >= 0x10000000L && !defined(OPENSSL_NO_EC)
-	case NID_id_GostR3410_2001: {
-		struct sc_pkcs15_prkey_gostr3410 *dst = &key->u.gostr3410;
-		EC_KEY *src = EVP_PKEY_get0(pk);
-
-		assert(src);
-		key->algorithm = SC_ALGORITHM_GOSTR3410;
-		assert(EC_KEY_get0_private_key(src));
-		do_convert_bignum(&dst->d, EC_KEY_get0_private_key(src));
-		break;
-		}
-#endif /* OPENSSL_VERSION_NUMBER >= 0x10000000L && !defined(OPENSSL_NO_EC) */
-	default:
-		util_fatal("Unsupported key algorithm\n");
-	}
-
-	return 0;
-}
-
-static int do_convert_public_key(struct sc_pkcs15_pubkey *key, EVP_PKEY *pk)
-{
-	switch (pk->type) {
-	case EVP_PKEY_RSA: {
-		struct sc_pkcs15_pubkey_rsa *dst = &key->u.rsa;
-		RSA *src = EVP_PKEY_get1_RSA(pk);
-
-		key->algorithm = SC_ALGORITHM_RSA;
-		if (!do_convert_bignum(&dst->modulus, src->n)
-		 || !do_convert_bignum(&dst->exponent, src->e))
-			util_fatal("Invalid/incomplete RSA key.\n");
-		RSA_free(src);
-		break;
-		}
-	case EVP_PKEY_DSA: {
-		struct sc_pkcs15_pubkey_dsa *dst = &key->u.dsa;
-		DSA *src = EVP_PKEY_get1_DSA(pk);
-
-		key->algorithm = SC_ALGORITHM_DSA;
-		do_convert_bignum(&dst->pub, src->pub_key);
-		do_convert_bignum(&dst->p, src->p);
-		do_convert_bignum(&dst->q, src->q);
-		do_convert_bignum(&dst->g, src->g);
-		DSA_free(src);
-		break;
-		}
-#if OPENSSL_VERSION_NUMBER >= 0x10000000L && !defined(OPENSSL_NO_EC)
-	case NID_id_GostR3410_2001: {
-		struct sc_pkcs15_pubkey_gostr3410 *dst = &key->u.gostr3410;
-		EC_KEY *eckey = EVP_PKEY_get0(pk);
-		const EC_POINT *point;
-		BIGNUM *X, *Y;
-		int r = 0;
-
-		assert(eckey);
-		point = EC_KEY_get0_public_key(eckey);
-		if (!point)
-			return SC_ERROR_INTERNAL;
-		X = BN_new();
-		Y = BN_new();
-		if (X && Y && EC_KEY_get0_group(eckey))
-			r = EC_POINT_get_affine_coordinates_GFp(EC_KEY_get0_group(eckey),
-					point, X, Y, NULL);
-		if (r == 1) {
-			dst->xy.len = BN_num_bytes(X) + BN_num_bytes(Y);
-			dst->xy.data = malloc(dst->xy.len);
-			if (dst->xy.data) {
-				BN_bn2bin(Y, dst->xy.data);
-				BN_bn2bin(X, dst->xy.data + BN_num_bytes(Y));
-				r = sc_mem_reverse(dst->xy.data, dst->xy.len);
-				if (!r)
-					r = 1;
-				key->algorithm = SC_ALGORITHM_GOSTR3410;
-			}
-			else
-				r = -1;
-		}
-		BN_free(X);
-		BN_free(Y);
-		if (r != 1)
-			return SC_ERROR_INTERNAL;
-		break;
-		}
-#endif /* OPENSSL_VERSION_NUMBER >= 0x10000000L && !defined(OPENSSL_NO_EC) */
-	default:
-		util_fatal("Unsupported key algorithm\n");
-	}
-
 	return 0;
 }
 
