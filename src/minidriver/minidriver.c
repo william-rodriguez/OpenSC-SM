@@ -3370,7 +3370,7 @@ DWORD WINAPI CardGetProperty(__in PCARD_DATA pCardData,
 			return dwret;
 	}
 	else if (wcscmp(CP_CARD_READ_ONLY, wszProperty) == 0)   {
-		BOOL *p = (BOOL*)pbData;
+		BOOL *p = (BOOL *)pbData;
 		if (pdwDataLen) 
 			*pdwDataLen = sizeof(*p);
 		if (cbData < sizeof(*p)) 
@@ -3387,12 +3387,12 @@ DWORD WINAPI CardGetProperty(__in PCARD_DATA pCardData,
 		*p = CP_CACHE_MODE_NO_CACHE;
 	}
 	else if (wcscmp(CP_SUPPORTS_WIN_X509_ENROLLMENT, wszProperty) == 0)   {
-		DWORD *p = (DWORD *)pbData;
+		BOOL *p = (BOOL *)pbData;
 		if (pdwDataLen) 
 			*pdwDataLen = sizeof(*p);
 		if (cbData < sizeof(*p)) 
 			return ERROR_INSUFFICIENT_BUFFER;
-		*p = 0;
+		*p = FALSE;
 	}
 	else if (wcscmp(CP_CARD_GUID, wszProperty) == 0)   {
 		struct md_file *cardid = NULL;
