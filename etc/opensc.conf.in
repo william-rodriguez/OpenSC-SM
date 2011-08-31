@@ -289,6 +289,7 @@ app default {
 		driver = "iasecc";
 		name = "Amos IAS/ECC v1.0.1";
 		md_read_only = false;
+		md_supports_X509_enrollment = true;
 	#        secure_messaging = local_amos;
 	}
 
