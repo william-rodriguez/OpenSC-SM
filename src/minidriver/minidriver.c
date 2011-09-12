@@ -70,13 +70,14 @@
 
 #define MD_DATA_APPLICAITON_NAME "CSP"
 
+#define MD_KEY_USAGE_KEYEXCHANGE 		\
+	SC_PKCS15INIT_X509_KEY_ENCIPHERMENT	| \
+	SC_PKCS15INIT_X509_DATA_ENCIPHERMENT	| \
+	SC_PKCS15INIT_X509_DIGITAL_SIGNATURE
 #define MD_KEY_USAGE_SIGNATURE 			\
 	SC_PKCS15INIT_X509_DIGITAL_SIGNATURE	| \
 	SC_PKCS15INIT_X509_KEY_CERT_SIGN	| \
 	SC_PKCS15INIT_X509_CRL_SIGN
-#define MD_KEY_USAGE_KEYEXCHANGE 		\
-	SC_PKCS15INIT_X509_KEY_ENCIPHERMENT	| \
-	SC_PKCS15INIT_X509_DATA_ENCIPHERMENT
 #define MD_KEY_ACCESS 				\
 	SC_PKCS15_PRKEY_ACCESS_SENSITIVE	| \
 	SC_PKCS15_PRKEY_ACCESS_ALWAYSSENSITIVE	| \
@@ -85,13 +86,13 @@
 		
 /* if use of internal-winscard.h */
 #ifndef SCARD_E_INVALID_PARAMETER
-#define SCARD_E_INVALID_PARAMETER		0x80100004L
-#define SCARD_E_UNSUPPORTED_FEATURE		0x80100022L
-#define SCARD_E_NO_MEMORY				0x80100006L
-#define SCARD_W_WRONG_CHV				0x8010006BL
-#define SCARD_E_FILE_NOT_FOUND			0x80100024L
-#define SCARD_E_UNKNOWN_CARD			0x8010000DL
-#define SCARD_F_UNKNOWN_ERROR			0x80100014L
+#define SCARD_E_INVALID_PARAMETER	0x80100004L
+#define SCARD_E_UNSUPPORTED_FEATURE	0x80100022L
+#define SCARD_E_NO_MEMORY		0x80100006L
+#define SCARD_W_WRONG_CHV		0x8010006BL
+#define SCARD_E_FILE_NOT_FOUND		0x80100024L
+#define SCARD_E_UNKNOWN_CARD		0x8010000DL
+#define SCARD_F_UNKNOWN_ERROR		0x80100014L
 #endif
 
 struct md_directory {
@@ -187,6 +188,7 @@ static const struct sc_asn1_entry c_asn1_md_container[C_ASN1_MD_CONTAINER_SIZE] 
 static int associate_card(PCARD_DATA pCardData);
 static int disassociate_card(PCARD_DATA pCardData);
 static DWORD md_get_cardcf(PCARD_DATA pCardData, CARD_CACHE_FILE_FORMAT **out);
+static DWORD md_pkcs15_delete_object(PCARD_DATA pCardData, struct sc_pkcs15_object *obj);
 
 static void logprintf(PCARD_DATA pCardData, int level, const char* format, ...)
 {
@@ -766,17 +768,14 @@ md_fs_delete_file(PCARD_DATA pCardData, char *parent, char *name)
 	}
 
 	if (!strcmp(parent, "mscp"))   {
-		int idx, rv;
+		int idx = -1;
 
 		if(sscanf(name, "ksc%d", &idx) > 0)   {
 		}
 		else if(sscanf(name, "kxc%d", &idx) > 0)   {
 		}
-		else   {
-			idx = -1;
-		}
 
-		if (idx >=0 && idx < MD_MAX_KEY_CONTAINERS)   {
+		if (idx >= 0 && idx < MD_MAX_KEY_CONTAINERS)   {
 			dwret = md_pkcs15_delete_object(pCardData, vs->p15_containers[idx].cert_obj);
 			vs->p15_containers[idx].cert_obj = NULL;
 			if(dwret != SCARD_S_SUCCESS)
@@ -3015,11 +3014,11 @@ DWORD WINAPI CardRSADecrypt(__in PCARD_DATA pCardData,
 	int r, opt_crypt_flags = 0;
 	unsigned ui;
 	VENDOR_SPECIFIC *vs;
-	//struct sc_pkcs15_cert_info *cert_info;
 	struct sc_pkcs15_prkey_info *prkey_info;
 	BYTE *pbuf = NULL, *pbuf2 = NULL;
 	DWORD lg= 0, lg2 = 0;
-	sc_pkcs15_object_t *pkey = NULL;
+	struct sc_pkcs15_object *pkey = NULL;
+	struct sc_algorithm_info *alg_info = NULL;
 
 	logprintf(pCardData, 1, "\nP:%d T:%d pCardData:%p ",GetCurrentProcessId(), GetCurrentThreadId(), pCardData);
 	logprintf(pCardData, 1, "CardRSADecrypt\n");
@@ -3043,7 +3042,6 @@ DWORD WINAPI CardRSADecrypt(__in PCARD_DATA pCardData,
 		logprintf(pCardData, 2, "CardRSADecrypt prkey not found\n");
 		return SCARD_E_INVALID_PARAMETER;
 	}
-	prkey_info = (struct sc_pkcs15_prkey_info *)(pkey->data);
 
 	/* input and output buffers are always the same size */
 	pbuf = pCardData->pfnCspAlloc(pInfo->cbData);
@@ -3061,32 +3059,39 @@ DWORD WINAPI CardRSADecrypt(__in PCARD_DATA pCardData,
 	logprintf(pCardData, 2, "Data to be decrypted (inverted):\n");
 	loghex(pCardData, 7, pbuf, pInfo->cbData);
 
-	/* TODO: check RSA mechanism allowed and do not try to decipher two times */
-	r = sc_pkcs15_decipher(vs->p15card, pkey, opt_crypt_flags, pbuf, pInfo->cbData, pbuf2, pInfo->cbData);
-	logprintf(pCardData, 2, "sc_pkcs15_decipher returned %d\n", r);
-	/* FIXME: Invalid comments: 
-	 * On-card padding do not supported by the minidriver specification version 6.
-	 * Here follows a temporary (until the OpenSC minidriver will be updated to specification v7) hack 
-	 * for the cards that do have no RSA_RAW mechanism allowed (IAS/ECC).
-	 */
-	if (r == SC_ERROR_NOT_SUPPORTED)   {
-		int rr;
-		rr = sc_pkcs15_decipher(vs->p15card, pkey, opt_crypt_flags | SC_ALGORITHM_RSA_PAD_PKCS1, 
+	prkey_info = (struct sc_pkcs15_prkey_info *)(pkey->data);
+	alg_info = sc_card_find_rsa_alg(vs->p15card->card, prkey_info->modulus_length);
+	if (!alg_info)   {
+		logprintf(pCardData, 2, "Cannot get appropriate RSA card algorithm for key size %i\n", prkey_info->modulus_length);
+		return SCARD_F_INTERNAL_ERROR;
+	}
+
+	/* TODO: if present, take into account the padding info (md version > 4) */
+	if (alg_info->flags & SC_ALGORITHM_RSA_RAW)   {
+		r = sc_pkcs15_decipher(vs->p15card, pkey, opt_crypt_flags, pbuf, pInfo->cbData, pbuf2, pInfo->cbData);
+		logprintf(pCardData, 2, "sc_pkcs15_decipher returned %d\n", r);
+	}
+	else if (alg_info->flags & SC_ALGORITHM_RSA_PAD_PKCS1)   {
+		logprintf(pCardData, 2, "sc_pkcs15_decipher: no oncard RSA RAW mechanism, try to use with PAD_PKCS1\n");
+		r = sc_pkcs15_decipher(vs->p15card, pkey, opt_crypt_flags | SC_ALGORITHM_RSA_PAD_PKCS1, 
 				pbuf, pInfo->cbData, pbuf2, pInfo->cbData);
-		logprintf(pCardData, 2, "sc_pkcs15_decipher rreturned %d\n", rr);
-		if (rr > 0 && (unsigned)rr <= pInfo->cbData - 9)   {
+		logprintf(pCardData, 2, "sc_pkcs15_decipher returned %d\n", r);
+		if (r > 0 && (unsigned)r <= pInfo->cbData - 9)   {
 			/* add pkcs1 02 padding */
-			logprintf(pCardData, 2, "Add padding '%s'", "PKCS#1 BT02 padding");
+			logprintf(pCardData, 2, "Add '%s' to the output data", "PKCS#1 BT02 padding");
 			memset(pbuf, 0x30, pInfo->cbData);
 			*(pbuf + 0) = 0;
 			*(pbuf + 1) = 2;
-			memcpy(pbuf + pInfo->cbData - rr, pbuf2, rr);
-			*(pbuf + pInfo->cbData - rr - 1) = 0;
+			memcpy(pbuf + pInfo->cbData - r, pbuf2, r);
+			*(pbuf + pInfo->cbData - r - 1) = 0;
 			memcpy(pbuf2, pbuf, pInfo->cbData);
-
-			r = rr;
 		}
 	}
+	else    {
+		logprintf(pCardData, 2, "CardRSADecrypt: no usable RSA algorithm\n");
+		return SCARD_E_INVALID_PARAMETER;
+	}
+
 	if ( r < 0)   {
 		logprintf(pCardData, 2, "sc_pkcs15_decipher erreur %s\n", sc_strerror(r));
 		return SCARD_E_INVALID_VALUE;
@@ -3208,7 +3213,6 @@ DWORD WINAPI CardSignData(__in PCARD_DATA pCardData, __in PCARD_SIGNING_INFO pIn
 		}
 	}
 	opt_crypt_flags = SC_ALGORITHM_RSA_PAD_PKCS1 | SC_ALGORITHM_RSA_HASH_NONE;
-
 
 	pInfo->cbSignedData = prkey_info->modulus_length / 8;
 	logprintf(pCardData, 3, "pInfo->cbSignedData = %d\n", pInfo->cbSignedData);
