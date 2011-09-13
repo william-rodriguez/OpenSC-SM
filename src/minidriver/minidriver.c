@@ -1644,8 +1644,10 @@ md_set_cmapfile(PCARD_DATA pCardData, struct md_file *file)
 
 		logprintf(pCardData, 7, "Container[%i]'s guid=%s\n", ii, cont->guid);
 		cont->flags = CONTAINER_MAP_VALID_CONTAINER;
+		/* Use the 'AT_KEYEXCHANGE' container type 
+		 * for the keys unknown to CSP. */	
 		cont->size_key_exchange = prkey_info->modulus_length;
-		cont->size_sign = prkey_info->modulus_length;
+		cont->size_sign = 0;
 		cont->id = prkey_info->id;
 		cont->prkey_obj = prkey_objs[ii];
 
