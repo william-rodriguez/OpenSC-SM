@@ -2560,13 +2560,18 @@ static int piv_init(sc_card_t *card)
 	priv->enumtag = piv_aids[r].enumtag;
 	card->type = piv_aids[r].enumtag;
 
-	 flags = SC_ALGORITHM_RSA_RAW | SC_ALGORITHM_ONBOARD_KEY_GEN;
+	/* PKCS#11 may try to generate session keys, and get confused
+	 * if SC_ALGORITHM_ONBOARD_KEY_GEN is present
+	 * piv-tool can still do this, just don't tell PKCS#11
+	 */
+
+	 flags = SC_ALGORITHM_RSA_RAW;
 	
 	_sc_card_add_rsa_alg(card, 1024, flags, 0); /* manditory */
 	_sc_card_add_rsa_alg(card, 2048, flags, 0); /* optional */
 	_sc_card_add_rsa_alg(card, 3072, flags, 0); /* optional */
 	
-	flags = SC_ALGORITHM_ECDSA_RAW | SC_ALGORITHM_ONBOARD_KEY_GEN;
+	flags = SC_ALGORITHM_ECDSA_RAW;
 	ext_flags = SC_ALGORITHM_EXT_EC_NAMEDCURVE | SC_ALGORITHM_EXT_EC_UNCOMPRESES; 
 
 	_sc_card_add_ec_alg(card, 256, flags, ext_flags);
