@@ -727,10 +727,13 @@ iasecc_select_file(struct sc_card *card, const struct sc_path *path,
 {
 	struct sc_context *ctx = card->ctx;
 	struct sc_path lpath;
+	int cache_valid = card->cache.valid, df_from_cache = 0;
 	int rv, ii;
 
 	LOG_FUNC_CALLED(ctx);
 	memcpy(&lpath, path, sizeof(struct sc_path));
+	if (file_out)
+		*file_out = NULL;
 	
 	sc_log(ctx, "iasecc_select_file(card:%p) path.len %i; path.type %i; aid_len %i", 
 			card, path->len, path->type, path->aid.len);
@@ -759,6 +762,11 @@ iasecc_select_file(struct sc_card *card, const struct sc_path *path,
 		memcpy(ppath.value, lpath.aid.value, lpath.aid.len);
 		ppath.len = lpath.aid.len;
 		ppath.type = SC_PATH_TYPE_DF_NAME;
+
+		if (card->cache.valid && card->cache.current_df 
+				&& card->cache.current_df->path.len == lpath.aid.len
+				&& !memcmp(card->cache.current_df->path.value, lpath.aid.value, lpath.aid.len)) 
+			df_from_cache = 1;
 		
 		rv = iasecc_select_file(card, &ppath, &file);
 		LOG_TEST_RET(ctx, rv, "select AID path failed");
@@ -784,10 +792,17 @@ iasecc_select_file(struct sc_card *card, const struct sc_path *path,
 			&& card->cache.current_df->path.len == lpath.len
 			&& !memcmp(card->cache.current_df->path.value, lpath.value, lpath.len))   {
 		sc_log(ctx, "returns current DF path %s", sc_print_path(&card->cache.current_df->path));
-		if (file_out)
+		if (file_out)   {
+			if (*file_out)
+		   		sc_file_free(*file_out); 
 			sc_file_dup(file_out, card->cache.current_df);
+		}
+	
+		sc_print_cache(card);
+		LOG_FUNC_RETURN(ctx, SC_SUCCESS);
 	}
-	else   {
+
+	do   {
 		struct sc_apdu apdu;
 		struct sc_file *file = NULL;
 		unsigned char rbuf[SC_MAX_APDU_BUFFER_SIZE];
@@ -859,6 +874,21 @@ iasecc_select_file(struct sc_card *card, const struct sc_path *path,
 
 			break;
 		}
+
+		/* 
+		 * Using of the cached DF and EF can cause problems in the multi-thread environment.
+		 * FIXME: introduce config. option that invalidates this cache outside the locked card session,
+		 *        (or invent something else)
+		 */
+		if (rv == SC_ERROR_FILE_NOT_FOUND && cache_valid && df_from_cache)   {
+			card->cache.valid = 0;
+			sc_log(ctx, "iasecc_select_file() file not found, retry without cached DF");
+			if (file_out && *file_out)
+		   		sc_file_free(*file_out); 
+			rv = iasecc_select_file(card, path, file_out);
+			LOG_FUNC_RETURN(ctx, rv);
+		}
+
 		LOG_TEST_RET(ctx, rv, "iasecc_select_file() check SW failed");
 
 		sc_log(ctx, "iasecc_select_file() apdu.resp %i", apdu.resplen);
@@ -904,10 +934,14 @@ iasecc_select_file(struct sc_card *card, const struct sc_path *path,
 				sc_file_dup(&card->cache.current_ef, file);
 			}
 		
-			if (file_out)
+			if (file_out)   {
+				if (*file_out)
+		   			sc_file_free(*file_out); 
 				*file_out = file;
-			else
+			}
+			else   {
 				sc_file_free(file);
+			}
 		}
 		else if (lpath.type == SC_PATH_TYPE_DF_NAME)   {
 			if (card->cache.current_df)
@@ -920,7 +954,7 @@ iasecc_select_file(struct sc_card *card, const struct sc_path *path,
 
 			card->cache.valid = 1;
 		}
-	}
+	} while(0);
 
 	sc_print_cache(card);
 	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
