@@ -27,35 +27,35 @@
 #include <assert.h>
 
 static const struct sc_asn1_entry c_asn1_com_key_attr[] = {
-	{ "iD",		 SC_ASN1_PKCS15_ID, SC_ASN1_TAG_OCTET_STRING, 0, NULL },
-	{ "usage",	 SC_ASN1_BIT_FIELD, SC_ASN1_TAG_BIT_STRING, 0, NULL },
+	{ "iD",		 SC_ASN1_PKCS15_ID, SC_ASN1_TAG_OCTET_STRING, 0, NULL, NULL},
+	{ "usage",	 SC_ASN1_BIT_FIELD, SC_ASN1_TAG_BIT_STRING, 0, NULL, NULL},
 	{ "native",      SC_ASN1_BOOLEAN, SC_ASN1_TAG_BOOLEAN, SC_ASN1_OPTIONAL, NULL, NULL },
-	{ "accessFlags", SC_ASN1_BIT_FIELD, SC_ASN1_TAG_BIT_STRING, SC_ASN1_OPTIONAL, NULL },
+	{ "accessFlags", SC_ASN1_BIT_FIELD, SC_ASN1_TAG_BIT_STRING, SC_ASN1_OPTIONAL, NULL, NULL},
 	{ "keyReference",SC_ASN1_INTEGER, SC_ASN1_TAG_INTEGER, SC_ASN1_OPTIONAL, NULL, NULL },
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
 
 static const struct sc_asn1_entry c_asn1_com_skey_attr[] = {
-	{ "keyLen",	SC_ASN1_INTEGER, SC_ASN1_TAG_INTEGER, SC_ASN1_OPTIONAL, NULL },
+	{ "keyLen",	SC_ASN1_INTEGER, SC_ASN1_TAG_INTEGER, SC_ASN1_OPTIONAL, NULL, NULL},
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
 
 static const struct sc_asn1_entry c_asn1_generic_skey_attr[] = {
-	{ "value",	SC_ASN1_PATH, SC_ASN1_TAG_SEQUENCE | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL },
+	{ "value",	SC_ASN1_PATH, SC_ASN1_TAG_SEQUENCE | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL, NULL},
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
 
 static const struct sc_asn1_entry c_asn1_skey_choice[] = {
         { "genericSecretKey", SC_ASN1_PKCS15_OBJECT, SC_ASN1_TAG_SEQUENCE | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL, NULL },
-        { "desKey", SC_ASN1_PKCS15_OBJECT,  SC_ASN1_CTX | 2 | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL, NULL },
-        { "des2Key", SC_ASN1_PKCS15_OBJECT,  SC_ASN1_CTX | 3 | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL, NULL },
-        { "des3Key", SC_ASN1_PKCS15_OBJECT,  SC_ASN1_CTX | 4 | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL, NULL },
+        { "desKey",	SC_ASN1_PKCS15_OBJECT, SC_ASN1_CTX | 2 | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL, NULL },
+        { "des2Key",	SC_ASN1_PKCS15_OBJECT, SC_ASN1_CTX | 3 | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL, NULL },
+        { "des3Key",	SC_ASN1_PKCS15_OBJECT, SC_ASN1_CTX | 4 | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL, NULL },
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
 
 static const struct sc_asn1_entry c_asn1_skey[] = {
 	{ "secretKey",	SC_ASN1_CHOICE, 0, 0, NULL, NULL },
-	{ NULL }
+	{ NULL, 0, 0, 0, NULL, NULL }
 };
 
 int sc_pkcs15_decode_skdf_entry(struct sc_pkcs15_card *p15card,
