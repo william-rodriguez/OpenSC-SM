@@ -54,7 +54,7 @@ static const struct sc_asn1_entry c_asn1_type_pin_attr[] = {
 
 /* Auth Key attributes */
 static const struct sc_asn1_entry c_asn1_authkey_attr[] = {
-	{ "derivedKey",	SC_ASN1_BOOLEAN, SC_ASN1_TAG_BOOLEAN, 0, NULL, NULL },
+	{ "derivedKey",	SC_ASN1_BOOLEAN, SC_ASN1_TAG_BOOLEAN, SC_ASN1_OPTIONAL, NULL, NULL },
 	{ "authKeyId",  SC_ASN1_PKCS15_ID, SC_ASN1_TAG_OCTET_STRING, 0, NULL, NULL },
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
@@ -183,6 +183,8 @@ int sc_pkcs15_decode_aodf_entry(struct sc_pkcs15_card *p15card,
 		obj->type = SC_PKCS15_TYPE_AUTH_AUTHKEY;
 		info.auth_type = SC_PKCS15_PIN_AUTH_TYPE_AUTH_KEY;
 		info.auth_method = SC_AC_AUT;
+		if (!(asn1_authkey_attr[0].flags & SC_ASN1_PRESENT))
+			info.attrs.authkey.derived = 1;
 	}
 	else   {
 		SC_TEST_RET(ctx, SC_LOG_DEBUG_NORMAL, SC_ERROR_NOT_SUPPORTED, "unknown authentication type");
