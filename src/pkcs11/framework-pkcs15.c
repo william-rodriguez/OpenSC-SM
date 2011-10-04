@@ -117,10 +117,22 @@ struct pkcs15_data_object {
 #define data_p15obj		base.p15_object
 #define is_data(obj) (__p15_type(obj) == SC_PKCS15_TYPE_DATA_OBJECT)
 
+struct pkcs15_skey_object {
+	struct pkcs15_any_object    base;
+
+	struct sc_pkcs15_skey_info *info;
+	struct sc_pkcs15_skey *valueXXXX;
+};
+
+#define skey_flags		base.base.flags
+#define skey_p15obj 	base.p15_object
+#define is_skey(obj) ((__p15_type(obj) & SC_PKCS15_TYPE_CLASS_MASK) == SC_PKCS15_TYPE_SKEY_OBJECT)
+
 extern struct sc_pkcs11_object_ops pkcs15_cert_ops;
 extern struct sc_pkcs11_object_ops pkcs15_prkey_ops;
 extern struct sc_pkcs11_object_ops pkcs15_pubkey_ops;
 extern struct sc_pkcs11_object_ops pkcs15_dobj_ops;
+extern struct sc_pkcs11_object_ops pkcs15_skey_ops;
 
 #define GOST_PARAMS_OID_SIZE 9
 static const struct {
@@ -554,6 +566,26 @@ __pkcs15_create_data_object(struct pkcs15_fw_data *fw_data,
 	
 	if (data_object != NULL)
 		*data_object = (struct pkcs15_any_object *) dobj;
+	
+	return 0;
+}
+
+static int
+__pkcs15_create_secret_key_object(struct pkcs15_fw_data *fw_data,
+		    struct sc_pkcs15_object *object, struct pkcs15_any_object **skey_object)
+{
+	struct pkcs15_skey_object *skey = NULL;
+	int rv;
+
+	rv = __pkcs15_create_object(fw_data, (struct pkcs15_any_object **) &skey,
+			object, &pkcs15_skey_ops,
+			sizeof(struct pkcs15_skey_object));
+	if (rv >= 0)   {
+	    skey->info = (struct sc_pkcs15_skey_info *) object->data;
+	}
+	
+	if (skey_object != NULL)
+		*skey_object = (struct pkcs15_any_object *) skey;
 	
 	return 0;
 }
@@ -1266,6 +1298,8 @@ static CK_RV pkcs15_logout(struct sc_pkcs11_card *p11card, void *fw_token)
 			ret = sc_to_cryptoki_error(rc, "C_Logout");
 	}
 
+	/* TODO DEE free any session objects ? */
+
 	return ret;
 }
 
@@ -1578,6 +1612,165 @@ static CK_RV pkcs15_create_private_key(struct sc_pkcs11_card *p11card,
 out:	return rv;
 }
 
+/* TODO Only Session secret key objects are supported for now 
+ * Sesison objects have CKA_TOKEN=false
+ * This is used by the C_DeriveKey with ECDH to hold the 
+ * key, and the calling application can then retrieve tha attributes as needed.
+ * TODO If a card can support  secret key objects on the card, this
+ * code will need to be expanded.
+ */
+
+static CK_RV pkcs15_create_secret_key(struct sc_pkcs11_card *p11card,
+		struct sc_pkcs11_slot *slot,
+		struct sc_profile *profile,
+		CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
+		CK_OBJECT_HANDLE_PTR phObject)
+{
+	struct pkcs15_fw_data *fw_data = (struct pkcs15_fw_data *) p11card->fw_data;
+	struct sc_pkcs15init_skeyargs args;
+	struct pkcs15_any_object *key_any_obj;
+	struct sc_pkcs15_object	*key_obj;
+	struct sc_pkcs15_skey_info *skey_info;
+	CK_KEY_TYPE		key_type;
+	int			rc, rv;
+	CK_BBOOL _token = FALSE;
+	char label[SC_PKCS15_MAX_LABEL_SIZE];
+
+	memset(&args, 0, sizeof(args));
+
+#if 0
+	/* See if the "slot" is pin protected. If so, get the
+	 * PIN id */
+	if ((pin = slot_data_auth_info(slot->fw_data)) != NULL)
+		args.auth_id = pin->auth_id;
+#endif
+
+	/* Get the key type */
+	rv = attr_find(pTemplate, ulCount, CKA_KEY_TYPE, &key_type, NULL);
+	if (rv != CKR_OK)
+		return rv;
+
+	/* CKA_TOKEN defaults to false */
+	attr_find(pTemplate, ulCount, CKA_TOKEN, &_token, NULL);
+
+	switch (key_type) {
+		/* Only support GENERIC_SECRET for now */
+		case CKK_GENERIC_SECRET:
+			break;
+		default:
+			return CKR_ATTRIBUTE_VALUE_INVALID;
+	}
+
+	while (ulCount--) {
+		 CK_ATTRIBUTE_PTR attr = pTemplate++;
+		sc_pkcs15_bignum_t *bn = NULL;
+
+		switch (attr->type) {
+		/* Skip attrs we already know or don't care for */
+		case CKA_CLASS:
+		case CKA_KEY_TYPE:
+		case CKA_MODULUS_BITS:
+		case CKA_PRIVATE:
+			break;
+		case CKA_LABEL:
+			args.label = set_cka_label(attr, label);
+			break;
+		case CKA_ID:
+			args.id.len = sizeof(args.id.value);
+			rv = attr_extract(attr, args.id.value, &args.id.len);
+			if (rv != CKR_OK)
+				goto out;
+			break;
+		case CKA_VALUE_LEN:
+			attr_extract(attr, &args.value_len, NULL);
+			break;
+		case CKA_VALUE:
+			if (attr->pValue) {
+			    args.data_value.value = calloc(1,attr->ulValueLen);
+			    if (!args.data_value.value)
+				return CKR_HOST_MEMORY;
+			    memcpy(args.data_value.value, attr->pValue, attr->ulValueLen);
+			    args.data_value.len = attr->ulValueLen;
+			}
+			break;
+		case CKA_DECRYPT:
+			args.usage |= pkcs15_check_bool_cka(attr, SC_PKCS15_PRKEY_USAGE_DECRYPT);
+			break;	
+		case CKA_ENCRYPT:
+			args.usage |= pkcs15_check_bool_cka(attr, SC_PKCS15_PRKEY_USAGE_ENCRYPT);
+			break;	
+		case CKA_WRAP:
+			args.usage |= pkcs15_check_bool_cka(attr, SC_PKCS15_PRKEY_USAGE_WRAP);
+			break;
+		case CKA_UNWRAP:
+			args.usage |= pkcs15_check_bool_cka(attr, SC_PKCS15_PRKEY_USAGE_UNWRAP);
+			break;
+		default:
+			/* ignore unknown attrs, or flag error? */
+			continue;
+		}
+	}
+
+	/* If creating a PKCS#11 session object, i.e. one that is only in memory */
+	if (_token == FALSE) {
+
+	    /* TODO Have 3 choices as to how to create the object. 
+	     * (1)create a sc_pkcs15init_store_secret_key routine like the others
+	     * (2)use the sc_pkcs15emu_ routines
+	     * (3)do it inline here (Will do this for now)
+	     */ 
+
+	    key_obj = calloc(1, sizeof(sc_pkcs15_object_t));
+	    if (key_obj == NULL) {
+		rv = CKR_HOST_MEMORY;
+		goto out;
+	    }
+	    key_obj->type = SC_PKCS15_TYPE_SKEY;
+
+	    if (args.id.len) {
+		memcpy(key_obj->label, args.id.value, args.id.len);
+	    }
+
+	    key_obj->flags = 2; /* TODO not sure what these mean */
+
+	    skey_info = calloc(1, sizeof(sc_pkcs15_skey_info_t));
+	    if (skey_info == NULL) {
+		rv = CKR_HOST_MEMORY;
+		goto out;
+	    }
+	    key_obj->data = skey_info;
+	    skey_info->usage = args.usage;
+	    skey_info->native = 0; /* card can not use this */
+	    skey_info->access_flags = 0; /* looks like not needed */
+	    skey_info->key_type = key_type; /* PKCS#11 CKK_* */
+	    skey_info->data.value = args.data_value.value;
+	    skey_info->data.len = args.data_value.len;
+	    skey_info->value_len = args.value_len; /* callers prefered length */
+	    
+	} else {
+#if 1 
+	    rv = CKR_FUNCTION_NOT_SUPPORTED;
+	    goto out;
+#else
+
+	/* TODO add support for secret key on the card with something like this: */
+
+	    rc = sc_pkcs15init_store_secret_key(fw_data->p15_card, profile, &args, &key_obj);
+	    if (rc < 0) {
+		    rv = sc_to_cryptoki_error(rc, "C_CreateObject");
+		    goto out;
+	    }
+#endif
+	}
+
+	/* Create a new pkcs11 object for it */
+	__pkcs15_create_secret_key_object(fw_data, key_obj, &key_any_obj);
+	pkcs15_add_object(slot, key_any_obj, phObject);
+
+	rv = CKR_OK;
+
+out:	return rv;
+}
 static CK_RV pkcs15_create_public_key(struct sc_pkcs11_card *p11card,
 		struct sc_pkcs11_slot *slot,
 		struct sc_profile *profile,
@@ -1843,11 +2036,32 @@ static CK_RV pkcs15_create_object(struct sc_pkcs11_card *p11card,
 {
 	struct sc_profile *profile = NULL;
 	CK_OBJECT_CLASS	_class;
+	CK_BBOOL _token = FALSE;
+
 	int rv, rc;
 
 	rv = attr_find(pTemplate, ulCount, CKA_CLASS, &_class, NULL);
 	if (rv != CKR_OK)
 		return rv;
+
+	rv = attr_find(pTemplate, ulCount, CKA_TOKEN, &_token, NULL);
+	if (rv == CKR_TEMPLATE_INCOMPLETE) { 
+	    /* TODO OpenSC has not checked CKA_TOKEN == TRUE, so only
+	     * so only enforce for secret_key
+	     */ 
+	    if (_class != CKO_SECRET_KEY) 
+		_token = TRUE; /* default if not in template */
+	 } else if (rv != CKR_OK)
+		return rv;
+
+	/* TODO The previous code does not check for CKA_TOKEN=TRUE
+	 * PKCS#11 CreatObject examples always have it, but
+	 * PKCS#11 says the default is false. 
+	 * for backward compatability, will default to TRUE
+	 */
+
+	/* Dont need profile id creating session only objects */
+	if (_token == TRUE) {
 
 	rc = sc_lock(p11card->card);
 	if (rc < 0)
@@ -1858,6 +2072,7 @@ static CK_RV pkcs15_create_object(struct sc_pkcs11_card *p11card,
 	if (rc < 0) {
 		sc_unlock(p11card->card);
 		return sc_to_cryptoki_error(rc, "C_CreateObject");
+	}
 	}
 
 	rc = sc_pkcs15init_finalize_profile(p11card->card, profile, NULL);
@@ -1883,12 +2098,18 @@ static CK_RV pkcs15_create_object(struct sc_pkcs11_card *p11card,
 		rv = pkcs15_create_data(p11card, slot, profile,
 				pTemplate, ulCount, phObject);
 		break;
+	case CKO_SECRET_KEY:
+		rv = pkcs15_create_secret_key(p11card, slot, profile,
+				pTemplate, ulCount, phObject);
+		break;
 	default:
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
 	}
 
-	sc_pkcs15init_unbind(profile);
-	sc_unlock(p11card->card);
+	if (_token == TRUE) {
+	    sc_pkcs15init_unbind(profile);
+	    sc_unlock(p11card->card);
+	}
 
 	return rv;
 }
@@ -2159,6 +2380,32 @@ kpgen_done:
 	return rv;
 }
 #endif
+static CK_RV pkcs15_skey_destroy(struct sc_pkcs11_session *session, void *object)
+{
+	struct pkcs15_data_object *obj = (struct pkcs15_data_object*) object;
+	struct pkcs15_any_object *any_obj = (struct pkcs15_any_object*) object;
+	struct sc_pkcs11_card *card = session->slot->card;
+	struct pkcs15_fw_data *fw_data = (struct pkcs15_fw_data *) card->fw_data;
+	int rv;
+
+	/* TODO assuming this is a session only object. */
+	rv = sc_lock(card->card);
+	if (rv < 0)
+		return sc_to_cryptoki_error(rv, "C_DestroyObject");
+
+	/* Oppose to pkcs15_add_object */
+	--any_obj->refcount; /* correct refcont */
+	list_delete(&session->slot->objects, any_obj);
+	/* Delete object in pkcs15 */
+	rv = __pkcs15_delete_object(fw_data, any_obj);
+
+	sc_unlock(card->card);
+
+	if (rv < 0)
+		return sc_to_cryptoki_error(rv, "C_DestroyObject");
+
+	return CKR_OK;
+}
 
 static CK_RV pkcs15_any_destroy(struct sc_pkcs11_session *session, void *object)
 {
@@ -2463,6 +2710,7 @@ struct sc_pkcs11_object_ops pkcs15_cert_ops = {
 	pkcs15_cert_get_attribute,
 	pkcs15_cert_cmp_attribute,
 	pkcs15_any_destroy,
+	NULL,
 	NULL,
 	NULL,
 	NULL,
@@ -2830,6 +3078,80 @@ pkcs15_prkey_decrypt(struct sc_pkcs11_session *ses, void *obj,
 	return CKR_OK;
 }
 
+static CK_RV
+pkcs15_prkey_derive(struct sc_pkcs11_session *ses, void *obj,
+		CK_MECHANISM_PTR pMechanism,
+		CK_BYTE_PTR pParameters, CK_ULONG ulParametersLen,
+		CK_BYTE_PTR pData, CK_ULONG_PTR pulDataLen)
+{
+	struct pkcs15_fw_data *fw_data = (struct pkcs15_fw_data *) ses->slot->card->fw_data;
+	struct pkcs15_prkey_object *prkey;
+	int	need_unlock = 0;
+	int	rv, flags = 0;
+	CK_BYTE_PTR pSeedData = NULL;
+	CK_ULONG ulSeedDataLen = 0;
+	
+	sc_debug(context, SC_LOG_DEBUG_NORMAL, "Initiating derivation\n");
+
+	prkey = (struct pkcs15_prkey_object *) obj;
+	
+	sc_debug(context, SC_LOG_DEBUG_NORMAL, "derivation %p %p %p %p %d %p %d\n", ses, obj, pMechanism, pParameters, ulParametersLen, pData, *pulDataLen);
+
+	/* See which of the alternative keys supports derivation */
+	while (prkey
+	 && !(prkey->prv_info->usage
+	     & SC_PKCS15_PRKEY_USAGE_DERIVE))
+		prkey = prkey->prv_next;
+
+	if (prkey == NULL)
+		return CKR_KEY_FUNCTION_NOT_PERMITTED;
+
+	if (pData != NULL && *pulDataLen > 0) { /* TODO DEE only test for NULL? */
+	    need_unlock = 1;
+	    rv = sc_lock(ses->slot->card->card);
+	    if (rv < 0)
+		    return sc_to_cryptoki_error(rv, "C_DeriveKey");
+
+	    if (!sc_pkcs11_conf.lock_login) {
+		    rv = reselect_app_df(fw_data->p15_card);
+		    if (rv < 0) {
+			sc_unlock(ses->slot->card->card);
+			return sc_to_cryptoki_error(rv, "C_DeriveKey");
+		    }
+	    }
+	}
+
+	/* TODO DEE This may not be the place to get the parameters,
+	 * But its the last PKCS11 aware routine.
+	 * RSA parameters would be null.
+	 */
+
+	switch (prkey->base.p15_object->type) {
+	    case SC_PKCS15_TYPE_PRKEY_EC:
+		{
+		    CK_ECDH1_DERIVE_PARAMS * ecdh_params = (CK_ECDH1_DERIVE_PARAMS *) pParameters;
+		    ulSeedDataLen = ecdh_params->ulPublicDataLen;
+		    pSeedData = ecdh_params->pPublicData;
+		}
+		break;
+	}
+	
+	rv = sc_pkcs15_derive(fw_data->p15_card, prkey->prv_p15obj,
+				 flags, pSeedData, ulSeedDataLen,
+				 pData, pulDataLen);
+	/* this may have been a request for size */
+
+	if (need_unlock) 
+	    sc_unlock(ses->slot->card->card);
+
+	sc_debug(context, SC_LOG_DEBUG_NORMAL, "Derivation complete. Result %d.\n", rv);
+
+	if (rv < 0)
+		return sc_to_cryptoki_error(rv, "C_DeriveKey");
+
+	return CKR_OK;
+}
+
 struct sc_pkcs11_object_ops pkcs15_prkey_ops = {
 	pkcs15_prkey_release,
 	pkcs15_prkey_set_attribute,
@@ -2839,7 +3161,8 @@ struct sc_pkcs11_object_ops pkcs15_prkey_ops = {
 	NULL,
 	pkcs15_prkey_sign,
 	NULL, /* unwrap */
-	pkcs15_prkey_decrypt
+	pkcs15_prkey_decrypt,
+	pkcs15_prkey_derive
 };
 
 /*
@@ -3020,6 +3343,7 @@ struct sc_pkcs11_object_ops pkcs15_pubkey_ops = {
 	NULL,
 	NULL,
 	NULL,
+	NULL,
 	NULL
 };
 
@@ -3161,8 +3485,175 @@ struct sc_pkcs11_object_ops pkcs15_dobj_ops = {
 	NULL,
 	NULL,
 	NULL,
+	NULL
 };
 
+/* PKCS#15 Secret Key Objects */
+/* TODO Currently only session objects */
+
+static void pkcs15_skey_release(void *object)
+{
+	__pkcs15_release_object((struct pkcs15_any_object *) object);
+}
+
+static CK_RV pkcs15_skey_set_attribute(struct sc_pkcs11_session *session,
+		void *object, CK_ATTRIBUTE_PTR attr)
+{
+	struct pkcs15_skey_object *skey = (struct pkcs15_skey_object*) object;
+
+	/* TODO DEE Assume a session based token, and only
+	 * change in memory, and only selected types 
+	 * The pkcs15_set_attrib assumes the object is on the card....
+	 * When skey support on the card is added this needs to be changed */
+
+	switch (attr->type) {
+	    case CKA_VALUE:
+		if (attr->pValue) {
+		    skey->info->data.value = calloc(1,attr->ulValueLen);
+		    if (!skey->info->data.value)
+			return CKR_HOST_MEMORY;
+		    memcpy(skey->info->data.value, attr->pValue, attr->ulValueLen);
+		    skey->info->data.len = attr->ulValueLen;
+		}
+		break;
+	    default:
+		return pkcs15_set_attrib(session, skey->base.p15_object, attr);
+	}
+	return CKR_OK;
+
+	return CKR_OK;
+}
+
+#if 0
+static int pkcs15_skey_get_value(struct sc_pkcs11_session *session,
+		struct pkcs15_skey_object *skey,
+		struct sc_pkcs15_skey **out_data)
+{
+	int rv;
+	struct sc_pkcs15_skey * skey_data = NULL;
+	struct pkcs15_fw_data *fw_data = 
+			(struct pkcs15_fw_data *) session->slot->card->fw_data;
+	sc_card_t *card = session->slot->card->card;
+
+	if (!out_data)
+		return SC_ERROR_INVALID_ARGUMENTS;
+
+	/*TODO could try and read extractable secret keys
+	 * but for now we only work with session objects 
+	 * derived from other keys 
+	 */  
+	skey_data= malloc(sizeof(struct sc_pkcs15_skey));
+	if (skey_data == NULL)
+		return SC_ERROR_OUT_OF_MEMORY;
+	memset(skey_data, 0, sizeof(struct sc_pkcs15_skey));
+
+	if (skey->value && skey->value->data_len) {
+		skey_data->data = malloc(skey_data->data_len);
+		if (skey_data->data == NULL) {
+			free(skey_data);
+			return SC_ERROR_OUT_OF_MEMORY;
+		}
+		skey_data->data_len = skey->value->data_len;
+		memcpy(skey_data->data, skey->value->data, skey->value->data_len);
+		return 0;
+	}
+	*out_data = skey_data;
+	return 0;
+}
+#endif
+
+
+static CK_RV pkcs15_skey_get_attribute(struct sc_pkcs11_session *session,
+				void *object,
+				CK_ATTRIBUTE_PTR attr)
+{
+	struct pkcs15_skey_object *skey = (struct pkcs15_skey_object*) object;
+	size_t len;
+	
+	switch (attr->type) {
+	case CKA_CLASS:
+		check_attribute_buffer(attr, sizeof(CK_OBJECT_CLASS));
+		*(CK_OBJECT_CLASS*)attr->pValue = CKO_SECRET_KEY;
+		break;
+	case CKA_TOKEN:
+		/*TODO DEE change if on card skeys are supported */
+		check_attribute_buffer(attr, sizeof(CK_BBOOL));
+		*(CK_BBOOL*)attr->pValue = FALSE;
+		break;
+	case CKA_PRIVATE:
+		check_attribute_buffer(attr, sizeof(CK_BBOOL));
+		*(CK_BBOOL*)attr->pValue =
+			(skey->base.p15_object->flags & SC_PKCS15_CO_FLAG_PRIVATE) != 0;
+		break;
+	case CKA_MODIFIABLE:
+		check_attribute_buffer(attr, sizeof(CK_BBOOL));
+		*(CK_BBOOL*)attr->pValue =
+			(skey->base.p15_object->flags & 0x02) != 0;
+		/*TODO Why no definition of the flag */
+		break;
+	case CKA_LABEL:
+		len = strlen(skey->base.p15_object->label);
+		check_attribute_buffer(attr, len);
+		memcpy(attr->pValue, skey->base.p15_object->label, len);
+		break;
+	case CKA_KEY_TYPE:
+		check_attribute_buffer(attr, sizeof(CK_KEY_TYPE));
+		if (skey->info)
+		    *(CK_OBJECT_CLASS*)attr->pValue = skey->info->key_type;
+		break;
+	case CKA_ENCRYPT:
+	case CKA_DECRYPT:
+	case CKA_SIGN:
+	case CKA_SIGN_RECOVER:
+	case CKA_WRAP:
+	case CKA_UNWRAP:
+	case CKA_VERIFY:
+	case CKA_VERIFY_RECOVER:
+	case CKA_DERIVE:
+		if (skey->info) 
+			return get_usage_bit(skey->info->usage, attr);
+		else 
+			return get_usage_bit(SC_PKCS15_PRKEY_USAGE_ENCRYPT
+					|SC_PKCS15_PRKEY_USAGE_DECRYPT
+					|SC_PKCS15_PRKEY_USAGE_WRAP
+					|SC_PKCS15_PRKEY_USAGE_UNWRAP, attr);
+		break;
+	case CKA_ID:
+		check_attribute_buffer(attr, skey->info->id.len);
+		memcpy(attr->pValue, skey->info->id.value, skey->info->id.len);
+		break;
+	case CKA_VALUE_LEN:
+		check_attribute_buffer(attr, sizeof(CK_ULONG));
+		*(CK_ULONG*)attr->pValue = skey->info->data.len;
+		break;
+	case CKA_VALUE:
+		check_attribute_buffer(attr, skey->info->data.len);
+		    memcpy(attr->pValue, skey->info->data.value, skey->info->data.len);
+		break;
+	default:
+		return CKR_ATTRIBUTE_TYPE_INVALID;
+	}
+	
+	return CKR_OK;
+}
+
+
+/*
+ *  Secret key objects, currently used only to retrieve derived session key 
+ */
+
+struct sc_pkcs11_object_ops pkcs15_skey_ops = {
+	pkcs15_skey_release,
+	pkcs15_skey_set_attribute,
+	pkcs15_skey_get_attribute,
+	sc_pkcs11_any_cmp_attribute,
+	pkcs15_skey_destroy,
+	NULL,
+	NULL, 
+	NULL, /* unwrap */
+	NULL,
+	NULL
+};
 
 /*
  * get_attribute helpers
@@ -3434,6 +3925,28 @@ static int register_ec_mechanisms(struct sc_pkcs11_card *p11card, int flags,
 	if (rc != CKR_OK)
 		return rc;
 #endif
+
+	/* ADD ECDH mechanisms */
+	/* The PIV uses curves where CKM_ECDH1_DERIVE and 
+	 * CKM_ECDH1_COFACTOR_DERIVE produce the same results */
+
+	mech_info.flags &= ~CKF_SIGN;
+	mech_info.flags |= CKF_DERIVE;
+
+	mt = sc_pkcs11_new_fw_mechanism(CKM_ECDH1_COFACTOR_DERIVE,
+		&mech_info, CKK_EC, NULL);
+
+	rc = sc_pkcs11_register_mechanism(p11card, mt);
+	if (rc != CKR_OK)
+	    return rc;
+
+	mt = sc_pkcs11_new_fw_mechanism(CKM_ECDH1_DERIVE,
+		&mech_info, CKK_EC, NULL);
+
+	rc = sc_pkcs11_register_mechanism(p11card, mt);
+	if (rc != CKR_OK)
+	    return rc;
+
 	if (flags & SC_ALGORITHM_ONBOARD_KEY_GEN) {
 		mech_info.flags = CKF_HW | CKF_GENERATE_KEY_PAIR;
 		mech_info.flags |= ec_flags;
@@ -3444,18 +3957,6 @@ static int register_ec_mechanisms(struct sc_pkcs11_card *p11card, int flags,
 		if (rc != CKR_OK)
 			return rc;
 	}	
-	
-
-#if 0
-/* TODO: -DEE Add CKM_ECDH1_COFACTOR_DERIVE  as PIV can do this */
-/* TODO: -DEE But this requires C_DeriveKey to be implemented */
-
-	mech_info.flags &= ~CKF_SIGN;
-	mech_info.flags |= CKF_DRIVE;
-
-	sc_pkcs11_new_fw_mechanism(CKM_ECDH1_COFACTOR_DERIVE,
-		CKM_ECDH1_COFACTOR_DERIVE, NULL);
-#endif
 
 	return CKR_OK;
 }

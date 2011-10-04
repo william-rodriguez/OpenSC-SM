@@ -80,23 +80,32 @@ static CK_RV get_object_from_session(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDL
 	*session = sess;
 	return CKR_OK;
 }
+		
+/* C_CreateObject can be called from C_DeriveKey 
+ * which is holding the sc_pkcs11_lock
+ * So dont get the lock again.
+ */
 
-CK_RV C_CreateObject(CK_SESSION_HANDLE hSession,	/* the session's handle */
+static
+CK_RV sc_create_object_int(CK_SESSION_HANDLE hSession,	/* the session's handle */
 		     CK_ATTRIBUTE_PTR pTemplate,	/* the object's template */
 		     CK_ULONG ulCount,	/* attributes in template */
-		     CK_OBJECT_HANDLE_PTR phObject)
-{				/* receives new object's handle. */
-	CK_RV rv;
+		     CK_OBJECT_HANDLE_PTR phObject, /* receives new object's handle. */
+		     int use_lock)
+{
+	CK_RV rv = CKR_OK;;
 	struct sc_pkcs11_session *session;
 	struct sc_pkcs11_card *card;
 
 	if (pTemplate == NULL_PTR || ulCount == 0)
 		return CKR_ARGUMENTS_BAD;
 
-	rv = sc_pkcs11_lock();
-	if (rv != CKR_OK)
+	if (use_lock) {
+	    rv = sc_pkcs11_lock();
+	    if (rv != CKR_OK)
 		return rv;
-	SC_FUNC_CALLED(context, SC_LOG_DEBUG_VERBOSE);
+	}
+	    SC_FUNC_CALLED(context, SC_LOG_DEBUG_VERBOSE);
 
 
 	dump_template(SC_LOG_DEBUG_NORMAL, "C_CreateObject()", pTemplate, ulCount);
@@ -107,10 +116,13 @@ CK_RV C_CreateObject(CK_SESSION_HANDLE hSession,	/* the session's handle */
 		goto out;
 	}
 
+#if 0
+/* TODO DEE what should we check here */
 	if (!(session->flags & CKF_RW_SESSION)) {
 		rv = CKR_SESSION_READ_ONLY;
 		goto out;
 	}
+#endif
 
 	card = session->slot->card;
 	if (card->framework->create_object == NULL)
@@ -119,10 +131,19 @@ CK_RV C_CreateObject(CK_SESSION_HANDLE hSession,	/* the session's handle */
 		rv = card->framework->create_object(card, session->slot,
 				pTemplate, ulCount, phObject);
 
-out:	sc_pkcs11_unlock();
+out:	if (use_lock)
+	    sc_pkcs11_unlock();
 	SC_FUNC_RETURN(context, SC_LOG_DEBUG_VERBOSE, rv);
 }
 
+CK_RV C_CreateObject(CK_SESSION_HANDLE hSession,	/* the session's handle */
+		     CK_ATTRIBUTE_PTR pTemplate,	/* the object's template */
+		     CK_ULONG ulCount,	/* attributes in template */
+		     CK_OBJECT_HANDLE_PTR phObject)
+{
+    return sc_create_object_int(hSession, pTemplate, ulCount, phObject, 1);
+}
+		
 CK_RV C_CopyObject(CK_SESSION_HANDLE hSession,	/* the session's handle */
 		   CK_OBJECT_HANDLE hObject,	/* the object's handle */
 		   CK_ATTRIBUTE_PTR pTemplate,	/* template for new object */
@@ -138,6 +159,9 @@ CK_RV C_DestroyObject(CK_SESSION_HANDLE hSession,	/* the session's handle */
 	CK_RV rv;
 	struct sc_pkcs11_session *session;
 	struct sc_pkcs11_object *object;
+	
+	CK_BBOOL is_token = FALSE;
+        CK_ATTRIBUTE token_attribure = {CKA_TOKEN, &is_token, sizeof(is_token)};
 
 	rv = sc_pkcs11_lock();
 	if (rv != CKR_OK)
@@ -149,6 +173,9 @@ CK_RV C_DestroyObject(CK_SESSION_HANDLE hSession,	/* the session's handle */
 	if (rv != CKR_OK)
 		goto out;
 
+        object->ops->get_attribute(session, object, &token_attribure);
+	
+	if (is_token == TRUE) 
 	if (!(session->flags & CKF_RW_SESSION)) {
 		rv = CKR_SESSION_READ_ONLY;
 		goto out;
@@ -1003,7 +1030,77 @@ CK_RV C_DeriveKey(CK_SESSION_HANDLE hSession,	/* the session's handle */
 		  CK_OBJECT_HANDLE_PTR phKey)
 {				/* gets handle of derived key */
 /* TODO: -DEE ECDH with Cofactor  on PIV is an example */ 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+/* TODO: need to do a lot of checking, will only support ECDH for now.
+*/ 
+
+	CK_RV rv;
+	CK_BBOOL can_derive;
+	CK_KEY_TYPE key_type;
+	CK_ATTRIBUTE derive_attribute = { CKA_DERIVE, &can_derive, sizeof(can_derive) };
+	CK_ATTRIBUTE key_type_attr = { CKA_KEY_TYPE, &key_type, sizeof(key_type) };
+	struct sc_pkcs11_session *session;
+	struct sc_pkcs11_object *object;
+	struct sc_pkcs11_object *key_object;
+
+	if (pMechanism == NULL_PTR)
+		return CKR_ARGUMENTS_BAD;
+
+	rv = sc_pkcs11_lock();
+	if (rv != CKR_OK)
+		return rv;
+
+	rv = get_object_from_session(hSession, hBaseKey, &session, &object);
+	if (rv != CKR_OK) {
+		if (rv == CKR_OBJECT_HANDLE_INVALID)
+			rv = CKR_KEY_HANDLE_INVALID;
+		goto out;
+	}
+
+	if (object->ops->derive == NULL_PTR) {
+		rv = CKR_KEY_TYPE_INCONSISTENT;
+		goto out;
+	}
+
+	rv = object->ops->get_attribute(session, object, &derive_attribute);
+	if (rv != CKR_OK || !can_derive) {
+		rv = CKR_KEY_TYPE_INCONSISTENT;
+		goto out;
+	}
+	rv = object->ops->get_attribute(session, object, &key_type_attr);
+	if (rv != CKR_OK) {
+		rv = CKR_KEY_TYPE_INCONSISTENT;
+		goto out;
+	}
+	/* TODO DEE Should also check SENSITIVE, ALWAYS_SENSITIVE, EXTRACTABLE,
+	   NEVER_EXTRACTABLE of the BaseKey against the template for the newkey. 
+	*/
+
+	switch(key_type) {
+	    case CKK_EC:
+
+		rv = sc_create_object_int(hSession, pTemplate, ulAttributeCount, phKey, 0);
+		if (rv != CKR_OK)
+		    goto out;
+
+		rv = get_object_from_session(hSession, *phKey, &session, &key_object);
+		if (rv != CKR_OK) {
+		if (rv == CKR_OBJECT_HANDLE_INVALID)
+			rv = CKR_KEY_HANDLE_INVALID;
+			goto out;
+		}
+
+		rv = sc_pkcs11_deri(session, pMechanism, object, key_type, 
+			hSession, *phKey, key_object);
+		/* TODO if (rv != CK_OK) need to destroy the object */
+
+		break;
+	    default:
+		rv = CKR_KEY_TYPE_INCONSISTENT;
+	}
+
+out:
+	sc_pkcs11_unlock();
+	return rv;
 }
 
 CK_RV C_SeedRandom(CK_SESSION_HANDLE hSession,	/* the session's handle */

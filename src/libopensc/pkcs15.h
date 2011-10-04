@@ -311,6 +311,18 @@ typedef struct sc_pkcs15_data_info sc_pkcs15_data_info_t;
 #define SC_PKCS15_PRKEY_USAGE_DERIVE		0x100
 #define SC_PKCS15_PRKEY_USAGE_NONREPUDIATION	0x200
 
+/* keyUsageFlags  are the same for all key types */
+#define SC_PKCS15_KEY_USAGE_ENCRYPT		0x01
+#define SC_PKCS15_KEY_USAGE_DECRYPT		0x02
+#define SC_PKCS15_KEY_USAGE_SIGN		0x04
+#define SC_PKCS15_KEY_USAGE_SIGNRECOVER		0x08
+#define SC_PKCS15_KEY_USAGE_WRAP		0x10
+#define SC_PKCS15_KEY_USAGE_UNWRAP		0x20
+#define SC_PKCS15_KEY_USAGE_VERIFY		0x40
+#define SC_PKCS15_KEY_USAGE_VERIFYRECOVER	0x80
+#define SC_PKCS15_KEY_USAGE_DERIVE		0x100
+#define SC_PKCS15_KEY_USAGE_NONREPUDIATION	0x200
+
 #define SC_PKCS15_PRKEY_ACCESS_SENSITIVE	0x01
 #define SC_PKCS15_PRKEY_ACCESS_EXTRACTABLE	0x02
 #define SC_PKCS15_PRKEY_ACCESS_ALWAYSSENSITIVE	0x04
@@ -395,12 +407,16 @@ struct sc_pkcs15_skey_info {
 	struct sc_pkcs15_id id;
 	unsigned int usage, access_flags;
 	int native, key_reference;
-	int size;
-	unsigned int type, algorithm;
-
-	struct sc_path path;
+	size_t value_len; 
+	unsigned long key_type;
+	int algo_refs[SC_MAX_SUPPORTED_ALGORITHMS];
+	struct sc_path path; /* if on card */
+	struct sc_pkcs15_der data;
 };
-typedef struct sc_pkcs15_secret_key_info sc_pkcs15_skey_info_t;
+typedef struct sc_pkcs15_skey_info sc_pkcs15_skey_info_t;
+
+#define sc_pkcs15_skey sc_pkcs15_data
+#define sc_pkcs15_skey_t sc_pkcs15_data_t
 
 #define SC_PKCS15_TYPE_CLASS_MASK		0xF00
 
@@ -417,9 +433,10 @@ typedef struct sc_pkcs15_secret_key_info sc_pkcs15_skey_info_t;
 #define SC_PKCS15_TYPE_PUBKEY_EC		0x204
 
 #define SC_PKCS15_TYPE_SKEY			0x300
-#define SC_PKCS15_TYPE_SKEY_DES			0x301
-#define SC_PKCS15_TYPE_SKEY_2DES		0x302
-#define SC_PKCS15_TYPE_SKEY_3DES		0x303
+#define SC_PKCS15_TYPE_SKEY_GENERIC		0x301
+#define SC_PKCS15_TYPE_SKEY_DES			0x302
+#define SC_PKCS15_TYPE_SKEY_2DES		0x303
+#define SC_PKCS15_TYPE_SKEY_3DES		0x304
 
 #define SC_PKCS15_TYPE_CERT			0x400
 #define SC_PKCS15_TYPE_CERT_X509		0x401
@@ -593,6 +610,11 @@ int sc_pkcs15_decipher(struct sc_pkcs15_card *p15card,
 		       const struct sc_pkcs15_object *prkey_obj,
 		       unsigned long flags,
 		       const u8 *in, size_t inlen, u8 *out, size_t outlen);
+
+int sc_pkcs15_derive(struct sc_pkcs15_card *p15card,
+		       const struct sc_pkcs15_object *prkey_obj,
+		       unsigned long flags,
+		       const u8 *in, size_t inlen, u8 *out, unsigned long *poutlen);
 
 int sc_pkcs15_compute_signature(struct sc_pkcs15_card *p15card,
 				const struct sc_pkcs15_object *prkey_obj,

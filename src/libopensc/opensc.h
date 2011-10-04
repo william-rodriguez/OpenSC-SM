@@ -47,6 +47,7 @@ extern "C" {
 #define SC_SEC_OPERATION_DECIPHER	0x0001
 #define SC_SEC_OPERATION_SIGN		0x0002
 #define SC_SEC_OPERATION_AUTHENTICATE	0x0003
+#define SC_SEC_OPERATION_DERIVE		0x0004
 
 /* sc_security_env flags */
 #define SC_SEC_ENV_ALG_REF_PRESENT	0x0001
@@ -117,6 +118,7 @@ extern "C" {
 /* Not clear if these need their own bits or not */
 /* The PIV card does not support and hashes */
 #define SC_ALGORITHM_ECDSA_RAW				0x00010000
+#define SC_ALGORITHM_ECDH_CDH_RAW           0x00020000
 #define SC_ALGORITHM_ECDSA_HASH_NONE		SC_ALGORITHM_RSA_HASH_NONE
 #define SC_ALGORITHM_ECDSA_HASH_SHA1		SC_ALGORITHM_RSA_HASH_SHA1
 #define SC_ALGORITHM_ECDSA_HASH_SHA224		SC_ALGORITHM_RSA_HASH_SHA224

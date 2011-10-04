@@ -21,8 +21,6 @@
 #ifndef _OPENSC_CARDS_H
 #define _OPENSC_CARDS_H
 
-#include "libopensc/types.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -32,9 +30,6 @@ enum {
 	SC_CARD_TYPE_UNKNOWN = -1,
 	SC_CARD_TYPE_GENERIC_BASE = 0,
 	SC_CARD_TYPE_GENERIC,
-
-	/* Cards without registered type, yet */
-	SC_CARD_TYPE_TEST_BASE = 500,
 
 	/* cardos driver */
 	SC_CARD_TYPE_CARDOS_BASE = 1000,

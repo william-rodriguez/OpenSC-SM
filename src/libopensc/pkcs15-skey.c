@@ -97,7 +97,7 @@ int sc_pkcs15_decode_skdf_entry(struct sc_pkcs15_card *p15card,
 	sc_format_asn1_entry(asn1_com_key_attr + 3, &info.access_flags, &af_len, 0);
 	sc_format_asn1_entry(asn1_com_key_attr + 4, &info.key_reference, NULL, 0);
 
-	sc_format_asn1_entry(asn1_com_skey_attr + 0, &info.size, NULL, 0);
+	sc_format_asn1_entry(asn1_com_skey_attr + 0, &info.value_len, NULL, 0);
 
 	sc_format_asn1_entry(asn1_generic_skey_attr + 0, &info.path, NULL, 0);
 

@@ -727,7 +727,7 @@ static void print_skey_info(const struct sc_pkcs15_object *obj)
 
 	print_access_rules(obj->access_rules, SC_PKCS15_MAX_ACCESS_RULES);
 
-	printf("\tSize           : %lu bits\n", (unsigned long)skey->size);
+	printf("\tSize           : %lu bits\n", (unsigned long)skey->value_len);
 	printf("\tID             : %s\n", sc_pkcs15_print_id(&skey->id));
 	printf("\tNative         : %s\n", skey->native ? "yes" : "no");
 	printf("\tKey ref        : %d (0x%X)\n", skey->key_reference, skey->key_reference);
