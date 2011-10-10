@@ -271,7 +271,7 @@ int main(int argc, char * const argv[])
 
 		r = sc_pkcs15_bind(card, &aid, &p15card);
 	}
-	else   {
+	else   if (!do_list_sdos && !do_list_apps) {
 		r = sc_pkcs15_bind(card, NULL, &p15card);
 	}
 
