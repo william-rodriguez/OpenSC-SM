@@ -79,6 +79,7 @@ typedef int	(*pkcs15_encoder)(sc_context_t *,
 static int	open_reader_and_card(char *);
 static int	do_assert_pristine(sc_card_t *);
 static int	do_erase(sc_card_t *, struct sc_profile *);
+static int	do_erase_application(sc_card_t *, struct sc_profile *);
 static int	do_delete_objects(struct sc_profile *, unsigned int myopt_delete_flags);
 static int	do_change_attributes(struct sc_profile *, unsigned int myopt_type);
 static int	do_init_app(struct sc_profile *);
@@ -134,6 +135,7 @@ enum {
 	OPT_SANITY_CHECK,
 	OPT_BIND_TO_AID,
 	OPT_UPDATE_LAST_UPDATE,
+	OPT_ERASE_APPLICATION,
 
 	OPT_PIN1     = 0x10000,	/* don't touch these values */
 	OPT_PUK1     = 0x10001,
@@ -157,6 +159,7 @@ const struct option	options[] = {
 	{ "delete-objects",	required_argument, NULL,	'D' },
 	{ "change-attributes",	required_argument, NULL,	'A' },
 	{ "sanity-check",	no_argument, NULL,		OPT_SANITY_CHECK},
+	{ "erase-application",	required_argument, NULL,	OPT_ERASE_APPLICATION},
 
 	{ "reader",		required_argument, NULL,	'r' },
 	{ "pin",		required_argument, NULL,	OPT_PIN1 },
@@ -215,6 +218,7 @@ static const char *		option_help[] = {
 	"Delete object(s) (use \"help\" for more information)",
 	"Change attribute(s) (use \"help\" for more information)",
 	"Card specific sanity check and possibly update procedure",
+	"Erase application with AID <arg>",
 
 	"Specify which reader to use",
 	"Specify PIN",
@@ -275,6 +279,7 @@ enum {
 	ACTION_CHANGE_ATTRIBUTES,
 	ACTION_SANITY_CHECK,
 	ACTION_UPDATE_LAST_UPDATE,
+	ACTION_ERASE_APPLICATION,
 
 	ACTION_MAX
 };
@@ -551,6 +556,9 @@ main(int argc, char **argv)
 		case ACTION_UPDATE_LAST_UPDATE:
 			profile->dirty = 1;
 			break;
+		case ACTION_ERASE_APPLICATION:
+			r = do_erase_application(card, profile);
+			break;
 		default:
 			util_fatal("Action not yet implemented\n");
 		}
@@ -676,6 +684,18 @@ do_erase(sc_card_t *in_card, struct sc_profile *profile)
 	sc_pkcs15_card_free(p15card);
 	return r;
 }
+
+static int
+do_erase_application(sc_card_t *in_card, struct sc_profile *profile)
+{
+	int r;
+
+	ignore_cmdline_pins--;
+	r = do_erase(in_card, profile);
+	ignore_cmdline_pins++;
+	return r;
+}
+
 
 static int do_finalize_card(sc_card_t *in_card, struct sc_profile *profile)
 {
@@ -2441,6 +2461,10 @@ handle_option(const struct option *opt)
 		break;
 	case OPT_UPDATE_LAST_UPDATE:
 		this_action = ACTION_UPDATE_LAST_UPDATE;
+		break;
+	case OPT_ERASE_APPLICATION:
+		opt_bind_to_aid = optarg;
+		this_action = ACTION_ERASE_APPLICATION;
 		break;
 	default:
 		util_print_usage_and_die(app_name, options, option_help);
