@@ -113,6 +113,8 @@ static int iasecc_pin_is_verified(struct sc_card *card, struct sc_pin_cmd_data *
 static int iasecc_get_free_reference(struct sc_card *card, struct iasecc_ctl_get_free_reference *ctl_data);
 static int iasecc_sdo_put_data(struct sc_card *card, struct iasecc_sdo_update *update);
 
+static int _iasecc_sm_read_binary(struct sc_card *card, unsigned int offs, unsigned char *buf, size_t count);
+static int _iasecc_sm_update_binary(struct sc_card *card, unsigned int offs, const unsigned char *buff, size_t count);
 
 static int 
 iasecc_chv_cache_verified(struct sc_card *card, struct sc_pin_cmd_data *pin_cmd)
@@ -562,7 +564,7 @@ iasecc_init(struct sc_card *card)
 {
 	struct sc_context *ctx = card->ctx;
 	struct iasecc_private_data *private_data = NULL;
-	int ii, rv = SC_ERROR_NO_CARD_SUPPORT;
+	int rv = SC_ERROR_NO_CARD_SUPPORT;
 
 	LOG_FUNC_CALLED(ctx);
 	private_data = (struct iasecc_private_data *) calloc(1, sizeof(struct iasecc_private_data));
@@ -600,6 +602,11 @@ iasecc_init(struct sc_card *card)
 
 		rv = iasecc_get_serialnr(card, NULL);
 	}
+
+#ifdef ENABLE_SM
+	card->sm_ctx.ops.read_binary = _iasecc_sm_read_binary;
+	card->sm_ctx.ops.update_binary = _iasecc_sm_update_binary;
+#endif
 
 	if (!rv)
 		sc_log(ctx, "EF.ATR(aid:'%s')", sc_dump_hex(card->ef_atr->aid.value, card->ef_atr->aid.len));
@@ -690,6 +697,70 @@ iasecc_erase_binary(struct sc_card *card, unsigned int offs, size_t count, unsig
 	LOG_FUNC_RETURN(ctx, rv);
 }
 
+
+static int 
+_iasecc_sm_read_binary(struct sc_card *card, unsigned int offs, 
+		unsigned char *buf, size_t count)
+{
+	struct sc_context *ctx = card->ctx;
+	const struct sc_acl_entry *entry = NULL;
+	int rv;
+
+	LOG_FUNC_CALLED(ctx);
+	sc_log(ctx, "iasecc_sm_read_binary() card:%p offs:%i count:%i ", card, offs, count);
+	if (offs > 0x7fff)
+		LOG_TEST_RET(ctx, SC_ERROR_OFFSET_TOO_LARGE, "Invalid arguments");
+
+	if (count == 0)
+		return 0;
+
+	sc_print_cache(card);
+
+	if (card->cache.valid && card->cache.current_ef)   {
+		entry = sc_file_get_acl_entry(card->cache.current_ef, SC_AC_OP_READ);
+		sc_log(ctx, "READ method/reference %X/%X", entry->method, entry->key_ref);
+
+		if (entry->method == SC_AC_SCB && (entry->key_ref & IASECC_SCB_METHOD_SM))   {
+			unsigned char ref = entry->method == SC_AC_SCB ? entry->key_ref & IASECC_SCB_METHOD_MASK_REF : 0;
+
+			//rv = sm_read_binary(card, ref, offs, count ? count : card->cache.current_ef->size, buf, count);
+			LOG_FUNC_RETURN(ctx, rv);
+		}
+	}
+
+	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
+}
+
+
+static int
+_iasecc_sm_update_binary(struct sc_card *card, unsigned int offs,
+		const unsigned char *buff, size_t count)
+{
+	struct sc_context *ctx = card->ctx;
+	const struct sc_acl_entry *entry = NULL;
+	int rv;
+	
+	if (count == 0)
+		return SC_SUCCESS;
+
+	LOG_FUNC_CALLED(ctx);
+	sc_log(ctx, "iasecc_sm_read_binary() card:%p offs:%i count:%i ", card, offs, count);
+	sc_print_cache(card);
+
+	if (card->cache.valid && card->cache.current_ef)   {
+		entry = sc_file_get_acl_entry(card->cache.current_ef, SC_AC_OP_UPDATE);
+		sc_log(ctx, "UPDATE method/reference %X/%X", entry->method, entry->key_ref);
+
+		if (entry->method == SC_AC_SCB && (entry->key_ref & IASECC_SCB_METHOD_SM))   {
+			unsigned char se_num = entry->method == SC_AC_SCB ? entry->key_ref & IASECC_SCB_METHOD_MASK_REF : 0;
+
+			rv = iasecc_sm_update_binary(card, se_num, offs, buff, count);
+			LOG_FUNC_RETURN(ctx, rv);
+		}
+	}
+
+	LOG_FUNC_RETURN(ctx, 0);
+}
 
 static int
 iasecc_emulate_fcp(struct sc_context *ctx, struct sc_apdu *apdu)
@@ -1194,8 +1265,14 @@ iasecc_create_file(struct sc_card *card, struct sc_file *file)
 		entry = sc_file_get_acl_entry(card->cache.current_df, SC_AC_OP_CREATE);
 		sc_log(ctx, "iasecc_create_file() 'CREATE' method/reference %X/%X", entry->method, entry->key_ref);
 		sc_log(ctx, "iasecc_create_file() create data: '%s'", sc_dump_hex(sbuf, sbuf_len + 2));
-		if (entry->method == SC_AC_SCB && (entry->key_ref & IASECC_SCB_METHOD_SM))
-			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Not yet");
+		if (entry->method == SC_AC_SCB && (entry->key_ref & IASECC_SCB_METHOD_SM))   {
+                        rv = iasecc_sm_create_file(card, entry->key_ref & IASECC_SCB_METHOD_MASK_REF, sbuf, sbuf_len + 2);
+                        LOG_TEST_RET(ctx, rv, "iasecc_create_file() SM create file error");
+
+                        rv = iasecc_select_file(card, &file->path, NULL);
+                        LOG_FUNC_RETURN(ctx, rv);
+
+		}
 	}
 
 	sc_format_apdu(card, &apdu, SC_APDU_CASE_3_SHORT, 0xE0, 0, 0);
@@ -1418,7 +1495,7 @@ iasecc_se_get_info_from_cache(struct sc_card *card, struct iasecc_se_info *se)
 }
 
 
-static int
+int
 iasecc_se_get_info(struct sc_card *card, struct iasecc_se_info *se)
 {
 	struct sc_context *ctx = card->ctx;
@@ -2550,8 +2627,10 @@ iasecc_sdo_key_rsa_put_data(struct sc_card *card, struct iasecc_sdo_rsa_update *
 			if (scb & IASECC_SCB_METHOD_EXT_AUTH)
 				LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Not yet");
 
-			if (scb & IASECC_SCB_METHOD_SM)
-				LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Not yet");
+			if (scb & IASECC_SCB_METHOD_SM)   {
+				rv = iasecc_sm_rsa_update(card, scb & IASECC_SCB_METHOD_MASK_REF, update);
+				LOG_FUNC_RETURN(ctx, rv);
+			}
 		} while(0);
 
 		rv = iasecc_sdo_put_data(card, &update->update_prv);
@@ -2684,16 +2763,17 @@ iasecc_sdo_generate(struct sc_card *card, struct iasecc_sdo *sdo)
 	do   {
 		unsigned all_conditions = scb & IASECC_SCB_METHOD_NEED_ALL ? 1 : 0;
 	
-		if (scb & IASECC_SCB_METHOD_USER_AUTH)   {
+		if (scb & IASECC_SCB_METHOD_USER_AUTH)
 			if (!all_conditions)
 				break;
-		}
 
 		if (scb & IASECC_SCB_METHOD_EXT_AUTH)
 			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Not yet");
 
-		if (scb & IASECC_SCB_METHOD_SM)
-			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Not yet");
+		if (scb & IASECC_SCB_METHOD_SM)   {
+			rv = iasecc_sm_rsa_generate(card, scb & IASECC_SCB_METHOD_MASK_REF, sdo);
+                        LOG_FUNC_RETURN(ctx, rv);
+		}
 	} while(0);
 
 	memset(&update_pubkey, 0, sizeof(update_pubkey));
