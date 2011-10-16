@@ -93,7 +93,7 @@ CK_RV sc_create_object_int(CK_SESSION_HANDLE hSession,	/* the session's handle *
 		     CK_OBJECT_HANDLE_PTR phObject, /* receives new object's handle. */
 		     int use_lock)
 {
-	CK_RV rv = CKR_OK;;
+	CK_RV rv = CKR_OK;
 	struct sc_pkcs11_session *session;
 	struct sc_pkcs11_card *card;
 
