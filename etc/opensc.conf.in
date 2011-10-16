@@ -265,13 +265,13 @@ app default {
 	}
 	
 	# IAS/ECC cards
-	#card_atr 3B:7F:96:00:00:00:31:B9:64:40:70:14:10:73:94:01:80:82:90:00 {
-        #        type = 25001;
-        #        driver = "iasecc";
-        #        name = "Gemalto MultiApp IAS/ECC v1.0.1";
-        #        # secure_messaging = local_gemalto_iam;
+	card_atr 3B:7F:96:00:00:00:31:B9:64:40:70:14:10:73:94:01:80:82:90:00 {
+                type = 25001;
+                driver = "iasecc";
+                name = "Gemalto MultiApp IAS/ECC v1.0.1";
+                secure_messaging = local_gemalto_iam;
         #        # secure_messaging = local_adele;
-        #}
+        }
         #card_atr 3B:DD:18:00:81:31:FE:45:80:F9:A0:00:00:00:77:01:08:00:07:90:00:FE {
         #        type = 25002;
         #        driver = "iasecc";
@@ -316,6 +316,23 @@ app default {
 		# kmc = "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00";
 	}
 
+        secure_messaging local_gemalto_iam  {
+                module = /home/vtarasov/projects/sc/github/OpenSC/build/lib/libsmm-local.so;
+                module_data = "Here can be your SM module init data";
+                type = acl;             # transmit, acl
+
+                ifd_serial = "11:22:33:44:55:66:77:88";
+
+                # Keyset values from IAM profiles of the Gemalto IAS/ECC cards
+                keyset_02_enc = "RW_PRIV_ENC_TEST";
+                keyset_02_mac = "RW_PRIV_MAC_TEST";
+
+                keyset_E828BD080FD2504543432D654944_01_enc = "RO_ENC_TEST_KEY_";
+                keyset_E828BD080FD2504543432D654944_01_mac = "RO_MAC_TEST_KEY_";
+
+                keyset_E828BD080FD2504543432D654944_03_enc = "RW_PUBL_ENC_TEST";
+                keyset_E828BD080FD2504543432D654944_03_mac = "RW_PUBL_MAC_TEST";
+        }
 
 	secure_messaging local_amos  {
 		module = /home/vtarasov/projects/sc/github/OpenSC/build/lib/libsmm-local.so;
