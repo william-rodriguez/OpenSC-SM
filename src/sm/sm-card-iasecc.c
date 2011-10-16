@@ -72,43 +72,48 @@ static const struct sc_asn1_entry c_asn1_iasecc_sm_data_object[4] = {
 };
 
 
-#if 0
 static int
-sm_iasecc_get_apdu_read_binary(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_apdu **rapdus)
+sm_iasecc_get_apdu_read_binary(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata)
 {
-	struct sm_info_read_binary *rb = &sm_info->cmd_params.read_binary;
-	size_t offs = rb->offset, size = rb->size;
-	int rv = SC_ERROR_INVALID_ARGUMENTS;
+	struct iasecc_sm_cmd_update_binary *cmd_data = (struct iasecc_sm_cmd_update_binary *)sm_info->cmd_data;
+	size_t offs, data_offs = 0;
+	int rv = 0;
 
 	LOG_FUNC_CALLED(ctx);
-	while (size)   {
-		int sz = size > SM_MAX_DATA_SIZE ? SM_MAX_DATA_SIZE : size;
+	if (!cmd_data || !cmd_data->data)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+
+        if (!rdata || !rdata->alloc)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+
+	sc_log(ctx, "SM get 'READ BINARY' APDUs: offset:%i,size:%i", cmd_data->offs, cmd_data->count);
+	offs = cmd_data->offs;
+	while (cmd_data->count > data_offs)   {
+		int sz = (cmd_data->count - data_offs) > SM_MAX_DATA_SIZE ? SM_MAX_DATA_SIZE : (cmd_data->count - data_offs);
 		struct sc_remote_apdu *rapdu = NULL;
 
-		sc_log(ctx, "SM get 'READ BINARY' APDUs: offset:%i,size:%i", offs, size);
-		rv = sc_remote_apdu_allocate(rapdus, &rapdu);
-		LOG_TEST_RET(ctx, rv, "SM get 'READ BINARY' APDUs: cannot allocate remote apdu");
+ 		rv = rdata->alloc(rdata, &rapdu);
+	        LOG_TEST_RET(ctx, rv, "SM get 'READ BINARY' APDUs: cannot allocate remote APDU");
 
 		rapdu->apdu.cse = SC_APDU_CASE_2_SHORT;
 		rapdu->apdu.cla = 0x00;
 		rapdu->apdu.ins = 0xB0;
-		rapdu->apdu.p1 = (offs>>8)&0xFF;
-		rapdu->apdu.p2 = offs&0xFF;
+		rapdu->apdu.p1 = (offs >> 8) & 0xFF;
+		rapdu->apdu.p2 = offs & 0xFF;
 		rapdu->apdu.resplen = sz;
 		rapdu->apdu.le = sz;
 
-		rv = sm_iasecc_securize_apdu(ctx, sm_info, rapdu);
-		LOG_TEST_RET(ctx, rv, "SM get 'READ BINARY' APDUs: securize error");
+		rv = sm_cwa_securize_apdu(ctx, sm_info, rapdu);
+		LOG_TEST_RET(ctx, rv, "SM get 'UPDATE BINARY' APDUs: securize APDU error");
 
-		rapdu->get_response = 1;
+		rapdu->flags |= SC_REMOTE_APDU_FLAG_RETURN_ANSWER;
 
 		offs += sz;
-		size -= sz;
+		data_offs += sz;
 	}
 			
 	LOG_FUNC_RETURN(ctx, rv);
 }
-#endif
 
 
 static int
@@ -565,12 +570,10 @@ sm_iasecc_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
 	sc_log(ctx, "SSC   %s", sc_dump_hex(session_data->ssc, sizeof(session_data->ssc)));
 
 	switch (sm_info->cmd)  {
-#if 0
 	case SM_CMD_FILE_READ:
-		rv = sm_iasecc_get_apdu_read_binary(ctx, sm_info, &rapdus);
+		rv = sm_iasecc_get_apdu_read_binary(ctx, sm_info, rdata);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'READ BINARY' failed");
 		break;
-#endif
 	case SM_CMD_FILE_UPDATE:
 		rv = sm_iasecc_get_apdu_update_binary(ctx, sm_info, rdata);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'UPDATE BINARY' failed");

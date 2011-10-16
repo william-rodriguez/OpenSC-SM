@@ -700,7 +700,7 @@ iasecc_erase_binary(struct sc_card *card, unsigned int offs, size_t count, unsig
 
 static int 
 _iasecc_sm_read_binary(struct sc_card *card, unsigned int offs, 
-		unsigned char *buf, size_t count)
+		unsigned char *buff, size_t count)
 {
 	struct sc_context *ctx = card->ctx;
 	const struct sc_acl_entry *entry = NULL;
@@ -720,10 +720,10 @@ _iasecc_sm_read_binary(struct sc_card *card, unsigned int offs,
 		entry = sc_file_get_acl_entry(card->cache.current_ef, SC_AC_OP_READ);
 		sc_log(ctx, "READ method/reference %X/%X", entry->method, entry->key_ref);
 
-		if (entry->method == SC_AC_SCB && (entry->key_ref & IASECC_SCB_METHOD_SM))   {
-			unsigned char ref = entry->method == SC_AC_SCB ? entry->key_ref & IASECC_SCB_METHOD_MASK_REF : 0;
+		if ((entry->method == SC_AC_SCB) && (entry->key_ref & IASECC_SCB_METHOD_SM))   {
+			unsigned char se_num = (entry->method == SC_AC_SCB) ? (entry->key_ref & IASECC_SCB_METHOD_MASK_REF) : 0;
 
-			//rv = sm_read_binary(card, ref, offs, count ? count : card->cache.current_ef->size, buf, count);
+			rv = iasecc_sm_read_binary(card, se_num, offs, buff, count);
 			LOG_FUNC_RETURN(ctx, rv);
 		}
 	}

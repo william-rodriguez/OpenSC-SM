@@ -326,7 +326,7 @@ iasecc_sm_initialize(struct sc_card *card, unsigned se_num, unsigned cmd)
 
 
 static int 
-iasecc_sm_cmd(struct sc_card *card, unsigned char *out, size_t len)
+iasecc_sm_cmd(struct sc_card *card, unsigned char *out, size_t *len)
 {
 #define AUTH_SM_APDUS_MAX 12
 #define ENCODED_APDUS_MAX_LENGTH (AUTH_SM_APDUS_MAX * (SC_MAX_APDU_BUFFER_SIZE * 2 + 64) + 32)
@@ -551,13 +551,34 @@ iasecc_sm_create_file(struct sc_card *card, unsigned se_num, unsigned char *fcp,
 #endif
 }
 
-
-#if 0
 int 
-sm_read_binary(struct sc_card *card, unsigned acl, size_t offs, size_t size, 
-		unsigned char *buff, size_t buff_len)
+iasecc_sm_read_binary(struct sc_card *card, unsigned se_num, size_t offs, unsigned char *buff, size_t count)
 {
 	struct sc_context *ctx = card->ctx;
+#ifdef ENABLE_SM
+	struct sm_info *sm_info = &card->sm_ctx.info;
+	struct sc_remote_data rdata;
+	struct iasecc_sm_cmd_update_binary cmd_data;
+	unsigned char tbuf[SC_MAX_APDU_BUFFER_SIZE*4];
+	size_t tbuf_len = sizeof(tbuf);
+	int rv;
+
+	LOG_FUNC_CALLED(ctx);
+	sc_log(ctx, "SM read binary: acl:%X, offs:%i, count:%i", se_num, offs, count);
+
+	rv = iasecc_sm_initialize(card, se_num, SM_CMD_FILE_READ);
+        LOG_TEST_RET(ctx, rv, "iasecc_sm_read_binary() SM INITIALIZE failed");
+
+	cmd_data.offs = offs;
+	cmd_data.count = count;
+	//cmd_data.data = buff;
+	sm_info->cmd_data = &cmd_data;
+
+	rv = iasecc_sm_cmd(card, tbuf, &tbuf_len);
+        LOG_TEST_RET(ctx, rv, "iasecc_sm_read_binary() SM 'READ BINARY' failed");
+
+	LOG_FUNC_RETURN(ctx, count);
+#if 0
 	struct sm_info sm_info;
 	unsigned char mbuf[SC_MAX_APDU_BUFFER_SIZE*4], tbuf[SC_MAX_APDU_BUFFER_SIZE*3], *rbuf;
 	size_t mbuf_len = sizeof(mbuf), tbuf_len = sizeof(tbuf), rbuf_len;
@@ -604,8 +625,12 @@ sm_read_binary(struct sc_card *card, unsigned acl, size_t offs, size_t size,
 		LOG_FUNC_RETURN(ctx, rvv);
 	
 	LOG_FUNC_RETURN(ctx, size);
-}
 #endif
+#else
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+	return SC_ERROR_NOT_SUPPORTED;
+#endif
+}
 
 
 int 
@@ -625,7 +650,7 @@ iasecc_sm_update_binary(struct sc_card *card, unsigned se_num, size_t offs,
 	sc_log(ctx, "SM update binary: acl:%X, offs:%i, count:%i", se_num, offs, count);
 
 	rv = iasecc_sm_initialize(card, se_num, SM_CMD_FILE_UPDATE);
-        LOG_TEST_RET(ctx, rv, "iasecc_sm_rsa_update() SM INITIALIZE failed");
+        LOG_TEST_RET(ctx, rv, "iasecc_sm_update_binary() SM INITIALIZE failed");
 
 	cmd_data.offs = offs;
 	cmd_data.count = count;
@@ -633,7 +658,7 @@ iasecc_sm_update_binary(struct sc_card *card, unsigned se_num, size_t offs,
 	sm_info->cmd_data = &cmd_data;
 
 	rv = iasecc_sm_cmd(card, tbuf, &tbuf_len);
-        LOG_TEST_RET(ctx, rv, "iasecc_sm_rsa_update() SM 'UPDATE BINARY' failed");
+        LOG_TEST_RET(ctx, rv, "iasecc_sm_update_binary() SM 'UPDATE BINARY' failed");
 
 	LOG_FUNC_RETURN(ctx, count);
 #else
