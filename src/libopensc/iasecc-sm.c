@@ -179,7 +179,7 @@ iasecc_sm_external_authentication(struct sc_card *card, unsigned skey_ref, int *
 
 	LOG_FUNC_RETURN(ctx, rv);
 #else
-	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "builded without support of SM and External Authentication");
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of SM and External Authentication");
 #endif
 }
 
@@ -232,7 +232,7 @@ iasecc_sm_se_mutual_authentication(struct sc_card *card, unsigned se_num)
 
 	LOG_FUNC_RETURN(ctx, rv);
 #else
-	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "builded without support of Secure-Messaging");
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
 #endif
 }
 
@@ -386,7 +386,7 @@ iasecc_sm_rsa_generate(struct sc_card *card, unsigned se_num, struct iasecc_sdo 
 
 	LOG_FUNC_RETURN(ctx, rv);
 #else
-	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "builded without support of Secure-Messaging");
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
 #endif
 }
 
@@ -416,7 +416,7 @@ iasecc_sm_rsa_update(struct sc_card *card, unsigned se_num, struct iasecc_sdo_rs
 
 	LOG_FUNC_RETURN(ctx, rv);
 #else
-	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "builded without support of Secure-Messaging");
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
 #endif
 }
 

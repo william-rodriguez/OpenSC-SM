@@ -1266,9 +1266,12 @@ iasecc_create_file(struct sc_card *card, struct sc_file *file)
 		sc_log(ctx, "iasecc_create_file() 'CREATE' method/reference %X/%X", entry->method, entry->key_ref);
 		sc_log(ctx, "iasecc_create_file() create data: '%s'", sc_dump_hex(sbuf, sbuf_len + 2));
 		if (entry->method == SC_AC_SCB && (entry->key_ref & IASECC_SCB_METHOD_SM))   {
+#ifdef ENABLE_SM 			
                         rv = iasecc_sm_create_file(card, entry->key_ref & IASECC_SCB_METHOD_MASK_REF, sbuf, sbuf_len + 2);
                         LOG_TEST_RET(ctx, rv, "iasecc_create_file() SM create file error");
-
+#else
+			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+#endif
                         rv = iasecc_select_file(card, &file->path, NULL);
                         LOG_FUNC_RETURN(ctx, rv);
 
@@ -2628,8 +2631,12 @@ iasecc_sdo_key_rsa_put_data(struct sc_card *card, struct iasecc_sdo_rsa_update *
 				LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Not yet");
 
 			if (scb & IASECC_SCB_METHOD_SM)   {
+#ifdef ENABLE_SM 			
 				rv = iasecc_sm_rsa_update(card, scb & IASECC_SCB_METHOD_MASK_REF, update);
 				LOG_FUNC_RETURN(ctx, rv);
+#else
+				LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+#endif
 			}
 		} while(0);
 
@@ -2771,8 +2778,12 @@ iasecc_sdo_generate(struct sc_card *card, struct iasecc_sdo *sdo)
 			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Not yet");
 
 		if (scb & IASECC_SCB_METHOD_SM)   {
+#ifdef ENABLE_SM 			
 			rv = iasecc_sm_rsa_generate(card, scb & IASECC_SCB_METHOD_MASK_REF, sdo);
                         LOG_FUNC_RETURN(ctx, rv);
+#else
+			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+#endif
 		}
 	} while(0);
 
