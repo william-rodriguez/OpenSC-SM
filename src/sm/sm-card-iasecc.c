@@ -111,78 +111,93 @@ sm_iasecc_get_apdu_read_binary(struct sc_context *ctx, struct sm_info *sm_info, 
 #endif
 
 
-#if 0
 static int
-sm_iasecc_get_apdu_update_binary(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_apdu **rapdus)
+sm_iasecc_get_apdu_update_binary(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata)
 {
-	struct sm_info_update_binary *ub = &sm_info->cmd_params.update_binary;
-	size_t offs = ub->offset, size = ub->size, data_offs = 0;
-	int rv = SC_ERROR_INVALID_ARGUMENTS;
+	struct iasecc_sm_cmd_update_binary *cmd_data = (struct iasecc_sm_cmd_update_binary *)sm_info->cmd_data;
+	size_t offs, data_offs = 0;
+	int rv = 0;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "SM get 'UPDATE BINARY' APDUs: offset:%i,size:%i", offs, size);
-	while (size)   {
-		int sz = size > SM_MAX_DATA_SIZE ? SM_MAX_DATA_SIZE : size;
+	if (!cmd_data || !cmd_data->data)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+
+        if (!rdata || !rdata->alloc)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+
+	sc_log(ctx, "SM get 'UPDATE BINARY' APDUs: offset:%i,size:%i", cmd_data->offs, cmd_data->count);
+	offs = cmd_data->offs;
+	while (data_offs < cmd_data->count)   {
+		int sz = (cmd_data->count - data_offs) > SM_MAX_DATA_SIZE ? SM_MAX_DATA_SIZE : (cmd_data->count - data_offs);
 		struct sc_remote_apdu *rapdu = NULL;
 
-		rv = sc_remote_apdu_allocate(rapdus, &rapdu);
-		LOG_TEST_RET(ctx, rv, "SM get 'UPDATE BINARY' APDUs: cannot allocate remote apdu");
+ 		rv = rdata->alloc(rdata, &rapdu);
+	        LOG_TEST_RET(ctx, rv, "SM get 'UPDATE BINARY' APDUs: cannot allocate remote APDU");
 
 		rapdu->apdu.cse = SC_APDU_CASE_3_SHORT;
 		rapdu->apdu.cla = 0x00;
 		rapdu->apdu.ins = 0xD6;
-		rapdu->apdu.p1 = (offs>>8)&0xFF;
-		rapdu->apdu.p2 = offs&0xFF;
-		memcpy((unsigned char *)rapdu->apdu.data, ub->data + data_offs, sz);
+		rapdu->apdu.p1 = (offs >> 8) & 0xFF;
+		rapdu->apdu.p2 = offs & 0xFF;
+		memcpy((unsigned char *)rapdu->apdu.data, cmd_data->data + data_offs, sz);
 		rapdu->apdu.datalen = sz;
 		rapdu->apdu.lc = sz;
 
-		rv = sm_iasecc_securize_apdu(ctx, sm_info, rapdu);
-		LOG_TEST_RET(ctx, rv, "SM get 'UPDATE BINARY' APDUs: securize error");
+		/** 99 02 SW   8E 08 MAC **/
+		rapdu->apdu.le = 0x0E;
 
-		rapdu->get_response = 1;
+		rv = sm_cwa_securize_apdu(ctx, sm_info, rapdu);
+		LOG_TEST_RET(ctx, rv, "SM get 'UPDATE BINARY' APDUs: securize APDU error");
+
+		rapdu->flags |= SC_REMOTE_APDU_FLAG_RETURN_ANSWER;
 
 		offs += sz;
 		data_offs += sz;
-		size -= sz;
 	}
 			
 	LOG_FUNC_RETURN(ctx, rv);
 }
-#endif
 
-
-#if 0
+/* TODO: reduce name of functions */
 static int
-sm_iasecc_get_apdu_create_file(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_apdu **rapdus)
+sm_iasecc_get_apdu_create_file(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata)
 {
-	struct sm_info_create_file *cf = &sm_info->cmd_params.create_file;
+	struct iasecc_sm_cmd_create_file *cmd_data = (struct iasecc_sm_cmd_create_file *)sm_info->cmd_data;
 	struct sc_remote_apdu *rapdu = NULL;
-	int rv;
+	size_t offs, data_offs = 0;
+	int rv = 0;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "SM get 'CREATE FILE' APDU: FCP(%i) %p", cf->fcp_len, cf->fcp);
+	sc_log(ctx, "SM get 'CREATE FILE' APDU: FCP(%i) %s", cmd_data->size, sc_dump_hex(cmd_data->data,cmd_data->size));
 
-	rv = sc_remote_apdu_allocate(rapdus, &rapdu);
-	LOG_TEST_RET(ctx, rv, "SM get 'CREATE FILE' APDU: cannot allocate remote apdu");
+	if (!cmd_data || !cmd_data->data)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+
+        if (!rdata || !rdata->alloc)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+
+ 	rv = rdata->alloc(rdata, &rapdu);
+	LOG_TEST_RET(ctx, rv, "SM get 'UPDATE BINARY' APDUs: cannot allocate remote APDU");
 
 	rapdu->apdu.cse = SC_APDU_CASE_3_SHORT;
 	rapdu->apdu.cla = 0x00;
 	rapdu->apdu.ins = 0xE0;
 	rapdu->apdu.p1 = 0x00;
 	rapdu->apdu.p2 = 0x00;
-	memcpy((unsigned char *)rapdu->apdu.data, cf->fcp, cf->fcp_len);
-	rapdu->apdu.datalen = cf->fcp_len;
-	rapdu->apdu.lc = cf->fcp_len;
+	memcpy((unsigned char *)rapdu->apdu.data, cmd_data->data, cmd_data->size);
+	rapdu->apdu.datalen = cmd_data->size;
+	rapdu->apdu.lc = cmd_data->size;
 
-	rv = sm_iasecc_securize_apdu(ctx, sm_info, rapdu);
-	LOG_TEST_RET(ctx, rv, "SM get 'CREATE FILE' APDU: securize error");
+	/** 99 02 SW   8E 08 MAC **/
+	rapdu->apdu.le = 0x0E;
 
-	rapdu->get_response = 1;
+	rv = sm_cwa_securize_apdu(ctx, sm_info, rapdu);
+	LOG_TEST_RET(ctx, rv, "SM get 'UPDATE BINARY' APDUs: securize APDU error");
+
+	rapdu->flags |= SC_REMOTE_APDU_FLAG_RETURN_ANSWER;
 
 	LOG_FUNC_RETURN(ctx, rv);
 }
-#endif
 
 
 #if 0
@@ -292,29 +307,31 @@ sm_iasecc_get_apdu_reset_pin(struct sc_context *ctx, struct sm_info *sm_info, st
 #endif
 
 
-#if 0
 static int
-sm_iasecc_get_apdu_generate_rsa(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_apdu **rapdus)
+sm_iasecc_get_apdu_generate_rsa(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata)
 {
-	struct sm_info_rsa_generate *rg = &sm_info->cmd_params.rsa_generate;
+	struct iasecc_sdo *sdo = (struct iasecc_sdo *)sm_info->cmd_data;
 	struct sc_remote_apdu *rapdu = NULL;
 	unsigned char put_exponent_data[14] = { 
 		0x70, 0x0C, 
-			IASECC_SDO_TAG_HEADER, IASECC_SDO_CLASS_RSA_PUBLIC | 0x80, rg->reference & 0x7F, 0x08, 
+			IASECC_SDO_TAG_HEADER, IASECC_SDO_CLASS_RSA_PUBLIC | 0x80, sdo->sdo_ref & 0x7F, 0x08, 
 					0x7F, 0x49, 0x05, 0x82, 0x03, 0x01, 0x00, 0x01 
 	};
 	unsigned char generate_data[5] = { 
 		0x70, 0x03, 
-			IASECC_SDO_TAG_HEADER, IASECC_SDO_CLASS_RSA_PRIVATE | 0x80, rg->reference & 0x7F
+			IASECC_SDO_TAG_HEADER, IASECC_SDO_CLASS_RSA_PRIVATE | 0x80, sdo->sdo_ref & 0x7F
 	};
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "SM get 'GENERATE RSA' APDU: SDO(class:%X,reference:%X)", rg->sdo_class, rg->reference);
+	sc_log(ctx, "SM get 'GENERATE RSA' APDU: SDO(class:%X,reference:%X)", sdo->sdo_class, sdo->sdo_ref);
+
+        if (!rdata || !rdata->alloc)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
 
 	/* Put Exponent */
-	rv = sc_remote_apdu_allocate(rapdus, &rapdu);
-	LOG_TEST_RET(ctx, rv, "SM get 'GENERATE RSA(put exponent)' APDU: cannot allocate remote apdu");
+ 	rv = rdata->alloc(rdata, &rapdu);
+	LOG_TEST_RET(ctx, rv, "SM get 'UPDATE BINARY' APDUs: cannot allocate remote APDU");
 
 	rapdu->apdu.cse = SC_APDU_CASE_3_SHORT;
 	rapdu->apdu.cla = 0x00;
@@ -325,14 +342,17 @@ sm_iasecc_get_apdu_generate_rsa(struct sc_context *ctx, struct sm_info *sm_info,
 	rapdu->apdu.datalen = sizeof(put_exponent_data);
 	rapdu->apdu.lc = sizeof(put_exponent_data);
 
-	rv = sm_iasecc_securize_apdu(ctx, sm_info, rapdu);
-	LOG_TEST_RET(ctx, rv, "SM get 'GENERATE RSA(put exponent)' APDU: securize error");
+	/** 99 02 SW   8E 08 MAC **/
+	rapdu->apdu.le = 0x0E;
 
-	rapdu->get_response = 1;
+	rv = sm_cwa_securize_apdu(ctx, sm_info, rapdu);
+	LOG_TEST_RET(ctx, rv, "SM get 'UPDATE BINARY' APDUs: securize APDU error");
+
+	rapdu->flags |= SC_REMOTE_APDU_FLAG_RETURN_ANSWER;
 
 	/* Generate Key */
-	rv = sc_remote_apdu_allocate(rapdus, &rapdu);
-	LOG_TEST_RET(ctx, rv, "SM get 'GENERATE RSA' APDU: cannot allocate remote apdu");
+ 	rv = rdata->alloc(rdata, &rapdu);
+	LOG_TEST_RET(ctx, rv, "SM get 'UPDATE BINARY' APDUs: cannot allocate remote APDU");
 
 	rapdu->apdu.cse = SC_APDU_CASE_4_SHORT;
 	rapdu->apdu.cla = 0x00;
@@ -342,55 +362,56 @@ sm_iasecc_get_apdu_generate_rsa(struct sc_context *ctx, struct sm_info *sm_info,
 	memcpy((unsigned char *)rapdu->apdu.data, generate_data, sizeof(generate_data));
 	rapdu->apdu.datalen = sizeof(generate_data);
 	rapdu->apdu.lc = sizeof(generate_data);
+
 	rapdu->apdu.le = 0x100;
 
-	rv = sm_iasecc_securize_apdu(ctx, sm_info, rapdu);
-	LOG_TEST_RET(ctx, rv, "SM get 'GENERATE RSA' APDU: securize error");
+	rv = sm_cwa_securize_apdu(ctx, sm_info, rapdu);
+	LOG_TEST_RET(ctx, rv, "SM get 'UPDATE BINARY' APDUs: securize APDU error");
 
-	rapdu->get_response = 1;
+	rapdu->flags |= SC_REMOTE_APDU_FLAG_RETURN_ANSWER;
 
 	LOG_FUNC_RETURN(ctx, rv);
 }
-#endif
 
 
-#if 0
 static int
-sm_iasecc_get_apdu_update_rsa(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_apdu **rapdus)
+sm_iasecc_get_apdu_update_rsa(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata)
 {
-	struct sm_info_iasecc_rsa_update *iru = &sm_info->cmd_params.iasecc_rsa_update;
-	struct sc_iasecc_sdo_rsa_update *ru = iru->data;
-	struct sc_iasecc_sdo_update *to_update[2];
-	struct sc_remote_apdu *rapdu = NULL;
-	int rv, ii, jj;
+	struct iasecc_sdo_rsa_update *cmd_data = (struct iasecc_sdo_rsa_update *)sm_info->cmd_data;
+	struct iasecc_sdo_update *to_update[2];
+	int rv = 0, ii = 0, jj = 0;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "SM get 'UPDATE RSA' APDU: SDO(class:%X,reference:%X)", iru->sdo_class, iru->reference);
-	if (ru->magic != IASECC_SDO_MAGIC_UPDATE_RSA)
-		LOG_TEST_RET(ctx, SC_ERROR_UNKNOWN_DATA_RECEIVED, "SM get 'UPDATE RSA' APDU: invalid magic");
+	if (cmd_data->update_prv.sdo_class)   {
+		to_update[ii++] = &cmd_data->update_prv;
+		sc_log(ctx, "SM get 'UPDATE RSA' APDU: SDO(class:%X,ref:%X)", cmd_data->update_prv.sdo_class, cmd_data->update_prv.sdo_ref);
+	}
 
-	to_update[0] = &ru->update_prv;
-	to_update[1] = &ru->update_pub;
+	if (cmd_data->update_pub.sdo_class)   {
+		to_update[ii++] = &cmd_data->update_pub;
+		sc_log(ctx, "SM get 'UPDATE RSA' APDU: SDO(class:%X,ref:%X)", cmd_data->update_pub.sdo_class, cmd_data->update_pub.sdo_ref);
+	}
+
 	for (jj=0;jj<2;jj++)   {
 		for (ii=0; to_update[jj]->fields[ii].tag && ii < IASECC_SDO_TAGS_UPDATE_MAX; ii++)   {
 			unsigned char *encoded = NULL;
 			size_t encoded_len, offs;
 
-			sc_log(ctx, "SM get 'UPDATE RSA' APDU: comp %i:%i, SDO(class:%02X%02X)", jj, ii, 
-					iru->sdo_class, iru->reference);
+			sc_log(ctx, "SM IAS/ECC get APDUs: component(num %i:%i) class:%X, ref:%X", jj, ii,
+					to_update[jj]->sdo_class, to_update[jj]->sdo_ref);
+
 			encoded_len = iasecc_sdo_encode_update_field(ctx, to_update[jj]->sdo_class, to_update[jj]->sdo_ref,
 						&to_update[jj]->fields[ii], &encoded);
 			LOG_TEST_RET(ctx, encoded_len, "SM get 'UPDATE RSA' APDU: cannot encode key component");
 			
-			sc_log(ctx, "SM IAS/ECC get APDUs: component(num:%i:%i,class:%X,ref:%X,%s)", jj, ii,
-					to_update[jj]->sdo_class, to_update[jj]->sdo_ref,
-					sc_dump_hex(encoded, encoded_len));
+			sc_log(ctx, "SM IAS/ECC get APDUs: component encoded %s", sc_dump_hex(encoded, encoded_len));
 
 			for (offs = 0; offs < encoded_len; )   {
-				int len = encoded_len - offs > SM_MAX_DATA_SIZE ? SM_MAX_DATA_SIZE : encoded_len - offs;
+				int len = (encoded_len - offs) > SM_MAX_DATA_SIZE ? SM_MAX_DATA_SIZE : (encoded_len - offs);
+				struct sc_remote_apdu *rapdu = NULL;
 
-				rv = sc_remote_apdu_allocate(rapdus, &rapdu);
-				LOG_TEST_RET(ctx, rv, "SM get 'UPDATE RSA' APDU: cannot allocate remote apdu");
+		 		rv = rdata->alloc(rdata, &rapdu);
+	        		LOG_TEST_RET(ctx, rv, "SM get 'UPDATE RSA' APDUs: cannot allocate remote APDU");
 
 				rapdu->apdu.cse = SC_APDU_CASE_3_SHORT;
 				rapdu->apdu.cla = len + offs < encoded_len ? 0x10 : 0x00;
@@ -401,12 +422,19 @@ sm_iasecc_get_apdu_update_rsa(struct sc_context *ctx, struct sm_info *sm_info, s
 				rapdu->apdu.datalen = len;
 				rapdu->apdu.lc = len;
 
-				rv = sm_iasecc_securize_apdu(ctx, sm_info, rapdu);
-				LOG_TEST_RET(ctx, rv, "SM get 'UPDATE RSA' APDU: securize error");
+				/** 99 02 SW   8E 08 MAC **/
+				rapdu->apdu.le = 0x0E;
 
-				rapdu->get_response = 1;
+				rv = sm_cwa_securize_apdu(ctx, sm_info, rapdu);
+		                LOG_TEST_RET(ctx, rv, "SM get 'UPDATE RSA' APDUs: securize APDU error");
+
+				rapdu->flags |= SC_REMOTE_APDU_FLAG_RETURN_ANSWER;
 
 				offs += len;
+
+				struct sc_remote_apdu *rr;
+				for (rr = rdata->data; rr->next; rr = rr->next)
+					sc_log(ctx, "rr->apdu.ins 0x%X", rr->apdu.ins);
 			}
 			free(encoded);
 		}
@@ -414,7 +442,6 @@ sm_iasecc_get_apdu_update_rsa(struct sc_context *ctx, struct sm_info *sm_info, s
 
 	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
 }
-#endif
 
 
 #if 0
@@ -543,14 +570,16 @@ sm_iasecc_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
 		rv = sm_iasecc_get_apdu_read_binary(ctx, sm_info, &rapdus);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'READ BINARY' failed");
 		break;
+#endif
 	case SM_CMD_FILE_UPDATE:
-		rv = sm_iasecc_get_apdu_update_binary(ctx, sm_info, &rapdus);
+		rv = sm_iasecc_get_apdu_update_binary(ctx, sm_info, rdata);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'UPDATE BINARY' failed");
 		break;
 	case SM_CMD_FILE_CREATE:
-		rv = sm_iasecc_get_apdu_create_file(ctx, sm_info, &rapdus);
+		rv = sm_iasecc_get_apdu_create_file(ctx, sm_info, rdata);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'CREATE FILE' failed");
 		break;
+#if 0
 	case SM_CMD_FILE_DELETE:
 		rv = sm_iasecc_get_apdu_delete_file(ctx, sm_info, &rapdus);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'CREATE FILE' failed");
@@ -559,14 +588,16 @@ sm_iasecc_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
 		rv = sm_iasecc_get_apdu_reset_pin(ctx, sm_info, &rapdus);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'RESET PIN' failed");
 		break;
+#endif
 	case SM_CMD_RSA_GENERATE:
-		rv = sm_iasecc_get_apdu_generate_rsa(ctx, sm_info, &rapdus);
+		rv = sm_iasecc_get_apdu_generate_rsa(ctx, sm_info, rdata);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'GENERATE RSA' failed");
 		break;
 	case SM_CMD_RSA_UPDATE:
-		rv = sm_iasecc_get_apdu_update_rsa(ctx, sm_info, &rapdus);
+		rv = sm_iasecc_get_apdu_update_rsa(ctx, sm_info, rdata);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'UPDATE RSA' failed");
 		break;
+#if 0
 	case SM_CMD_PSO_DST:
 		rv = sm_iasecc_get_apdu_pso_dst(ctx, sm_info, &rapdus);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'PSO DST' failed");

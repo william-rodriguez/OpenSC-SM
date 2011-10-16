@@ -186,7 +186,6 @@ int
 sm_cwa_decode_authentication_data(struct sc_context *ctx, struct sm_cwa_keyset *keyset, 
 		struct sm_cwa_session *session_data, char *auth_data)
 {
-	struct sm_card_response resp;
 	DES_cblock icv = {0, 0, 0, 0, 0, 0, 0, 0};
 	DES_cblock cblock;
 	unsigned char *decrypted = NULL;
@@ -194,24 +193,31 @@ sm_cwa_decode_authentication_data(struct sc_context *ctx, struct sm_cwa_keyset *
 	int rv; 
 
 	LOG_FUNC_CALLED(ctx);
-	memset(&resp, 0, sizeof(resp));
 
-	sc_log(ctx, "Decode authentication data: data %s", auth_data);
-	rv = sm_cwa_parse_authentication_data(ctx, auth_data, &resp);
-	LOG_TEST_RET(ctx, rv, "sm_ecc_decode_auth_data() response parse error");
+	if (session_data->mdata_len != 0x48 && auth_data)   {
+		struct sm_card_response resp;
 
-	if (resp.len != 0x48)
-		LOG_TEST_RET(ctx, SC_ERROR_UNKNOWN_DATA_RECEIVED, "sm_ecc_decode_auth_data() invalid auth data");
+		memset(&resp, 0, sizeof(resp));
+		sc_log(ctx, "Decode authentication data: data %s", auth_data);
+		rv = sm_cwa_parse_authentication_data(ctx, auth_data, &resp);
+		LOG_TEST_RET(ctx, rv, "sm_ecc_decode_auth_data() response parse error");
+
+		if (resp.len != 0x48)
+			LOG_TEST_RET(ctx, SC_ERROR_UNKNOWN_DATA_RECEIVED, "sm_ecc_decode_auth_data() invalid auth data");
+
+		memcpy(session_data->mdata, resp.data, 0x48);
+		session_data->mdata_len = 0x48;
+	}
 
 	memset(icv, 0, sizeof(icv));
-	rv = sm_cwa_get_mac(ctx, keyset->mac, &icv, resp.data, 0x40, &cblock, 1);
+	rv = sm_cwa_get_mac(ctx, keyset->mac, &icv, session_data->mdata, 0x40, &cblock, 1);
 	LOG_TEST_RET(ctx, rv, "Decode authentication data:  sm_ecc_get_mac failed");
 	sc_log(ctx, "MAC:%s", sc_dump_hex(cblock, sizeof(cblock)));
 
-	if(memcmp(resp.data + 0x40, cblock, 8))
+	if(memcmp(session_data->mdata + 0x40, cblock, 8))
 		LOG_FUNC_RETURN(ctx, SC_ERROR_SM_AUTHENTICATION_FAILED);
 
-	rv = sm_decrypt_des_cbc3(ctx, keyset->enc, resp.data, resp.len, &decrypted, &decrypted_len);
+	rv = sm_decrypt_des_cbc3(ctx, keyset->enc, session_data->mdata, session_data->mdata_len, &decrypted, &decrypted_len);
 	LOG_TEST_RET(ctx, rv, "sm_ecc_decode_auth_data() DES CBC3 decrypt error");
 
 	sc_log(ctx, "sm_ecc_decode_auth_data() decrypted(%i) %s", decrypted_len, sc_dump_hex(decrypted, decrypted_len));
