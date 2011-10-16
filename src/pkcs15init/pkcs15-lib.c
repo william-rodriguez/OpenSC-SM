@@ -2295,8 +2295,7 @@ select_object_path(struct sc_pkcs15_card *p15card, struct sc_profile *profile,
 	const char	*name;
 
 	LOG_FUNC_CALLED(ctx);
-	r = sc_pkcs15_get_objects(p15card, obj->type & SC_PKCS15_TYPE_CLASS_MASK,
-			objs, sizeof(objs)/sizeof(objs[0]));
+	r = sc_pkcs15_get_objects(p15card, obj->type & SC_PKCS15_TYPE_CLASS_MASK, objs, sizeof(objs)/sizeof(objs[0]));
 	LOG_TEST_RET(ctx, r, "Get PKCS#15 objects error");
 	nn_objs = r;
 
@@ -2310,6 +2309,7 @@ select_object_path(struct sc_pkcs15_card *p15card, struct sc_profile *profile,
 	} 
 	else {
 		*path = profile->df_info->file->path;
+		sc_log(ctx, "path '%s'", sc_print_path(path));
 	}
 
 	/* If the profile specifies a key directory template,
@@ -3119,6 +3119,11 @@ sc_pkcs15init_verify_secret(struct sc_profile *profile, struct sc_pkcs15_card *p
 			sc_log(ctx, "'get_pin' callback returned %i; pinsize:%i", r, pinsize);
 		}
 		break;
+	case SC_AC_SCB:
+	case SC_AC_PRO:
+		pinsize = 0;
+		r = 0;
+		break;
 	default:
 		r = sc_pkcs15init_get_transport_key(profile, p15card, type, reference, pinbuf, &pinsize);
 		break;
@@ -3132,6 +3137,11 @@ sc_pkcs15init_verify_secret(struct sc_profile *profile, struct sc_pkcs15_card *p
 	}
 
 	LOG_TEST_RET(ctx, r, "Failed to get secret");
+
+	if (type == SC_AC_PRO)   {
+		sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "No 'verify' for secure messaging");
+		SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, r);
+	}
 
 found: 	
 	if (pin_obj)   {

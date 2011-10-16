@@ -412,9 +412,12 @@ sc_profile_finish(struct sc_profile *profile, const struct sc_app_info *app_info
 		}
 	}
 	
+	if (profile->df_info)
+		sc_log(ctx, "DF info path before '%s'", sc_print_path(&(profile->df_info->file->path)));
 	profile->df_info = sc_profile_find_file(profile, NULL, "PKCS15-AppDF");
 	if (!profile->df_info)
 		LOG_TEST_RET(ctx, SC_ERROR_INCONSISTENT_PROFILE, "Profile doesn't define a PKCS15-AppDF");
+	sc_log(ctx, "DF info path '%s'", sc_print_path(&(profile->df_info->file->path)));
 
 	profile->p15_spec->file_app = profile->df_info->file;
 	profile->df_info->dont_free = 1;
@@ -1964,10 +1967,12 @@ sc_profile_find_file(struct sc_profile *pro,
 	len = path? path->len : 0;
 	for (fi = pro->ef_list; fi; fi = fi->next) {
 		sc_path_t *fpath = &fi->file->path;
+	}
 
-		if (!strcasecmp(fi->ident, name)
-		 && fpath->len >= len
-		 && !memcmp(fpath->value, path->value, len))
+	for (fi = pro->ef_list; fi; fi = fi->next) {
+		sc_path_t *fpath = &fi->file->path;
+
+		if (!strcasecmp(fi->ident, name) && fpath->len >= len && !memcmp(fpath->value, path->value, len))
 			return fi;
 	}
 	return NULL;
