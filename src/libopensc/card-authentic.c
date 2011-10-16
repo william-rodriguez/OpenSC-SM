@@ -2288,7 +2288,7 @@ authentic_sm_encode_apdu(struct sc_card *card, struct sc_apdu *apdu)
 	if (!card->sm_ctx.module.ops.get_apdus)
 		LOG_FUNC_RETURN(ctx, SC_ERROR_NOT_SUPPORTED);
 
-	card->sm_ctx.info.cmd_params.apdu_to_encode = apdu;
+	card->sm_ctx.info.cmd_data = (void *)apdu;
 
 	rv = card->sm_ctx.module.ops.get_apdus(ctx, &card->sm_ctx.info, NULL, 0, NULL);
 	LOG_TEST_RET(ctx, rv, "SM: GET_APDUS failed");

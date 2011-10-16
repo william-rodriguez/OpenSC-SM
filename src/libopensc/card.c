@@ -444,6 +444,13 @@ int sc_read_binary(sc_card_t *card, unsigned int idx,
 	if (count == 0)
 		return 0;
 
+#ifdef ENABLE_SM
+	if (card->sm_ctx.ops.read_binary)   {
+		r = card->sm_ctx.ops.read_binary(card, idx, buf, count);
+		if (r)
+			LOG_FUNC_RETURN(card->ctx, r);
+	}
+#endif
 	if (card->ops->read_binary == NULL)
 		LOG_FUNC_RETURN(card->ctx, SC_ERROR_NOT_SUPPORTED);
 
@@ -529,6 +536,15 @@ int sc_update_binary(sc_card_t *card, unsigned int idx,
 	sc_log(card->ctx, "called; %d bytes at index %d", count, idx);
 	if (count == 0)
 		return 0;
+
+#ifdef ENABLE_SM
+	if (card->sm_ctx.ops.update_binary)   {
+		r = card->sm_ctx.ops.update_binary(card, idx, buf, count);
+		if (r)
+			LOG_FUNC_RETURN(card->ctx, r);
+	}
+#endif
+
 	if (card->ops->update_binary == NULL)
 		LOG_FUNC_RETURN(card->ctx, SC_ERROR_NOT_SUPPORTED);
 

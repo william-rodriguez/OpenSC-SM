@@ -120,7 +120,7 @@ sm_oberthur_diversify_keyset(struct sc_context *ctx, struct sm_info *sm_info,
 static int
 sm_authentic_encode_apdu(struct sc_context *ctx, struct sm_info *sm_info)
 {
-	struct sc_apdu *apdu = sm_info->cmd_params.apdu_to_encode;
+	struct sc_apdu *apdu = (struct sc_apdu *) sm_info->cmd_data;
 	int rv = SC_ERROR_INVALID_ARGUMENTS;
 
 	LOG_FUNC_CALLED(ctx);

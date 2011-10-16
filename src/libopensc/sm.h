@@ -219,9 +219,7 @@ struct sm_info   {
 	unsigned card_type;
 
 	unsigned cmd;
-	union {
-		struct sc_apdu *apdu_to_encode;
-	} cmd_params;
+	void *cmd_data;
 
 	unsigned sm_type;
 	union {
@@ -274,6 +272,11 @@ struct sm_card_operations {
 	int (*decrypt_response)(struct sc_card *card, unsigned char *in, int in_len,
 			unsigned char *out, int *out_len);
 	int (*close)(struct sc_card *card);
+
+	int (*read_binary)(struct sc_card *card, unsigned int idx,
+			unsigned char * buf, size_t count);
+	int (*update_binary)(struct sc_card *card, unsigned int idx,
+			const unsigned char * buf, size_t count);
 };
 
 /* 
