@@ -342,6 +342,31 @@ app default {
 		keyset_02_mac = "MACROECHANTILLON";
 	}
 
+        secure_messaging local_adele  {
+                module = /home/vtarasov/projects/sc/git/opensc-sm.trunk/build/lib/libsmm-local.so;
+                module_data = "Here can be your SM module init data";
+                type = acl;             # transmit, acl
+
+		ifd_serial = "11:22:33:44:55:66:77:88";
+
+                # Keyset values from 'Adele' profiles of the IAS/ECC cards
+                keyset_01_enc = "EMENCECHANTILLON";
+                keyset_01_mac = "EMMACECHANTILLON";
+
+                keyset_02_enc = "AAENCECHANTILLON";
+                keyset_02_mac = "AAMACECHANTILLON";
+
+                keyset_E828BD080FD2500000040301_02_enc = "E2ENCECHANTILLON";
+                keyset_E828BD080FD2500000040301_02_mac = "E2MACECHANTILLON";
+
+                keyset_D2500000044164E86C650101_02_enc = "E1ENCECHANTILLON";
+                keyset_D2500000044164E86C650101_02_mac = "E1MACECHANTILLON";
+
+                keyset_D2500000044164E86C650101_03_enc = "SIENCECHANTILLON";
+                keyset_D2500000044164E86C650101_03_mac = "SIMACECHANTILLON";
+
+        }
+
 	# Below are the framework specific configuration blocks.
 
 	# PKCS #15
