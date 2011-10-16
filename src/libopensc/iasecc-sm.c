@@ -35,6 +35,7 @@
 #include "authentic.h"
 
 
+#ifdef ENABLE_SM	
 static int
 sm_save_sc_context (struct sc_card *card, struct sm_info *sm_info)
 {
@@ -78,7 +79,7 @@ sm_restore_sc_context(struct sc_card *card, struct sm_info *sm_info)
 
 	return rv;
 }
-
+#endif
 
 static int
 iasecc_sm_transmit_apdus(struct sc_card *card, struct sc_remote_data *rdata,
@@ -117,6 +118,7 @@ iasecc_sm_transmit_apdus(struct sc_card *card, struct sc_remote_data *rdata,
 	LOG_FUNC_RETURN(ctx, rv);
 #else
 	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of SM and External Authentication");
+	return SC_ERROR_NOT_SUPPORTED;
 #endif
 }
 
@@ -180,6 +182,7 @@ iasecc_sm_external_authentication(struct sc_card *card, unsigned skey_ref, int *
 	LOG_FUNC_RETURN(ctx, rv);
 #else
 	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of SM and External Authentication");
+	return SC_ERROR_NOT_SUPPORTED;
 #endif
 }
 
@@ -233,6 +236,7 @@ iasecc_sm_se_mutual_authentication(struct sc_card *card, unsigned se_num)
 	LOG_FUNC_RETURN(ctx, rv);
 #else
 	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+	return SC_ERROR_NOT_SUPPORTED;
 #endif
 }
 
@@ -266,6 +270,7 @@ int
 iasecc_sm_initialize(struct sc_card *card, unsigned se_num, unsigned cmd)
 {
 	struct sc_context *ctx = card->ctx;
+#ifdef ENABLE_SM	
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sm_cwa_session *cwa_session = &sm_info->schannel.session.cwa;
 	struct sc_remote_data rdata;
@@ -313,6 +318,10 @@ iasecc_sm_initialize(struct sc_card *card, unsigned se_num, unsigned cmd)
 		LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "iasecc_sm_initialize() invalid MUTUAL AUTHENTICATE result data");
 
 	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
+#else
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+	return SC_ERROR_NOT_SUPPORTED;
+#endif
 }
 
 
@@ -322,6 +331,7 @@ iasecc_sm_cmd(struct sc_card *card, unsigned char *out, size_t len)
 #define AUTH_SM_APDUS_MAX 12
 #define ENCODED_APDUS_MAX_LENGTH (AUTH_SM_APDUS_MAX * (SC_MAX_APDU_BUFFER_SIZE * 2 + 64) + 32)
 	struct sc_context *ctx = card->ctx;
+#ifdef ENABLE_SM	
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sm_cwa_session *session = &sm_info->schannel.session.cwa;
 	struct sc_remote_data rdata;
@@ -359,6 +369,10 @@ iasecc_sm_cmd(struct sc_card *card, unsigned char *out, size_t len)
 
 	rdata.free(&rdata);
 	LOG_FUNC_RETURN(ctx, rv);
+#else
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+	return SC_ERROR_NOT_SUPPORTED;
+#endif
 }
 
 
@@ -387,6 +401,7 @@ iasecc_sm_rsa_generate(struct sc_card *card, unsigned se_num, struct iasecc_sdo 
 	LOG_FUNC_RETURN(ctx, rv);
 #else
 	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+	return SC_ERROR_NOT_SUPPORTED;
 #endif
 }
 
@@ -417,6 +432,7 @@ iasecc_sm_rsa_update(struct sc_card *card, unsigned se_num, struct iasecc_sdo_rs
 	LOG_FUNC_RETURN(ctx, rv);
 #else
 	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+	return SC_ERROR_NOT_SUPPORTED;
 #endif
 }
 
@@ -507,6 +523,7 @@ int
 iasecc_sm_create_file(struct sc_card *card, unsigned se_num, unsigned char *fcp, size_t fcp_len)
 {
 	struct sc_context *ctx = card->ctx;
+#ifdef ENABLE_SM	
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sc_remote_data rdata;
 	struct iasecc_sm_cmd_create_file cmd_data;
@@ -528,6 +545,10 @@ iasecc_sm_create_file(struct sc_card *card, unsigned se_num, unsigned char *fcp,
         LOG_TEST_RET(ctx, rv, "iasecc_sm_create_file() SM 'UPDATE BINARY' failed");
 
 	LOG_FUNC_RETURN(ctx, rv);
+#else
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+	return SC_ERROR_NOT_SUPPORTED;
+#endif
 }
 
 
@@ -592,6 +613,7 @@ iasecc_sm_update_binary(struct sc_card *card, unsigned se_num, size_t offs,
 		const unsigned char *buff, size_t count)
 {
 	struct sc_context *ctx = card->ctx;
+#ifdef ENABLE_SM	
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sc_remote_data rdata;
 	struct iasecc_sm_cmd_update_binary cmd_data;
@@ -613,19 +635,11 @@ iasecc_sm_update_binary(struct sc_card *card, unsigned se_num, size_t offs,
 	rv = iasecc_sm_cmd(card, tbuf, &tbuf_len);
         LOG_TEST_RET(ctx, rv, "iasecc_sm_rsa_update() SM 'UPDATE BINARY' failed");
 
-#if 0
-	rvv = sm_release (card, &sm_info, (char *)rbuf, NULL, 0);
-	if (rvv)
-		sc_log(ctx, "SM update binary: failed to release SM context; error %i", rvv);
-
-	if (rv)
-		LOG_FUNC_RETURN(ctx, rv);
-
-	if (rvv)
-		LOG_FUNC_RETURN(ctx, rvv);
-#endif
-	
 	LOG_FUNC_RETURN(ctx, count);
+#else
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+	return SC_ERROR_NOT_SUPPORTED;
+#endif
 }
 
 
