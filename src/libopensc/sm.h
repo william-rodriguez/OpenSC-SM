@@ -294,7 +294,7 @@ struct sm_module_operations {
 	int (*get_apdus)(struct sc_context *ctx, struct sm_info *sm_info, 
 			unsigned char *init_data, size_t init_len,
 	                struct sc_remote_data *out);
-	int (*finalize)(struct sc_context *ctx, struct sm_info *info, char *data, 
+	int (*finalize)(struct sc_context *ctx, struct sm_info *info, struct sc_remote_data *rdata,
 			unsigned char *out, size_t out_len);
 	int (*module_init)(struct sc_context *ctx, const char *data);
 	int (*module_cleanup)(struct sc_context *ctx);

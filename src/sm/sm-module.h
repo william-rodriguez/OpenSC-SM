@@ -72,6 +72,11 @@ int sm_cwa_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
 		unsigned char *init_data, size_t init_len, struct sc_remote_data *out, int release_sm);
 int sm_cwa_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, char *str_data,
 		unsigned char *out, size_t out_len);
+int sm_cwa_securize_apdu(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_apdu *rapdu);
+int sm_cwa_decode_authentication_data(struct sc_context *ctx, struct sm_cwa_keyset *keyset,
+		struct sm_cwa_session *session_data, unsigned char *auth_data);
+int sm_cwa_init_session_keys(struct sc_context *ctx, struct sm_cwa_session *session_data,
+		unsigned char mechanism);
 
 /* SM AuthentIC v3 definitions */
 int sm_authentic_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,

@@ -123,6 +123,23 @@ iasecc_sm_transmit_apdus(struct sc_card *card, struct sc_remote_data *rdata,
 }
 
 
+static int 
+sm_release (struct sc_card *card, struct sc_remote_data *rdata, 
+		unsigned char *out, size_t out_len)
+{
+	struct sc_context *ctx = card->ctx;
+	struct sm_info *sm_info = &card->sm_ctx.info;
+	int rv;
+
+	LOG_FUNC_CALLED(ctx);
+	if (!card->sm_ctx.module.ops.finalize)
+		LOG_FUNC_RETURN(ctx, SC_SUCCESS);
+
+	rv = card->sm_ctx.module.ops.finalize(ctx, sm_info, rdata, out, out_len);
+	LOG_FUNC_RETURN(ctx, rv);
+}
+
+
 int
 iasecc_sm_external_authentication(struct sc_card *card, unsigned skey_ref, int *tries_left)
 {
@@ -326,7 +343,7 @@ iasecc_sm_initialize(struct sc_card *card, unsigned se_num, unsigned cmd)
 
 
 static int 
-iasecc_sm_cmd(struct sc_card *card, unsigned char *out, size_t *len)
+iasecc_sm_cmd(struct sc_card *card, struct sc_remote_data *rdata)
 {
 #define AUTH_SM_APDUS_MAX 12
 #define ENCODED_APDUS_MAX_LENGTH (AUTH_SM_APDUS_MAX * (SC_MAX_APDU_BUFFER_SIZE * 2 + 64) + 32)
@@ -334,24 +351,21 @@ iasecc_sm_cmd(struct sc_card *card, unsigned char *out, size_t *len)
 #ifdef ENABLE_SM	
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sm_cwa_session *session = &sm_info->schannel.session.cwa;
-	struct sc_remote_data rdata;
-	struct sc_remote_apdu *rapdu;
-	int rv, ii;
+	struct sc_remote_apdu *rapdu = NULL;
+	int rv;
 
 	LOG_FUNC_CALLED(ctx);
 	if (!card->sm_ctx.module.ops.get_apdus)
 		LOG_FUNC_RETURN(ctx, SC_ERROR_NOT_SUPPORTED);
 
-	sc_remote_data_init(&rdata);
-
-	rv =  card->sm_ctx.module.ops.get_apdus(ctx, sm_info, session->mdata, session->mdata_len, &rdata);
+	rv =  card->sm_ctx.module.ops.get_apdus(ctx, sm_info, session->mdata, session->mdata_len, rdata);
 	LOG_TEST_RET(ctx, rv, "iasecc_sm_cmd() 'GET APDUS' failed");
 
-	sc_log(ctx, "iasecc_sm_cmd() %i remote APDUs to transmit", rdata.length);
-	for (rapdu = rdata.data; rapdu; rapdu = rapdu->next)   {
+	sc_log(ctx, "iasecc_sm_cmd() %i remote APDUs to transmit", rdata->length);
+	for (rapdu = rdata->data; rapdu; rapdu = rapdu->next)   {
 		struct sc_apdu *apdu = &rapdu->apdu;
 
-		sc_log(ctx, "iasecc_sm_cmd() apdu->ins:0x%X", apdu->ins);
+		sc_log(ctx, "iasecc_sm_cmd() apdu->ins:0x%X, resplen %i", apdu->ins, apdu->resplen);
 		if (!apdu->ins)
 			break;
 		rv = sc_transmit_apdu(card, apdu);
@@ -365,9 +379,9 @@ iasecc_sm_cmd(struct sc_card *card, unsigned char *out, size_t *len)
 			sc_log(ctx, "iasecc_sm_cmd() APDU error rv:%i", rv);
 			break;
 		}
+		sc_log(ctx, "iasecc_sm_cmd() apdu->resplen %i", apdu->resplen);
 	}
 
-	rdata.free(&rdata);
 	LOG_FUNC_RETURN(ctx, rv);
 #else
 	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
@@ -383,8 +397,6 @@ iasecc_sm_rsa_generate(struct sc_card *card, unsigned se_num, struct iasecc_sdo 
 #ifdef ENABLE_SM	
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sc_remote_data rdata;
-	unsigned char tbuf[SC_MAX_APDU_BUFFER_SIZE*4];
-	size_t tbuf_len = sizeof(tbuf);
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
@@ -395,9 +407,11 @@ iasecc_sm_rsa_generate(struct sc_card *card, unsigned se_num, struct iasecc_sdo 
 
 	sm_info->cmd_data = sdo;
 
-	rv = iasecc_sm_cmd(card, tbuf, &tbuf_len);
+	sc_remote_data_init(&rdata);
+	rv = iasecc_sm_cmd(card, &rdata);
         LOG_TEST_RET(ctx, rv, "iasecc_sm_rsa_generate() SM cmd failed");
 
+	rdata.free(&rdata);
 	LOG_FUNC_RETURN(ctx, rv);
 #else
 	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
@@ -413,8 +427,6 @@ iasecc_sm_rsa_update(struct sc_card *card, unsigned se_num, struct iasecc_sdo_rs
 #ifdef ENABLE_SM	
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sc_remote_data rdata;
-	unsigned char tbuf[SC_MAX_APDU_BUFFER_SIZE*4];
-	size_t tbuf_len = sizeof(tbuf);
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
@@ -426,9 +438,11 @@ iasecc_sm_rsa_update(struct sc_card *card, unsigned se_num, struct iasecc_sdo_rs
 
 	sm_info->cmd_data = udata;
 
-	rv = iasecc_sm_cmd(card, tbuf, &tbuf_len);
+	sc_remote_data_init(&rdata);
+	rv = iasecc_sm_cmd(card, &rdata);
         LOG_TEST_RET(ctx, rv, "iasecc_sm_rsa_update() SM cmd failed");
 
+	rdata.free(&rdata);
 	LOG_FUNC_RETURN(ctx, rv);
 #else
 	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
@@ -527,8 +541,6 @@ iasecc_sm_create_file(struct sc_card *card, unsigned se_num, unsigned char *fcp,
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sc_remote_data rdata;
 	struct iasecc_sm_cmd_create_file cmd_data;
-	unsigned char tbuf[SC_MAX_APDU_BUFFER_SIZE*4];
-	size_t tbuf_len = sizeof(tbuf);
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
@@ -541,9 +553,11 @@ iasecc_sm_create_file(struct sc_card *card, unsigned se_num, unsigned char *fcp,
 	cmd_data.size = fcp_len;
 	sm_info->cmd_data = &cmd_data;
 
-	rv = iasecc_sm_cmd(card, tbuf, &tbuf_len);
+	sc_remote_data_init(&rdata);
+	rv= iasecc_sm_cmd(card, &rdata);
         LOG_TEST_RET(ctx, rv, "iasecc_sm_create_file() SM 'UPDATE BINARY' failed");
 
+	rdata.free(&rdata);
 	LOG_FUNC_RETURN(ctx, rv);
 #else
 	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
@@ -559,8 +573,6 @@ iasecc_sm_read_binary(struct sc_card *card, unsigned se_num, size_t offs, unsign
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sc_remote_data rdata;
 	struct iasecc_sm_cmd_update_binary cmd_data;
-	unsigned char tbuf[SC_MAX_APDU_BUFFER_SIZE*4];
-	size_t tbuf_len = sizeof(tbuf);
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
@@ -574,10 +586,17 @@ iasecc_sm_read_binary(struct sc_card *card, unsigned se_num, size_t offs, unsign
 	//cmd_data.data = buff;
 	sm_info->cmd_data = &cmd_data;
 
-	rv = iasecc_sm_cmd(card, tbuf, &tbuf_len);
+	sc_remote_data_init(&rdata);
+	rv = iasecc_sm_cmd(card, &rdata);
         LOG_TEST_RET(ctx, rv, "iasecc_sm_read_binary() SM 'READ BINARY' failed");
 
-	LOG_FUNC_RETURN(ctx, count);
+	sc_log(ctx, "IAS/ECC decode answer() rdata length %i", rdata.length);
+
+	rv = sm_release (card, &rdata, buff, count);
+        LOG_TEST_RET(ctx, rv, "iasecc_sm_read_binary() SM release failed");
+
+	rdata.free(&rdata);
+	LOG_FUNC_RETURN(ctx, rv);
 #if 0
 	struct sm_info sm_info;
 	unsigned char mbuf[SC_MAX_APDU_BUFFER_SIZE*4], tbuf[SC_MAX_APDU_BUFFER_SIZE*3], *rbuf;
@@ -642,8 +661,6 @@ iasecc_sm_update_binary(struct sc_card *card, unsigned se_num, size_t offs,
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sc_remote_data rdata;
 	struct iasecc_sm_cmd_update_binary cmd_data;
-	unsigned char tbuf[SC_MAX_APDU_BUFFER_SIZE*4];
-	size_t tbuf_len = sizeof(tbuf);
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
@@ -657,9 +674,11 @@ iasecc_sm_update_binary(struct sc_card *card, unsigned se_num, size_t offs,
 	cmd_data.data = buff;
 	sm_info->cmd_data = &cmd_data;
 
-	rv = iasecc_sm_cmd(card, tbuf, &tbuf_len);
+	sc_remote_data_init(&rdata);
+	rv = iasecc_sm_cmd(card, &rdata);
         LOG_TEST_RET(ctx, rv, "iasecc_sm_update_binary() SM 'UPDATE BINARY' failed");
 
+	rdata.free(&rdata);
 	LOG_FUNC_RETURN(ctx, count);
 #else
 	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");

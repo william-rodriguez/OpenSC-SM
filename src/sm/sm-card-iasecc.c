@@ -43,34 +43,14 @@
 #include "libopensc/asn1.h"
 #include "libopensc/iasecc.h"
 #include "libopensc/iasecc-sdo.h"
-#if 0
-#include "libopensc/hash-strings.h"
-#endif
 #include "sm-module.h"
 
-static const struct sc_asn1_entry c_asn1_card_response[2] = {
-	{ "cardResponse", SC_ASN1_STRUCT, SC_ASN1_CTX | 1 | SC_ASN1_CONS, 0, NULL, NULL },
-	{ NULL, 0, 0, 0, NULL, NULL }
-};
-static const struct sc_asn1_entry c_asn1_iasecc_response[4] = {
-	{ "number",	SC_ASN1_INTEGER,	SC_ASN1_TAG_INTEGER,    0, NULL, NULL },
-	{ "status",	SC_ASN1_INTEGER, 	SC_ASN1_TAG_INTEGER,    0, NULL, NULL },
-	{ "data",       SC_ASN1_OCTET_STRING,   SC_ASN1_CTX | 2 | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL, NULL },
-	{ NULL, 0, 0, 0, NULL, NULL }
-};
-static const struct sc_asn1_entry c_asn1_iasecc_sm_response[4] = {
-	{ "number",	SC_ASN1_INTEGER,	SC_ASN1_TAG_INTEGER,    0, NULL, NULL },
-	{ "status",	SC_ASN1_INTEGER, 	SC_ASN1_TAG_INTEGER,    0, NULL, NULL },
-	{ "data",	SC_ASN1_STRUCT,		SC_ASN1_CTX | 2 | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL, NULL },
-	{ NULL, 0, 0, 0, NULL, NULL }
-};
 static const struct sc_asn1_entry c_asn1_iasecc_sm_data_object[4] = {
 	{ "encryptedData", 	SC_ASN1_OCTET_STRING,	SC_ASN1_CTX | 7,	SC_ASN1_OPTIONAL,	NULL, NULL },
 	{ "commandStatus", 	SC_ASN1_OCTET_STRING,	SC_ASN1_CTX | 0x19,	0, 			NULL, NULL },
 	{ "ticket", 		SC_ASN1_OCTET_STRING,	SC_ASN1_CTX | 0x0E,	0, 			NULL, NULL },
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
-
 
 static int
 sm_iasecc_get_apdu_read_binary(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata)
@@ -100,8 +80,8 @@ sm_iasecc_get_apdu_read_binary(struct sc_context *ctx, struct sm_info *sm_info, 
 		rapdu->apdu.ins = 0xB0;
 		rapdu->apdu.p1 = (offs >> 8) & 0xFF;
 		rapdu->apdu.p2 = offs & 0xFF;
-		rapdu->apdu.resplen = sz;
 		rapdu->apdu.le = sz;
+		/* 'resplen' is set by remote apdu allocation procedure */
 
 		rv = sm_cwa_securize_apdu(ctx, sm_info, rapdu);
 		LOG_TEST_RET(ctx, rv, "SM get 'UPDATE BINARY' APDUs: securize APDU error");
@@ -169,7 +149,6 @@ sm_iasecc_get_apdu_create_file(struct sc_context *ctx, struct sm_info *sm_info, 
 {
 	struct iasecc_sm_cmd_create_file *cmd_data = (struct iasecc_sm_cmd_create_file *)sm_info->cmd_data;
 	struct sc_remote_apdu *rapdu = NULL;
-	size_t offs, data_offs = 0;
 	int rv = 0;
 
 	LOG_FUNC_CALLED(ctx);
@@ -627,89 +606,59 @@ sm_iasecc_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
 
 
 int 
-sm_iasecc_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, char *str_data, 
+sm_iasecc_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata, 
 		unsigned char *out, size_t out_len)
 {
-#if 0
 	struct sm_cwa_session *session_data = &sm_info->schannel.session.cwa;
-	struct sc_asn1_entry asn1_iasecc_sm_data_object[4], asn1_iasecc_sm_response[4], asn1_card_response[2];
-	struct sc_hash *hash = NULL;
-	unsigned char *hex = NULL;
-	size_t hex_len, len_left;
-	int rv, offs;
+	struct sc_asn1_entry asn1_iasecc_sm_data_object[4];
+	struct sc_remote_apdu *rapdu = NULL;
+	int rv, offs = 0;
 
 	LOG_FUNC_CALLED(ctx);
 
 	if (!out || !out_len)
 		LOG_FUNC_RETURN(ctx, 0);
 
-	sc_log(ctx, "IAS/ECC decode answer(s): out length %i", out_len);
-	if (strstr(str_data, "DATA="))   {
-		rv = sc_hash_parse(ctx, str_data, strlen(str_data), &hash);
-		LOG_TEST_RET(ctx, rv, "IAS/ECC decode answer(s): parse error");
-
-		str_data = sc_hash_get(hash, "DATA");
-	}
-
-	if (!strlen(str_data))
-		LOG_FUNC_RETURN(ctx, 0);
-
-	hex_len = strlen(str_data) / 2;
-	hex = calloc(1, hex_len);
-	if (!hex)
-		LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "IAS/ECC decode answer(s): hex allocate error");
-
-	rv = sc_hex_to_bin(str_data, hex, &hex_len);
-	LOG_TEST_RET(ctx, rv, "IAS/ECC decode answer(s): data 'HEX to BIN' conversion error");
-	sc_log(ctx, "IAS/ECC decode answer(s): hex length %i", hex_len);
-
-	if (hash)
-		sc_hash_free(hash);
-	
-	for (offs = 0, len_left = hex_len; len_left; )   {
+	sc_log(ctx, "IAS/ECC decode answer() rdata length %i, out length %i", rdata->length, out_len);
+        for (rapdu = rdata->data; rapdu; rapdu = rapdu->next)   {
                 unsigned char *decrypted;
                 size_t decrypted_len;
-		unsigned char card_data[SC_MAX_APDU_BUFFER_SIZE], command_status[2];
-		size_t card_data_len = sizeof(card_data), command_status_len = sizeof(command_status); 
+		unsigned char resp_data[SC_MAX_APDU_BUFFER_SIZE];
+		size_t resp_len = sizeof(resp_data);
+		unsigned char status[2] = {0, 0};
+		size_t status_len = sizeof(status);
 		unsigned char ticket[8];
 		size_t ticket_len = sizeof(ticket); 
-		int num, status;
 
 		sc_copy_asn1_entry(c_asn1_iasecc_sm_data_object, asn1_iasecc_sm_data_object);
-		sc_copy_asn1_entry(c_asn1_iasecc_sm_response, asn1_iasecc_sm_response);
-		sc_copy_asn1_entry(c_asn1_card_response, asn1_card_response);
 
-		sc_format_asn1_entry(asn1_iasecc_sm_data_object + 0, card_data, &card_data_len, 0);
-		sc_format_asn1_entry(asn1_iasecc_sm_data_object + 1, command_status, &command_status_len, 0);
+		sc_format_asn1_entry(asn1_iasecc_sm_data_object + 0, resp_data, &resp_len, 0);
+		sc_format_asn1_entry(asn1_iasecc_sm_data_object + 1, status, &status_len, 0);
 		sc_format_asn1_entry(asn1_iasecc_sm_data_object + 2, ticket, &ticket_len, 0);
 
-		sc_format_asn1_entry(asn1_iasecc_sm_response + 0, &num, NULL, 0);
-		sc_format_asn1_entry(asn1_iasecc_sm_response + 1, &status, NULL, 0);
-		sc_format_asn1_entry(asn1_iasecc_sm_response + 2, asn1_iasecc_sm_data_object, NULL, 0);
-
-		sc_format_asn1_entry(asn1_card_response + 0, asn1_iasecc_sm_response, NULL, 0);
-
-        	rv = sc_asn1_decode(ctx, asn1_card_response, hex + hex_len - len_left, len_left, NULL, &len_left);
+		sc_log(ctx, "IAS/ECC decode data(%i) %s", rapdu->apdu.resplen, sc_dump_hex(rapdu->apdu.resp, rapdu->apdu.resplen));
+        	rv = sc_asn1_decode(ctx, asn1_iasecc_sm_data_object, rapdu->apdu.resp, rapdu->apdu.resplen, NULL, NULL);
 		LOG_TEST_RET(ctx, rv, "IAS/ECC decode answer(s): ASN1 decode error");
 
-		if (status != 0x9000)
+		sc_log(ctx, "IAS/ECC decode answer() status %02X%02X", status[0], status[1]);
+		if (status[0] != 0x90 || status[1] != 0x00)
 			continue;
 
 		if (asn1_iasecc_sm_data_object[0].flags & SC_ASN1_PRESENT)   {
-			if (*card_data != 0x01)
+			sc_log(ctx, "IAS/ECC decode answer() object present");
+			if (resp_data[0] != 0x01)
 				LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "IAS/ECC decode answer(s): invalid encrypted data format");
 
 			decrypted_len = sizeof(decrypted);	
-			rv = sm_decrypt_des_cbc3(ctx, session_data->session_enc, card_data + 1, card_data_len - 1, 
+			rv = sm_decrypt_des_cbc3(ctx, session_data->session_enc, &resp_data[1], resp_len - 1, 
 					&decrypted, &decrypted_len);
 			LOG_TEST_RET(ctx, rv, "IAS/ECC decode answer(s): cannot decrypt card answer data");
 
+			sc_log(ctx, "IAS/ECC decrypted data(%i) %s", decrypted_len, sc_dump_hex(decrypted, decrypted_len));
 			while(*(decrypted + decrypted_len - 1) == 0x00)
 			       decrypted_len--;
-
 			if (*(decrypted + decrypted_len - 1) != 0x80)
 				LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "IAS/ECC decode answer(s): invalid card data padding ");
-
 			decrypted_len--;
 
 			if (out_len < offs + decrypted_len)
@@ -717,17 +666,11 @@ sm_iasecc_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, char
 
 			memcpy(out + offs, decrypted, decrypted_len);
 			offs += decrypted_len;
-			sc_log(ctx, "IAS/ECC decode card answer(s): decrypted_len:%i, offs:%i", decrypted_len, offs);
+			sc_log(ctx, "IAS/ECC decode card answer(s): out_len/offs %i/%i", out_len, offs);
 
 			free(decrypted);
 		}
-
-		sc_log(ctx, "IAS/ECC decode card answer(s): decode answer: length left %i", len_left);
 	}
-
-	free(hex);
+	
 	LOG_FUNC_RETURN(ctx, offs);
-#else
-	LOG_FUNC_RETURN(ctx, SC_ERROR_NOT_SUPPORTED);
-#endif
 }

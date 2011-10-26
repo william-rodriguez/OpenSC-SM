@@ -184,7 +184,7 @@ sm_cwa_parse_authentication_data(struct sc_context *ctx, char *data, struct sm_c
 
 int
 sm_cwa_decode_authentication_data(struct sc_context *ctx, struct sm_cwa_keyset *keyset, 
-		struct sm_cwa_session *session_data, char *auth_data)
+		struct sm_cwa_session *session_data, unsigned char *auth_data)
 {
 	DES_cblock icv = {0, 0, 0, 0, 0, 0, 0, 0};
 	DES_cblock cblock;
