@@ -128,6 +128,7 @@ sm_release (struct sc_card *card, struct sc_remote_data *rdata,
 		unsigned char *out, size_t out_len)
 {
 	struct sc_context *ctx = card->ctx;
+#ifdef ENABLE_SM	
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	int rv;
 
@@ -137,6 +138,10 @@ sm_release (struct sc_card *card, struct sc_remote_data *rdata,
 
 	rv = card->sm_ctx.module.ops.finalize(ctx, sm_info, rdata, out, out_len);
 	LOG_FUNC_RETURN(ctx, rv);
+#else
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of SM and External Authentication");
+	return SC_ERROR_NOT_SUPPORTED;
+#endif
 }
 
 
