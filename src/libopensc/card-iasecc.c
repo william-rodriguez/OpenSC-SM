@@ -1772,11 +1772,18 @@ iasecc_chv_verify(struct sc_card *card, struct sc_pin_cmd_data *pin_cmd,
 		int *tries_left)
 {
 	struct sc_context *ctx = card->ctx;
+	struct sc_acl_entry acl = pin_cmd->pin1.acls[IASECC_ACLS_CHV_VERIFY];
 	struct sc_apdu apdu;
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "CHV PIN reference %i, data_len %i", pin_cmd->pin_reference, pin_cmd->pin1.len);
+	sc_log(ctx, "Verify CHV PIN(ref:%i,len:%i,acl-meth::%X,acl-ref:%X)", pin_cmd->pin_reference, pin_cmd->pin1.len,
+			acl.method, acl.key_ref);
+
+	if (acl.method & IASECC_SCB_METHOD_SM)   {
+		rv = iasecc_sm_pin_verify(card, acl.key_ref, pin_cmd);
+		LOG_FUNC_RETURN(ctx, rv);
+	}
 
 	if (pin_cmd->pin1.data && !pin_cmd->pin1.len)   {
 		sc_format_apdu(card, &apdu, SC_APDU_CASE_1, 0x20, 0, pin_cmd->pin_reference);
@@ -1873,25 +1880,6 @@ iasecc_pin_is_verified(struct sc_card *card, struct sc_pin_cmd_data *pin_cmd_dat
 	LOG_FUNC_RETURN(ctx, rv);
 }
 
-static int
-iasecc_ext_auth(struct sc_card *card, unsigned skey_ref, int *tries_left)
-{
-	struct sc_context *ctx = card->ctx;
-#ifdef ENABLE_SM
-	int rv;
-
-	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "Verify AuthKey(skey:%x)", skey_ref);
-
-	if (card->sm_ctx.sm_mode == SM_MODE_NONE)
-		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Cannot do 'External Authentication' without SM activated ");
-
-	rv = iasecc_sm_external_authentication(card, skey_ref, tries_left);
-	LOG_FUNC_RETURN(ctx, rv);
-#else
-	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of SM and External Authentication");
-#endif
-}
 
 static int
 iasecc_pin_verify(struct sc_card *card, unsigned type, unsigned reference,
@@ -1906,7 +1894,7 @@ iasecc_pin_verify(struct sc_card *card, unsigned type, unsigned reference,
 	sc_log(ctx, "Verify PIN(type:%X,ref:%i,data(len:%i,%p)", type, reference, data_len, data);
 
 	if (type == SC_AC_AUT)   {
-		rv =  iasecc_ext_auth(card, reference, tries_left);
+		rv =  iasecc_sm_external_authentication(card, reference, tries_left);
 		LOG_FUNC_RETURN(ctx, rv);
 	}
 	else if (type == SC_AC_SCB)   {
@@ -2234,28 +2222,28 @@ iasecc_pin_reset(struct sc_card *card, struct sc_pin_cmd_data *data, int *tries_
 	scb = sdo.docp.scbs[IASECC_ACLS_CHV_RESET];
 	do   {
 		unsigned need_all = scb & IASECC_SCB_METHOD_NEED_ALL ? 1 : 0;
+		unsigned char se_num = scb & IASECC_SCB_METHOD_MASK_REF;
 
 		if (scb & IASECC_SCB_METHOD_USER_AUTH)   {
-			sc_log(ctx, "Try to verify PUK code: pin1.data:%p, pin1.len:%i", data->pin1.data, data->pin1.len);
-			rv = iasecc_pin_verify(card, SC_AC_SEN, scb & IASECC_SCB_METHOD_MASK_REF, 
-						data->pin1.data, data->pin1.len, tries_left);
-			sc_log(ctx, "Verify PUK code returned %i", rv);
-			LOG_TEST_RET(ctx, rv, "iasecc_pin_reset() PIN verification error");
+			rv = iasecc_pin_verify(card, SC_AC_SEN, se_num, data->pin1.data, data->pin1.len, tries_left);
+			LOG_TEST_RET(ctx, rv, "iasecc_pin_reset() verify PUK error");
 
 			if (!need_all)
 				break;
 		}
 
 		if (scb & IASECC_SCB_METHOD_SM)   {
-			unsigned char se_num = scb & IASECC_SCB_METHOD_MASK_REF;
-
 			rv = iasecc_sm_pin_reset(card, se_num, data);
 			LOG_FUNC_RETURN(ctx, rv);
+
+			if (!need_all)
+				break;
 		}
 
-		if (scb & IASECC_SCB_METHOD_EXT_AUTH)
-			sc_log(ctx, "Hope that external authentication has been already done...");
-
+		if (scb & IASECC_SCB_METHOD_EXT_AUTH)   {
+			rv =  iasecc_sm_external_authentication(card, reference, tries_left);
+			LOG_TEST_RET(ctx, rv, "iasecc_pin_reset() external authentication error");
+		}
 	} while(0);
 
 	iasecc_sdo_free_fields(card, &sdo);

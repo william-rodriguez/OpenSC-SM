@@ -318,6 +318,7 @@ int iasecc_sdo_parse_card_answer(struct sc_context *, unsigned char *, size_t, s
 int iasecc_docp_copy(struct sc_context *, struct iasecc_sdo_docp *, struct iasecc_sdo_docp *);
 int iasecc_se_get_info(struct sc_card *card, struct iasecc_se_info *se);
 
+int iasecc_sm_pin_verify(struct sc_card *card, unsigned se_num, struct sc_pin_cmd_data *data);
 int iasecc_sm_pin_reset(struct sc_card *card, unsigned se_num, struct sc_pin_cmd_data *data);
 int iasecc_sm_update_binary(struct sc_card *card, unsigned se_num, size_t offs, const unsigned char *buff, size_t count);
 int iasecc_sm_read_binary(struct sc_card *card, unsigned se_num, size_t offs, unsigned char *buff, size_t count);

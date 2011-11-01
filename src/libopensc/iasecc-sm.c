@@ -158,6 +158,9 @@ iasecc_sm_external_authentication(struct sc_card *card, unsigned skey_ref, int *
 
 	LOG_FUNC_CALLED(ctx);
 	sc_log(ctx, "iasecc_sm_external_authentication(): SKey ref %i", skey_ref);
+	
+	if (card->sm_ctx.sm_mode == SM_MODE_NONE)
+		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Cannot do 'External Authentication' without SM activated ");
 
 	strncpy(sm_info->config_section, card->sm_ctx.config_section, sizeof(sm_info->config_section));
 	sm_info->cmd = SM_CMD_EXTERNAL_AUTH;
@@ -456,45 +459,34 @@ iasecc_sm_rsa_update(struct sc_card *card, unsigned se_num, struct iasecc_sdo_rs
 }
 
 
-#if 0
 int
-sm_pin_verify(struct sc_card *card, unsigned acl, struct sc_pin_cmd_data *data)
+iasecc_sm_pin_verify(struct sc_card *card, unsigned se_num, struct sc_pin_cmd_data *data)
 {
 	struct sc_context *ctx = card->ctx;
-	struct sm_info sm_info;
-	unsigned char mdata[SC_MAX_APDU_BUFFER_SIZE], rbuf[SC_MAX_APDU_BUFFER_SIZE*4];
-	size_t mdata_len = sizeof(mdata), rbuf_len = sizeof(rbuf);
-	int rv, rvv;
+#ifdef ENABLE_SM
+	struct sm_info *sm_info = &card->sm_ctx.info;
+	struct sc_remote_data rdata;
+	int rv;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "SM verify PIN(ref:%i,len:%i), acl:%X", data->pin_reference, data->pin2.len, acl);
+	sc_log(ctx, "iasecc_sm_pin_verify() SE#%i, PIN(ref:%i,len:%i)", se_num, data->pin_reference, data->pin1.len);
+        
+	rv = iasecc_sm_initialize(card, se_num, SM_CMD_PIN_VERIFY);
+        LOG_TEST_RET(ctx, rv, "iasecc_sm_pin_verify() SM INITIALIZE failed");
 
-	memset(&sm_info, 0, sizeof(sm_info));
-	sm_info.security_condition = acl;
-	sm_info.cmd = SM_CMD_PIN_VERIFY;
-	sm_info.cmd_params.pin_verify.pin.reference = data->pin_reference;
-	sm_info.cmd_params.pin_verify.pin.data = (unsigned char *)data->pin1.data;
-	sm_info.cmd_params.pin_verify.pin.size = data->pin1.len;
-	sm_info.rdata = rbuf;
-	sm_info.rdata_len = rbuf_len;
+	sm_info->cmd_data = data;
 
-	rv = sm_initialize (card, &sm_info, mdata, &mdata_len);
-	LOG_TEST_RET(ctx, rv, "SM verify PIN: init failed");
+	sc_remote_data_init(&rdata);
+	rv= iasecc_sm_cmd(card, &rdata);
+        LOG_TEST_RET(ctx, rv, "iasecc_sm_pin_verify() SM 'PIN VERIFY' failed");
 
-	sc_log(ctx, "SM verify PIN: mdata(%i) '%s'\n", mdata_len, mdata);
-	rv = sm_execute (card, &sm_info, (char *)mdata, rbuf, &rbuf_len);
-	if (rv)   {
-		sm_info.status = rv;
-		sc_log(ctx, "SM verify PIN: execute error %i", rv);
-	}
-
-	rvv = sm_release (card, &sm_info, (char *)rbuf, NULL, 0);
-	if (rvv)
-		sc_log(ctx, "SM verify PIN: cannot release SM, error %i", rvv);
-	
-	LOG_FUNC_RETURN(ctx, rv ? rv : rvv);
-}
+	rdata.free(&rdata);
+	LOG_FUNC_RETURN(ctx, rv);
+#else
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+	return SC_ERROR_NOT_SUPPORTED;
 #endif
+}
 
 
 int

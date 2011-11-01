@@ -221,40 +221,47 @@ sm_iasecc_get_apdu_delete_file(struct sc_context *ctx, struct sm_info *sm_info, 
 }
 
 
-#if 0
 static int
-sm_iasecc_get_apdu_verify_pin(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_apdu **rapdus)
+sm_iasecc_get_apdu_verify_pin(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata)
 {
-	struct sm_info_pin_verify *pv = &sm_info->cmd_params.pin_verify;
+	struct sc_pin_cmd_data *pin_data = (struct sc_pin_cmd_data *)sm_info->cmd_data;
 	struct sc_remote_apdu *rapdu = NULL;
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "SM get 'VERIFY PIN' APDU");
+	sc_log(ctx, "SM get 'VERIFY PIN' APDU: ", pin_data->pin_reference);
 
-	rv = sc_remote_apdu_allocate(rapdus, &rapdu);
-	LOG_TEST_RET(ctx, rv, "SM get 'VERIFY PIN' APDU: cannot allocate remote apdu");
+	if (!pin_data)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+
+        if (!rdata || !rdata->alloc)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+
+ 	rv = rdata->alloc(rdata, &rapdu);
+	LOG_TEST_RET(ctx, rv, "SM get 'VERIFY PIN' APDUs: cannot allocate remote APDU");
 
 	rapdu->apdu.cse = SC_APDU_CASE_3_SHORT;
 	rapdu->apdu.cla = 0x00;
 	rapdu->apdu.ins = 0x20;
 	rapdu->apdu.p1 = 0x00;
-	rapdu->apdu.p2 = pv->pin.reference;
-	if (pv->pin.size > SM_MAX_DATA_SIZE)
+	rapdu->apdu.p2 = pin_data->pin_reference & ~IASECC_OBJECT_REF_GLOBAL;
+	if (pin_data->pin1.len > SM_MAX_DATA_SIZE)
 		LOG_TEST_RET(ctx, rv, "SM get 'VERIFY PIN' APDU: invelid PIN size");
 
-	memcpy((unsigned char *)rapdu->apdu.data, pv->pin.data, pv->pin.size);
-	rapdu->apdu.datalen = pv->pin.size;
-	rapdu->apdu.lc = pv->pin.size;
+	memcpy((unsigned char *)rapdu->apdu.data, pin_data->pin1.data, pin_data->pin1.len);
+	rapdu->apdu.datalen = pin_data->pin1.len;
+	rapdu->apdu.lc = pin_data->pin1.len;
 
-	rv = sm_iasecc_securize_apdu(ctx, sm_info, rapdu);
-	LOG_TEST_RET(ctx, rv, "SM get 'VERIFY_PIN' APDU: securize error");
+	/** 99 02 SW   8E 08 MAC **/
+	rapdu->apdu.le = 0x0E;
 
-	rapdu->get_response = 1;
+	rv = sm_cwa_securize_apdu(ctx, sm_info, rapdu);
+	LOG_TEST_RET(ctx, rv, "SM get 'VERIFY PIN' APDUs: securize APDU error");
+
+	rapdu->flags |= SC_REMOTE_APDU_FLAG_RETURN_ANSWER;
 
 	LOG_FUNC_RETURN(ctx, rv);
 }
-#endif
 
 
 static int
@@ -297,7 +304,7 @@ sm_iasecc_get_apdu_reset_pin(struct sc_context *ctx, struct sm_info *sm_info, st
 	rapdu->apdu.le = 0x0E;
 
 	rv = sm_cwa_securize_apdu(ctx, sm_info, rapdu);
-	LOG_TEST_RET(ctx, rv, "SM get 'DELETE FILE' APDUs: securize APDU error");
+	LOG_TEST_RET(ctx, rv, "SM get 'RESET PIN' APDUs: securize APDU error");
 
 	rapdu->flags |= SC_REMOTE_APDU_FLAG_RETURN_ANSWER;
 
@@ -600,11 +607,11 @@ sm_iasecc_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
 		rv = sm_iasecc_get_apdu_raw_apdu(ctx, sm_info, &rapdus);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'RAW APDU' failed");
 		break;
+#endif
 	case SM_CMD_PIN_VERIFY:
-		rv = sm_iasecc_get_apdu_verify_pin(ctx, sm_info, &rapdus);
+		rv = sm_iasecc_get_apdu_verify_pin(ctx, sm_info, rdata);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'RAW APDU' failed");
 		break;
-#endif
 	default:
 		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "unsupported SM command");
 	}
