@@ -1266,12 +1266,9 @@ iasecc_create_file(struct sc_card *card, struct sc_file *file)
 		sc_log(ctx, "iasecc_create_file() 'CREATE' method/reference %X/%X", entry->method, entry->key_ref);
 		sc_log(ctx, "iasecc_create_file() create data: '%s'", sc_dump_hex(sbuf, sbuf_len + 2));
 		if (entry->method == SC_AC_SCB && (entry->key_ref & IASECC_SCB_METHOD_SM))   {
-#ifdef ENABLE_SM 			
                         rv = iasecc_sm_create_file(card, entry->key_ref & IASECC_SCB_METHOD_MASK_REF, sbuf, sbuf_len + 2);
                         LOG_TEST_RET(ctx, rv, "iasecc_create_file() SM create file error");
-#else
-			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
-#endif
+
                         rv = iasecc_select_file(card, &file->path, NULL);
                         LOG_FUNC_RETURN(ctx, rv);
 
@@ -2211,8 +2208,7 @@ iasecc_pin_reset(struct sc_card *card, struct sc_pin_cmd_data *data, int *tries_
   
 	reference = data->pin_reference;
 
-	if (!(data->pin_reference & IASECC_OBJECT_REF_LOCAL) 
-			&& card->cache.valid && card->cache.current_df)	{
+	if (!(data->pin_reference & IASECC_OBJECT_REF_LOCAL) && card->cache.valid && card->cache.current_df)  {
 		struct sc_path path;
 
 		sc_file_dup(&save_current, card->cache.current_df);
@@ -2250,8 +2246,12 @@ iasecc_pin_reset(struct sc_card *card, struct sc_pin_cmd_data *data, int *tries_
 				break;
 		}
 
-		if (scb & IASECC_SCB_METHOD_SM)
-			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Not yet");
+		if (scb & IASECC_SCB_METHOD_SM)   {
+			unsigned char se_num = scb & IASECC_SCB_METHOD_MASK_REF;
+
+			rv = iasecc_sm_pin_reset(card, se_num, data);
+			LOG_FUNC_RETURN(ctx, rv);
+		}
 
 		if (scb & IASECC_SCB_METHOD_EXT_AUTH)
 			sc_log(ctx, "Hope that external authentication has been already done...");
@@ -2782,12 +2782,8 @@ iasecc_sdo_generate(struct sc_card *card, struct iasecc_sdo *sdo)
 			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Not yet");
 
 		if (scb & IASECC_SCB_METHOD_SM)   {
-#ifdef ENABLE_SM 			
 			rv = iasecc_sm_rsa_generate(card, scb & IASECC_SCB_METHOD_MASK_REF, sdo);
                         LOG_FUNC_RETURN(ctx, rv);
-#else
-			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
-#endif
 		}
 	} while(0);
 

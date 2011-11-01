@@ -496,46 +496,35 @@ sm_pin_verify(struct sc_card *card, unsigned acl, struct sc_pin_cmd_data *data)
 }
 #endif
 
-#if 0
+
 int
-sm_pin_reset(struct sc_card *card, unsigned acl, struct sc_pin_cmd_data *data)
+iasecc_sm_pin_reset(struct sc_card *card, unsigned se_num, struct sc_pin_cmd_data *data)
 {
 	struct sc_context *ctx = card->ctx;
-	struct sm_info sm_info;
-	unsigned char mdata[SC_MAX_APDU_BUFFER_SIZE], rbuf[SC_MAX_APDU_BUFFER_SIZE*4];
-	size_t mdata_len = sizeof(mdata), rbuf_len = sizeof(rbuf);
-	int rv, rvv;
+#ifdef ENABLE_SM
+	struct sm_info *sm_info = &card->sm_ctx.info;
+	struct sc_remote_data rdata;
+	int rv;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "SM reset PIN(ref:%i,len:%i), acl:%X", data->pin_reference, data->pin2.len, acl);
+	sc_log(ctx, "iasecc_sm_pin_reset() SE#%i, PIN(ref:%i,len:%i)", se_num, data->pin_reference, data->pin2.len);
+        
+	rv = iasecc_sm_initialize(card, se_num, SM_CMD_PIN_RESET);
+        LOG_TEST_RET(ctx, rv, "iasecc_sm_pin_reset() SM INITIALIZE failed");
 
-	memset(&sm_info, 0, sizeof(sm_info));
-	sm_info.security_condition = acl;
-	sm_info.cmd = SM_CMD_PIN_RESET;
-	sm_info.cmd_params.pin_reset.pin2.reference = data->pin_reference;
-	sm_info.cmd_params.pin_reset.pin2.data = (unsigned char *)data->pin2.data;
-	sm_info.cmd_params.pin_reset.pin2.size = data->pin2.len;
-	sm_info.rdata = rbuf;
-	sm_info.rdata_len = rbuf_len;
+	sm_info->cmd_data = data;
 
-	rv = sm_initialize (card, &sm_info, mdata, &mdata_len);
-	LOG_TEST_RET(ctx, rv, "SM reset PIN: init failed");
+	sc_remote_data_init(&rdata);
+	rv= iasecc_sm_cmd(card, &rdata);
+        LOG_TEST_RET(ctx, rv, "iasecc_sm_pin_reset() SM 'PIN RESET' failed");
 
-	sc_log(ctx, "SM reset PIN: mdata(%i):%s", mdata_len, mdata);
-
-	rv = sm_execute (card, &sm_info, (char *)mdata, rbuf, &rbuf_len);
-	if (rv)   {
-		sm_info.status = rv;
-		sc_log(ctx, "SM reset PIN: execute error %i", rv);
-	}
-
-	rvv = sm_release (card, &sm_info, (char *)rbuf, NULL, 0);
-	if (rvv)
-		sc_log(ctx, "SM reset PIN: cannot release SM, error %i", rvv);
-	
-	LOG_FUNC_RETURN(ctx, rv ? rv : rvv);
-}
+	rdata.free(&rdata);
+	LOG_FUNC_RETURN(ctx, rv);
+#else
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+	return SC_ERROR_NOT_SUPPORTED;
 #endif
+}
 
 
 int
@@ -666,38 +655,6 @@ iasecc_sm_delete_file(struct sc_card *card, unsigned se_num, unsigned int file_i
 
 	rdata.free(&rdata);
 	LOG_FUNC_RETURN(ctx, rv);
-#if 0	
-	struct sm_info sm_info;
-	unsigned char mdata[SC_MAX_APDU_BUFFER_SIZE], rbuf[SC_MAX_APDU_BUFFER_SIZE*4];
-	size_t mdata_len = sizeof(mdata), rbuf_len = sizeof(rbuf);
-	int rv, rvv;
-
-	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "SM delete file(file-id:%04X), acl:%X", file_id, acl);
-
-	memset(&sm_info, 0, sizeof(sm_info));
-	sm_info.security_condition = acl;
-	sm_info.cmd = SM_CMD_FILE_DELETE;
-	sm_info.cmd_params.delete_file.file_id = file_id;
-	sm_info.rdata = rbuf;
-	sm_info.rdata_len = rbuf_len;
-
-	rv = sm_initialize (card, &sm_info, mdata, &mdata_len);
-	LOG_TEST_RET(ctx, rv, "SM delete file: init failed");
-
-	sc_log(ctx, "SM delete file: mdata(%i) '%s'\n", mdata_len, mdata);
-	rv = sm_execute (card, &sm_info, (char *)mdata, rbuf, &rbuf_len);
-	if (rv)   {
-		sm_info.status = rv;
-		sc_log(ctx, "SM delete file: execute error %i", rv);
-	}
-
-	rvv = sm_release (card, &sm_info, (char *)rbuf, NULL, 0);
-	if (rvv)
-		sc_log(ctx, "SM delete file: cannot release SM, error %i", rvv);
-	
-	LOG_FUNC_RETURN(ctx, rv ? rv : rvv);
-#endif
 #else
 	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
 	return SC_ERROR_NOT_SUPPORTED;
