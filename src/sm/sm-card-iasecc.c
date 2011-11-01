@@ -184,19 +184,24 @@ sm_iasecc_get_apdu_create_file(struct sc_context *ctx, struct sm_info *sm_info, 
 }
 
 
-#if 0
 static int
-sm_iasecc_get_apdu_delete_file(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_apdu **rapdus)
+sm_iasecc_get_apdu_delete_file(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata)
 {
-	struct sm_info_delete_file *df = &sm_info->cmd_params.delete_file;
+	unsigned int file_id = (unsigned int)sm_info->cmd_data;
 	struct sc_remote_apdu *rapdu = NULL;
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "SM get 'DELETE FILE' APDU: file-id %04X", df->file_id);
+	sc_log(ctx, "SM get 'DELETE FILE' APDU: file-id %04X", file_id);
 
-	rv = sc_remote_apdu_allocate(rapdus, &rapdu);
-	LOG_TEST_RET(ctx, rv, "SM get 'DELETE FILE' APDU: cannot allocate remote apdu");
+	if (!file_id)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+
+        if (!rdata || !rdata->alloc)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+
+ 	rv = rdata->alloc(rdata, &rapdu);
+	LOG_TEST_RET(ctx, rv, "SM get 'DELETE FILE' APDUs: cannot allocate remote APDU");
 
 	rapdu->apdu.cse = SC_APDU_CASE_1;
 	rapdu->apdu.cla = 0x00;
@@ -204,14 +209,16 @@ sm_iasecc_get_apdu_delete_file(struct sc_context *ctx, struct sm_info *sm_info, 
 	rapdu->apdu.p1 = 0x00;
 	rapdu->apdu.p2 = 0x00;
 
-	rv = sm_iasecc_securize_apdu(ctx, sm_info, rapdu);
-	LOG_TEST_RET(ctx, rv, "SM get 'DELETE FILE' APDU: securize error");
+	/** 99 02 SW   8E 08 MAC **/
+	rapdu->apdu.le = 0x0E;
 
-	rapdu->get_response = 1;
+	rv = sm_cwa_securize_apdu(ctx, sm_info, rapdu);
+	LOG_TEST_RET(ctx, rv, "SM get 'DELETE FILE' APDUs: securize APDU error");
+
+	rapdu->flags |= SC_REMOTE_APDU_FLAG_RETURN_ANSWER;
 
 	LOG_FUNC_RETURN(ctx, rv);
 }
-#endif
 
 
 #if 0
@@ -362,7 +369,7 @@ static int
 sm_iasecc_get_apdu_update_rsa(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata)
 {
 	struct iasecc_sdo_rsa_update *cmd_data = (struct iasecc_sdo_rsa_update *)sm_info->cmd_data;
-	struct iasecc_sdo_update *to_update[2];
+	struct iasecc_sdo_update *to_update[2] = {NULL, NULL};
 	int rv = 0, ii = 0, jj = 0;
 
 	LOG_FUNC_CALLED(ctx);
@@ -376,7 +383,7 @@ sm_iasecc_get_apdu_update_rsa(struct sc_context *ctx, struct sm_info *sm_info, s
 		sc_log(ctx, "SM get 'UPDATE RSA' APDU: SDO(class:%X,ref:%X)", cmd_data->update_pub.sdo_class, cmd_data->update_pub.sdo_ref);
 	}
 
-	for (jj=0;jj<2;jj++)   {
+	for (jj=0;jj<2 && to_update[jj];jj++)   {
 		for (ii=0; to_update[jj]->fields[ii].tag && ii < IASECC_SDO_TAGS_UPDATE_MAX; ii++)   {
 			unsigned char *encoded = NULL;
 			size_t encoded_len, offs;
@@ -561,11 +568,11 @@ sm_iasecc_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
 		rv = sm_iasecc_get_apdu_create_file(ctx, sm_info, rdata);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'CREATE FILE' failed");
 		break;
-#if 0
 	case SM_CMD_FILE_DELETE:
-		rv = sm_iasecc_get_apdu_delete_file(ctx, sm_info, &rapdus);
-		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'CREATE FILE' failed");
+		rv = sm_iasecc_get_apdu_delete_file(ctx, sm_info, rdata);
+		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'DELETE FILE' failed");
 		break;
+#if 0
 	case SM_CMD_PIN_RESET:
 		rv = sm_iasecc_get_apdu_reset_pin(ctx, sm_info, &rapdus);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'RESET PIN' failed");

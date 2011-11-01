@@ -588,7 +588,6 @@ iasecc_sm_read_binary(struct sc_card *card, unsigned se_num, size_t offs, unsign
 
 	cmd_data.offs = offs;
 	cmd_data.count = count;
-	//cmd_data.data = buff;
 	sm_info->cmd_data = &cmd_data;
 
 	sc_remote_data_init(&rdata);
@@ -602,54 +601,6 @@ iasecc_sm_read_binary(struct sc_card *card, unsigned se_num, size_t offs, unsign
 
 	rdata.free(&rdata);
 	LOG_FUNC_RETURN(ctx, rv);
-#if 0
-	struct sm_info sm_info;
-	unsigned char mbuf[SC_MAX_APDU_BUFFER_SIZE*4], tbuf[SC_MAX_APDU_BUFFER_SIZE*3], *rbuf;
-	size_t mbuf_len = sizeof(mbuf), tbuf_len = sizeof(tbuf), rbuf_len;
-	int rv, rvv;
-
-	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "SM read binary: acl:%X, offs:%i, size:%i, buff length:%i", acl, offs, size, buff_len);
-
-	rbuf_len = size + (((size + SM_MAX_DATA_SIZE - 1)/SM_MAX_DATA_SIZE) * 64);
-	rbuf_len = rbuf_len*2 + 0x100;
-	rbuf = calloc(1, rbuf_len);
-	if (!rbuf)
-		LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "SM read binary: rbuf allocation error");
-
-	sc_log(ctx, "SM read binary: rbuf_len %i\n", rbuf_len);
-
-	memset(&sm_info, 0, sizeof(sm_info));
-	sm_info.security_condition = acl;
-	sm_info.cmd = SM_CMD_FILE_READ;
-	sm_info.cmd_params.read_binary.offset = offs;
-	sm_info.cmd_params.read_binary.size = size;
-	sm_info.rdata = rbuf;
-	sm_info.rdata_len = rbuf_len;
-
-	rv = sm_initialize (card, &sm_info, mbuf, &mbuf_len);
-	LOG_TEST_RET(ctx, rv, "SM read binary: init failed");
-
-	sc_log(ctx, "SM read binary: mbuf %s", mbuf);
-	rv = sm_execute (card, &sm_info, (char *)mbuf, tbuf, &tbuf_len);
-	if (rv)   {
-		sm_info.status = rv;
-		sc_log(ctx, "SM read binary: sm_execute failed with error %i", rv);
-	}
-
-	rvv = sm_release (card, &sm_info, (char *)rbuf, buff, buff_len);
-	free(rbuf);
-	if (rvv)
-		sc_log(ctx, "SM read binary: failed to release SM context; error %i", rvv);
-
-	if (rv)
-		LOG_FUNC_RETURN(ctx, rv);
-
-	if (rvv)
-		LOG_FUNC_RETURN(ctx, rvv);
-	
-	LOG_FUNC_RETURN(ctx, size);
-#endif
 #else
 	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
 	return SC_ERROR_NOT_SUPPORTED;
@@ -692,11 +643,30 @@ iasecc_sm_update_binary(struct sc_card *card, unsigned se_num, size_t offs,
 }
 
 
-#if 0
 int
-sm_delete_file(struct sc_card *card, unsigned acl, unsigned int file_id)
+iasecc_sm_delete_file(struct sc_card *card, unsigned se_num, unsigned int file_id)
 {
 	struct sc_context *ctx = card->ctx;
+#ifdef ENABLE_SM
+	struct sm_info *sm_info = &card->sm_ctx.info;
+	struct sc_remote_data rdata;
+	int rv;
+
+	LOG_FUNC_CALLED(ctx);
+	sc_log(ctx, "SM delete file: SE#:%X, file-id:%X", se_num, file_id);
+
+	rv = iasecc_sm_initialize(card, se_num, SM_CMD_FILE_DELETE);
+        LOG_TEST_RET(ctx, rv, "iasecc_sm_delete_file() SM INITIALIZE failed");
+
+	sm_info->cmd_data = (void *)file_id;
+
+	sc_remote_data_init(&rdata);
+	rv = iasecc_sm_cmd(card, &rdata);
+        LOG_TEST_RET(ctx, rv, "iasecc_sm_delete_file() SM 'FILE DELETE' failed");
+
+	rdata.free(&rdata);
+	LOG_FUNC_RETURN(ctx, rv);
+#if 0	
 	struct sm_info sm_info;
 	unsigned char mdata[SC_MAX_APDU_BUFFER_SIZE], rbuf[SC_MAX_APDU_BUFFER_SIZE*4];
 	size_t mdata_len = sizeof(mdata), rbuf_len = sizeof(rbuf);
@@ -727,7 +697,11 @@ sm_delete_file(struct sc_card *card, unsigned acl, unsigned int file_id)
 		sc_log(ctx, "SM delete file: cannot release SM, error %i", rvv);
 	
 	LOG_FUNC_RETURN(ctx, rv ? rv : rvv);
-}
 #endif
+#else
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+	return SC_ERROR_NOT_SUPPORTED;
+#endif
+}
 
 
