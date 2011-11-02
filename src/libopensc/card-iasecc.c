@@ -1777,11 +1777,11 @@ iasecc_chv_verify(struct sc_card *card, struct sc_pin_cmd_data *pin_cmd,
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "Verify CHV PIN(ref:%i,len:%i,acl-meth::%X,acl-ref:%X)", pin_cmd->pin_reference, pin_cmd->pin1.len,
+	sc_log(ctx, "Verify CHV PIN(ref:%i,len:%i,acl:%X:%X)", pin_cmd->pin_reference, pin_cmd->pin1.len,
 			acl.method, acl.key_ref);
 
 	if (acl.method & IASECC_SCB_METHOD_SM)   {
-		rv = iasecc_sm_pin_verify(card, acl.key_ref, pin_cmd);
+		rv = iasecc_sm_pin_verify(card, acl.key_ref, pin_cmd, tries_left);
 		LOG_FUNC_RETURN(ctx, rv);
 	}
 

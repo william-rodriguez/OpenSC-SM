@@ -31,9 +31,9 @@
 extern "C" {
 #endif
 
-#include <ltdl.h>
 #include <libopensc/errors.h>
 #include <libopensc/types.h>
+#include <common/libscdl.h>
 
 #ifndef SHA_DIGEST_LENGTH
 #define SHA_DIGEST_LENGTH	20

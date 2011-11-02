@@ -460,7 +460,7 @@ iasecc_sm_rsa_update(struct sc_card *card, unsigned se_num, struct iasecc_sdo_rs
 
 
 int
-iasecc_sm_pin_verify(struct sc_card *card, unsigned se_num, struct sc_pin_cmd_data *data)
+iasecc_sm_pin_verify(struct sc_card *card, unsigned se_num, struct sc_pin_cmd_data *data, int *tries_left)
 {
 	struct sc_context *ctx = card->ctx;
 #ifdef ENABLE_SM
@@ -480,6 +480,7 @@ iasecc_sm_pin_verify(struct sc_card *card, unsigned se_num, struct sc_pin_cmd_da
 	rv= iasecc_sm_cmd(card, &rdata);
         LOG_TEST_RET(ctx, rv, "iasecc_sm_pin_verify() SM 'PIN VERIFY' failed");
 
+	/* TODO: tries left */
 	rdata.free(&rdata);
 	LOG_FUNC_RETURN(ctx, rv);
 #else
