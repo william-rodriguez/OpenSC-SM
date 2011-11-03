@@ -247,9 +247,14 @@ struct sm_info   {
  */
 typedef struct sm_card_response   {
 	int num;
-	unsigned sw;
+
 	unsigned char data[SC_MAX_APDU_BUFFER_SIZE];
-	size_t len;
+	size_t data_len;
+
+	unsigned char mac[8];
+	size_t mac_len;
+
+	unsigned char sw1, sw2;
 
 	struct sm_card_response *next;
 	struct sm_card_response *prev;

@@ -26,6 +26,7 @@
 #include <string.h>
 
 #include "internal.h"
+#include "asn1.h"
 
 /*********************************************************************/
 /*   low level APDU handling functions                               */
@@ -232,6 +233,87 @@ int sc_apdu_set_resp(sc_context_t *ctx, sc_apdu_t *apdu, const u8 *buf,
 
 	return SC_SUCCESS;
 }
+
+#ifdef ENABLE_SM                               
+static const struct sc_asn1_entry c_asn1_sm_response[4] = {
+	{ "encryptedData",	SC_ASN1_OCTET_STRING,   SC_ASN1_CTX | 7,        SC_ASN1_OPTIONAL,       NULL, NULL },
+	{ "statusWord",		SC_ASN1_OCTET_STRING,   SC_ASN1_CTX | 0x19,     0,                      NULL, NULL },
+	{ "mac",		SC_ASN1_OCTET_STRING,   SC_ASN1_CTX | 0x0E,     0,                      NULL, NULL },
+	{ NULL, 0, 0, 0, NULL, NULL }
+};
+static int 
+sc_sm_parse_answer(struct sc_context *ctx, unsigned char *resp_data, size_t resp_len, 
+		struct sm_card_response *out)
+{
+	struct sc_asn1_entry asn1_sm_response[4];
+	unsigned char data[SC_MAX_APDU_BUFFER_SIZE];
+	size_t data_len = sizeof(data);
+	unsigned char status[2] = {0, 0};
+	size_t status_len = sizeof(status);
+	unsigned char mac[8];
+	size_t mac_len = sizeof(mac);
+	int r; 
+
+	if (!resp_data || !resp_len || !out)
+		return SC_ERROR_INVALID_ARGUMENTS;
+
+	sc_copy_asn1_entry(c_asn1_sm_response, asn1_sm_response);
+
+	sc_format_asn1_entry(asn1_sm_response + 0, data, &data_len, 0);
+	sc_format_asn1_entry(asn1_sm_response + 1, status, &status_len, 0);
+	sc_format_asn1_entry(asn1_sm_response + 2, mac, &mac_len, 0);
+
+	r = sc_asn1_decode(ctx, asn1_sm_response, resp_data, resp_len, NULL, NULL);
+	if (r)
+		return r;
+
+	if (asn1_sm_response[1].flags & SC_ASN1_PRESENT)   {
+		out->sw1 = status[0];
+		out->sw2 = status[1];
+	}
+
+	if (asn1_sm_response[2].flags & SC_ASN1_PRESENT)   {
+		memcpy(out->mac, mac, mac_len);
+		out->mac_len = mac_len;
+	}
+	/* TODO: to be continued ... */
+
+	return SC_SUCCESS;
+}
+static int
+sc_sm_update_apdu_response(struct sc_card *card, unsigned char *resp_data, size_t resp_len, int ref_rv,
+		struct sc_apdu *apdu)
+{
+	struct sm_card_response sm_resp;
+	int r;
+
+	if (!apdu)
+		return SC_ERROR_INVALID_ARGUMENTS;
+	else if (!resp_data || !resp_len)
+		return SC_SUCCESS;
+
+	memset(&sm_resp, 0, sizeof(sm_resp));
+	r = sc_sm_parse_answer(card->ctx, resp_data, resp_len, &sm_resp);
+	if (r)
+		return r;
+	else if (!sm_resp.sw1 && !sm_resp.sw2)
+		return SC_ERROR_INVALID_DATA;
+	else if (ref_rv != sc_check_sw(card, sm_resp.sw1, sm_resp.sw2))
+		return SC_ERROR_INVALID_DATA;
+
+	if (sm_resp.mac_len)   {
+		if (sm_resp.mac_len > sizeof(apdu->mac))
+        		return SC_ERROR_INVALID_DATA;
+		memcpy(apdu->mac, sm_resp.mac, sm_resp.mac_len);
+		apdu->mac_len = sm_resp.mac_len;
+	}
+
+	apdu->sw1 = sm_resp.sw1;
+	apdu->sw2 = sm_resp.sw2;
+
+	return SC_SUCCESS;
+}
+#endif
 
 /*********************************************************************/
 /*   higher level APDU transfer handling functions                   */
@@ -501,21 +583,29 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 			minlen = le;
 
 			do {
-				u8 tbuf[256];
+				unsigned char resp[256];
+				size_t resp_len = le;
 				/* call GET RESPONSE to get more date from
 				 * the card; note: GET RESPONSE returns the
 				 * amount of data left (== SW2) */
-				r = card->ops->get_response(card, &le, tbuf);
+				r = card->ops->get_response(card, &resp_len, resp);
 				if (r < 0)   {
 					sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "GET RESPONSE error %i", r);
+#ifdef ENABLE_SM                               
+					if (resp_len)   {
+						sc_log(ctx, "sm_data:%p, resp %s", sm_data, sc_dump_hex(resp, resp_len));
+						sc_sm_update_apdu_response(card, resp, resp_len, r, apdu);
+					}
+#endif
 					goto done;
 				}
 
+				le = resp_len;
 				/* copy as much as will fit in requested buffer */
 				if (buflen < le)
 					le = buflen;
 
-				memcpy(buf, tbuf, le);
+				memcpy(buf, resp, le);
 				buf    += le;
 				buflen -= le;
 

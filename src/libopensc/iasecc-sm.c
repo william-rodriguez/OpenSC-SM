@@ -477,10 +477,13 @@ iasecc_sm_pin_verify(struct sc_card *card, unsigned se_num, struct sc_pin_cmd_da
 	sm_info->cmd_data = data;
 
 	sc_remote_data_init(&rdata);
-	rv= iasecc_sm_cmd(card, &rdata);
+	rv = iasecc_sm_cmd(card, &rdata);
+	if (rv && rdata.length && tries_left)
+		if (rdata.data->apdu.sw1 == 0x63 && (rdata.data->apdu.sw2 & 0xF0) == 0xC0)
+			*tries_left = rdata.data->apdu.sw2 & 0x0F;
+
         LOG_TEST_RET(ctx, rv, "iasecc_sm_pin_verify() SM 'PIN VERIFY' failed");
 
-	/* TODO: tries left */
 	rdata.free(&rdata);
 	LOG_FUNC_RETURN(ctx, rv);
 #else
@@ -508,7 +511,7 @@ iasecc_sm_pin_reset(struct sc_card *card, unsigned se_num, struct sc_pin_cmd_dat
 	sm_info->cmd_data = data;
 
 	sc_remote_data_init(&rdata);
-	rv= iasecc_sm_cmd(card, &rdata);
+	rv = iasecc_sm_cmd(card, &rdata);
         LOG_TEST_RET(ctx, rv, "iasecc_sm_pin_reset() SM 'PIN RESET' failed");
 
 	rdata.free(&rdata);

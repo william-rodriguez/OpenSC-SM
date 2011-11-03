@@ -138,50 +138,6 @@ sm_cwa_encode_mutual_auth_data(struct sc_context *ctx, struct sm_cwa_session *se
 }
 
 
-static int
-sm_cwa_parse_authentication_data(struct sc_context *ctx, char *data, struct sm_card_response *resp)
-{
-	struct sc_asn1_entry asn1_iasecc_response[4], asn1_card_response[2];
-	unsigned char *hex = NULL;
-	size_t hex_len;
-	int num, status, rv;
-
-	LOG_FUNC_CALLED(ctx);
-	if (!data || !resp)
-		LOG_TEST_RET(ctx, SC_ERROR_INVALID_ARGUMENTS, "SM parse response: invalid input arguments");
-
-	hex_len = strlen(data) / 2;
-	hex = calloc(1, hex_len);
-	if (!hex)
-		LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "SM parse response: hex allocate error");
-
-	sc_log(ctx, "SM parse response:  hex length %i", hex_len);
-	rv = sc_hex_to_bin(data, hex, &hex_len);
-	LOG_TEST_RET(ctx, rv, "SM parse response:  data 'HEX to BIN' conversion error");
-
-	sc_log(ctx, "SM parse response:  hex length %i", hex_len);
-
-	sc_copy_asn1_entry(c_asn1_iasecc_response, asn1_iasecc_response);
-	sc_copy_asn1_entry(c_asn1_card_response, asn1_card_response);
-
-	sc_format_asn1_entry(asn1_iasecc_response + 0, &num, NULL, 0);
-	sc_format_asn1_entry(asn1_iasecc_response + 1, &status, NULL, 0);
-	resp->len = sizeof(resp->data);
-	sc_format_asn1_entry(asn1_iasecc_response + 2, resp->data, &resp->len, 0);
-
-	sc_format_asn1_entry(asn1_card_response + 0, asn1_iasecc_response, NULL, 0);
-
-	rv = sc_asn1_decode(ctx, asn1_card_response, hex, hex_len, NULL, NULL);
-	LOG_TEST_RET(ctx, rv, "IAS/ECC decode answer(s): ASN1 decode error");
-
-	if (status != 0x9000)
-		LOG_FUNC_RETURN(ctx, SC_ERROR_UNKNOWN_DATA_RECEIVED);
-
-	free(hex);
-	LOG_FUNC_RETURN(ctx, rv);
-}
-
-
 int
 sm_cwa_decode_authentication_data(struct sc_context *ctx, struct sm_cwa_keyset *keyset, 
 		struct sm_cwa_session *session_data, unsigned char *auth_data)
@@ -193,21 +149,6 @@ sm_cwa_decode_authentication_data(struct sc_context *ctx, struct sm_cwa_keyset *
 	int rv; 
 
 	LOG_FUNC_CALLED(ctx);
-
-	if (session_data->mdata_len != 0x48 && auth_data)   {
-		struct sm_card_response resp;
-
-		memset(&resp, 0, sizeof(resp));
-		sc_log(ctx, "Decode authentication data: data %s", auth_data);
-		rv = sm_cwa_parse_authentication_data(ctx, auth_data, &resp);
-		LOG_TEST_RET(ctx, rv, "sm_ecc_decode_auth_data() response parse error");
-
-		if (resp.len != 0x48)
-			LOG_TEST_RET(ctx, SC_ERROR_UNKNOWN_DATA_RECEIVED, "sm_ecc_decode_auth_data() invalid auth data");
-
-		memcpy(session_data->mdata, resp.data, 0x48);
-		session_data->mdata_len = 0x48;
-	}
 
 	memset(icv, 0, sizeof(icv));
 	rv = sm_cwa_get_mac(ctx, keyset->mac, &icv, session_data->mdata, 0x40, &cblock, 1);
