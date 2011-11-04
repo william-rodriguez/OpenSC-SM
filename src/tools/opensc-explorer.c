@@ -869,17 +869,25 @@ usage:
 static int do_change(int argc, char **argv)
 {
 	int ref, r, tries_left = -1;
-	u8 oldpin[30];
-	u8 newpin[30];
+	u8 oldpin[64];
+	u8 newpin[64];
 	size_t oldpinlen = 0;
 	size_t newpinlen = 0;
+	unsigned int type = SC_AC_CHV;
 
 	if (argc < 1 || argc > 3)
 		goto usage;
-	if (strncasecmp(argv[0], "CHV", 3)) {
+	if (!strncasecmp(argv[0], "CHV", 3)) {
+		type = SC_AC_CHV;
+	}
+	else if (!strncasecmp(argv[0], "AUT", 3))   {
+		type = SC_AC_AUT;
+	}
+	else   {
 		printf("Invalid type.\n");
 		goto usage;
 	}
+
 	if (sscanf(argv[0] + 3, "%d", &ref) != 1) {
 		printf("Invalid key reference.\n");
 		goto usage;
@@ -901,7 +909,7 @@ static int do_change(int argc, char **argv)
 		}
 	}
 
-	r = sc_change_reference_data (card, SC_AC_CHV, ref,
+	r = sc_change_reference_data (card, type, ref,
                                       oldpinlen ? oldpin : NULL, oldpinlen,
                                       newpinlen ? newpin : NULL, newpinlen,
                                       &tries_left);
