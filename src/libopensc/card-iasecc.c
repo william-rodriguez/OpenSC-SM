@@ -660,9 +660,7 @@ static int
 iasecc_erase_binary(struct sc_card *card, unsigned int offs, size_t count, unsigned long flags)
 {
 	struct sc_context *ctx = card->ctx;
-	const struct sc_acl_entry *entry = NULL;
-	unsigned char buf_zero[0x400];
-	size_t sz;
+	unsigned char *tmp = NULL;
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
@@ -670,30 +668,13 @@ iasecc_erase_binary(struct sc_card *card, unsigned int offs, size_t count, unsig
 	if (!count)
 		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "'ERASE BINARY' with ZERO count not supported");
 
-	sc_print_cache(card);
+	tmp = calloc(1, count);
+	if (!tmp)
+		LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "Cannot allocate temporary buffer");
 
-	if (card->cache.valid && card->cache.current_ef)   {
-		entry = sc_file_get_acl_entry(card->cache.current_ef, SC_AC_OP_UPDATE);
-		sc_log(ctx, "UPDATE method/reference %X/%X", entry->method, entry->key_ref);
-
-		if (entry->method == SC_AC_SCB && (entry->key_ref & IASECC_SCB_METHOD_SM))
-			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Not yet");
-	}
-
-
-	memset(buf_zero, 0, sizeof(buf_zero));
-	while (count)   {
-		sc_log(ctx, "count %i, max_send_size %i", count, card->max_send_size);
-		sz = count > card->max_send_size ? card->max_send_size : count;
-
-		rv = iso_ops->update_binary(card, offs, buf_zero, sz, flags);
-		LOG_TEST_RET(ctx, rv, "write empty buffer failed");
-	
-		offs += sz;
-		count -= sz;
-	}
-
-	rv = SC_SUCCESS;
+	rv = sc_update_binary(card, offs, tmp, count, flags);
+	free(tmp);
+	LOG_TEST_RET(ctx, rv, "iasecc_erase_binary() update binary error");
 	LOG_FUNC_RETURN(ctx, rv);
 }
 
