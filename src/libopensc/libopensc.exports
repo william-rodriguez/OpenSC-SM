@@ -310,3 +310,4 @@ iasecc_sm_read_binary
 iasecc_sm_rsa_generate
 iasecc_sm_rsa_update
 iasecc_sm_update_binary
+iasecc_sm_sdo_update

@@ -123,6 +123,7 @@ iasecc_sm_transmit_apdus(struct sc_card *card, struct sc_remote_data *rdata,
 }
 
 
+/* Big TODO: do SM release in all handles, clean the saved card context -- current DF, EF, etc. */
 static int 
 sm_release (struct sc_card *card, struct sc_remote_data *rdata, 
 		unsigned char *out, size_t out_len)
@@ -483,6 +484,38 @@ iasecc_sm_pin_verify(struct sc_card *card, unsigned se_num, struct sc_pin_cmd_da
 			*tries_left = rdata.data->apdu.sw2 & 0x0F;
 
         LOG_TEST_RET(ctx, rv, "iasecc_sm_pin_verify() SM 'PIN VERIFY' failed");
+
+	rdata.free(&rdata);
+	LOG_FUNC_RETURN(ctx, rv);
+#else
+	LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "built without support of Secure-Messaging");
+	return SC_ERROR_NOT_SUPPORTED;
+#endif
+}
+
+
+int
+iasecc_sm_sdo_update(struct sc_card *card, unsigned se_num, struct iasecc_sdo_update *update)
+{
+	struct sc_context *ctx = card->ctx;
+#ifdef ENABLE_SM
+	struct sm_info *sm_info = &card->sm_ctx.info;
+	struct sc_remote_data rdata;
+	int rv;
+
+	LOG_FUNC_CALLED(ctx);
+	sc_log(ctx, "iasecc_sm_sdo_update() SE#%i, SDO(class:0x%X,ref:%i)", se_num, update->sdo_class, update->sdo_ref);
+        
+	rv = iasecc_sm_initialize(card, se_num, SM_CMD_SDO_UPDATE);
+        LOG_TEST_RET(ctx, rv, "iasecc_sm_sdo_update() SM INITIALIZE failed");
+
+	sc_log(ctx, "current DF '%s'", sc_print_path(&sm_info->current_path_df));
+
+	sm_info->cmd_data = update;
+
+	sc_remote_data_init(&rdata);
+	rv = iasecc_sm_cmd(card, &rdata);
+        LOG_TEST_RET(ctx, rv, "iasecc_sm_sdo_update() SM 'SDO UPDATE' failed");
 
 	rdata.free(&rdata);
 	LOG_FUNC_RETURN(ctx, rv);

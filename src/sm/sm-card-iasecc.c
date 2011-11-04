@@ -272,7 +272,7 @@ sm_iasecc_get_apdu_reset_pin(struct sc_context *ctx, struct sm_info *sm_info, st
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "SM get 'RESET PIN' APDU: ", pin_data->pin_reference);
+	sc_log(ctx, "SM get 'RESET PIN' APDU; reference %i", pin_data->pin_reference);
 
 	if (!pin_data)
 		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
@@ -308,6 +308,60 @@ sm_iasecc_get_apdu_reset_pin(struct sc_context *ctx, struct sm_info *sm_info, st
 
 	rapdu->flags |= SC_REMOTE_APDU_FLAG_RETURN_ANSWER;
 
+	LOG_FUNC_RETURN(ctx, rv);
+}
+
+
+static int
+sm_iasecc_get_apdu_sdo_update(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata)
+{
+	struct iasecc_sdo_update *update = (struct iasecc_sdo_update *)sm_info->cmd_data;
+	int rv = SC_ERROR_INVALID_ARGUMENTS, ii;
+
+	LOG_FUNC_CALLED(ctx);
+	if (!update)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+        if (!rdata || !rdata->alloc)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+
+	sc_log(ctx, "SM get 'SDO UPDATE' APDU, SDO(class:0x%X,ref:%i)", update->sdo_class, update->sdo_ref);
+	for (ii=0; update->fields[ii].tag && ii < IASECC_SDO_TAGS_UPDATE_MAX; ii++)   {
+		unsigned char *encoded = NULL;
+		size_t encoded_len, offs;
+
+		encoded_len = iasecc_sdo_encode_update_field(ctx, update->sdo_class, update->sdo_ref, &update->fields[ii], &encoded);
+		LOG_TEST_RET(ctx, encoded_len, "SM get 'SDO UPDATE' APDU: encode component error");
+			
+		sc_log(ctx, "SM IAS/ECC get APDUs: encoded component '%s'", sc_dump_hex(encoded, encoded_len));
+
+		for (offs = 0; offs < encoded_len; )   {
+			int len = (encoded_len - offs) > SM_MAX_DATA_SIZE ? SM_MAX_DATA_SIZE : (encoded_len - offs);
+			struct sc_remote_apdu *rapdu = NULL;
+
+		 	rv = rdata->alloc(rdata, &rapdu);
+	        	LOG_TEST_RET(ctx, rv, "SM get 'SDO UPDATE' APDUs: cannot allocate remote APDU");
+
+			rapdu->apdu.cse = SC_APDU_CASE_3_SHORT;
+			rapdu->apdu.cla = len + offs < encoded_len ? 0x10 : 0x00;
+			rapdu->apdu.ins = 0xDB;
+			rapdu->apdu.p1 = 0x3F;
+			rapdu->apdu.p2 = 0xFF;
+			memcpy((unsigned char *)rapdu->apdu.data, encoded + offs, len);
+			rapdu->apdu.datalen = len;
+			rapdu->apdu.lc = len;
+
+			/** 99 02 SW   8E 08 MAC **/
+			rapdu->apdu.le = 0x0E;
+
+			rv = sm_cwa_securize_apdu(ctx, sm_info, rapdu);
+			LOG_TEST_RET(ctx, rv, "SM get 'SDO UPDATE' APDUs: securize APDU error");
+
+			rapdu->flags |= SC_REMOTE_APDU_FLAG_RETURN_ANSWER;
+
+			offs += len;
+		}
+		free(encoded);
+	}
 	LOG_FUNC_RETURN(ctx, rv);
 }
 
@@ -597,6 +651,10 @@ sm_iasecc_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
 	case SM_CMD_RSA_UPDATE:
 		rv = sm_iasecc_get_apdu_update_rsa(ctx, sm_info, rdata);
 		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'UPDATE RSA' failed");
+		break;
+	case SM_CMD_SDO_UPDATE:
+		rv = sm_iasecc_get_apdu_sdo_update(ctx, sm_info, rdata);
+		LOG_TEST_RET(ctx, rv, "SM IAS/ECC get APDUs: 'SDO UPDATE' failed");
 		break;
 #if 0
 	case SM_CMD_PSO_DST:

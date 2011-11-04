@@ -2182,6 +2182,107 @@ iasecc_pin_get_policy (struct sc_card *card, struct sc_pin_cmd_data *data)
 
 
 static int
+iasecc_keyset_change(struct sc_card *card, struct sc_pin_cmd_data *data, int *tries_left)
+{
+	struct sc_context *ctx = card->ctx;
+	struct iasecc_sdo_update update;
+	struct iasecc_sdo sdo;
+	unsigned scb;
+	int rv;
+
+	LOG_FUNC_CALLED(ctx);
+	sc_log(ctx, "Change keyset(ref:%i,lengths:%i)", data->pin_reference, data->pin2.len);
+	if (!data->pin2.data || data->pin2.len < 32)
+		LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "Needs at least 32 bytes for a new keyset value");
+
+	memset(&sdo, 0, sizeof(sdo));
+	sdo.sdo_class = IASECC_SDO_CLASS_KEYSET;
+	sdo.sdo_ref  = data->pin_reference;
+
+	rv = iasecc_sdo_get_data(card, &sdo);
+	LOG_TEST_RET(ctx, rv, "Cannot get keyset data");
+
+	if (sdo.docp.acls_contact.size == 0)
+		LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "Bewildered ... there are no ACLs");
+	scb = sdo.docp.scbs[IASECC_ACLS_KEYSET_PUT_DATA];
+	iasecc_sdo_free_fields(card, &sdo);
+
+	sc_log(ctx, "SCB:0x%X", scb);
+	if (!(scb & IASECC_SCB_METHOD_SM)) 
+		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Other then protected by SM, the keyset change is not supported");
+
+	memset(&update, 0, sizeof(update));
+	update.magic = SC_CARDCTL_IASECC_SDO_MAGIC_PUT_DATA;
+	update.sdo_class = sdo.sdo_class;
+	update.sdo_ref = sdo.sdo_ref;
+
+	update.fields[0].parent_tag = IASECC_SDO_KEYSET_TAG;
+	update.fields[0].tag = IASECC_SDO_KEYSET_TAG_MAC;
+	update.fields[0].value = data->pin2.data;
+	update.fields[0].size = 16;
+
+	update.fields[1].parent_tag = IASECC_SDO_KEYSET_TAG;
+	update.fields[1].tag = IASECC_SDO_KEYSET_TAG_ENC;
+	update.fields[1].value = data->pin2.data + 16;
+	update.fields[1].size = 16;
+
+	rv = iasecc_sm_sdo_update(card, (scb & IASECC_SCB_METHOD_MASK_REF), &update);
+	LOG_FUNC_RETURN(ctx, rv);
+}
+
+static int
+iasecc_pin_change(struct sc_card *card, struct sc_pin_cmd_data *data, int *tries_left)
+{
+	struct sc_context *ctx = card->ctx;
+	struct sc_apdu apdu;
+	unsigned reference = data->pin_reference;
+	unsigned char pin_data[0x100];
+	int rv;
+
+	LOG_FUNC_CALLED(ctx);
+	sc_log(ctx, "Change PIN(ref:%i,type:0x%X,lengths:%i/%i)", reference, data->pin_type, data->pin1.len, data->pin2.len);
+
+	if ((card->reader->capabilities & SC_READER_CAP_PIN_PAD))   {
+		if (!data->pin1.data && !data->pin1.len && &data->pin2.data && !data->pin2.len)   {
+			rv = iasecc_chv_change_pinpad(card, reference, tries_left);
+			sc_log(ctx, "iasecc_pin_cmd(SC_PIN_CMD_CHANGE) chv_change_pinpad returned %i", rv);
+			LOG_FUNC_RETURN(ctx, rv);
+		}
+	}
+
+	if (!data->pin1.data && data->pin1.len)
+		LOG_TEST_RET(ctx, SC_ERROR_INVALID_ARGUMENTS, "Invalid PIN1 arguments");
+
+	if (!data->pin2.data && data->pin2.len)
+		LOG_TEST_RET(ctx, SC_ERROR_INVALID_ARGUMENTS, "Invalid PIN2 arguments");
+
+	rv = iasecc_pin_verify(card, data->pin_type, reference, data->pin1.data, data->pin1.len, tries_left);
+	sc_log(ctx, "iasecc_pin_cmd(SC_PIN_CMD_CHANGE) pin_verify returned %i", rv);
+	LOG_TEST_RET(ctx, rv, "PIN verification error");
+
+	if ((unsigned)(data->pin1.len + data->pin2.len) > sizeof(pin_data))
+		LOG_TEST_RET(ctx, SC_ERROR_BUFFER_TOO_SMALL, "Buffer too small for the 'Change PIN' data");
+
+	if (data->pin1.data)
+		memcpy(pin_data, data->pin1.data, data->pin1.len);
+	if (data->pin2.data)
+		memcpy(pin_data + data->pin1.len, data->pin2.data, data->pin2.len);
+
+	sc_format_apdu(card, &apdu, SC_APDU_CASE_3_SHORT, 0x24, 0, reference);
+	apdu.data = pin_data;
+	apdu.datalen = data->pin1.len + data->pin2.len;
+	apdu.lc = apdu.datalen;
+
+	rv = sc_transmit_apdu(card, &apdu);
+	LOG_TEST_RET(ctx, rv, "APDU transmit failed");
+	rv = sc_check_sw(card, apdu.sw1, apdu.sw2);
+	LOG_TEST_RET(ctx, rv, "PIN cmd failed");
+
+	LOG_FUNC_RETURN(ctx, rv);
+}
+
+
+static int
 iasecc_pin_reset(struct sc_card *card, struct sc_pin_cmd_data *data, int *tries_left)
 {
 	struct sc_context *ctx = card->ctx;
@@ -2194,6 +2295,9 @@ iasecc_pin_reset(struct sc_card *card, struct sc_pin_cmd_data *data, int *tries_
 	LOG_FUNC_CALLED(ctx);
 	sc_log(ctx, "Reset PIN(ref:%i,lengths:%i/%i)", data->pin_reference, data->pin1.len, data->pin2.len);
   
+	if (data->pin_type != SC_AC_CHV) 
+		LOG_TEST_RET(ctx, SC_ERROR_INVALID_ARGUMENTS, "Unblock procedure can be used only with the PINs of type CHV");
+
 	reference = data->pin_reference;
 
 	if (!(data->pin_reference & IASECC_OBJECT_REF_LOCAL) && card->cache.valid && card->cache.current_df)  {
@@ -2217,7 +2321,7 @@ iasecc_pin_reset(struct sc_card *card, struct sc_pin_cmd_data *data, int *tries_
 	LOG_TEST_RET(ctx, rv, "Cannot get PIN data");
 
 	if (sdo.docp.acls_contact.size == 0)
-		LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "Extremely strange ... there is no ACLs");
+		LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "Extremely strange ... there are no ACLs");
 
 	scb = sdo.docp.scbs[IASECC_ACLS_CHV_RESET];
 	do   {
@@ -2288,66 +2392,26 @@ iasecc_pin_cmd(struct sc_card *card, struct sc_pin_cmd_data *data, int *tries_le
 {
 	struct sc_context *ctx = card->ctx;
 	struct sc_apdu apdu;
-	unsigned reference;
-	unsigned char pin_data[0x100];
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "iasecc_pin_cmd(card:%p) cmd 0x%X, PIN type 0x%X, PIN reference %i, PIN-1 %p:%i, PIN-2 %p:%i",
-			card, data->cmd, data->pin_type, data->pin_reference,
-		data->pin1.data, data->pin1.len, data->pin2.data, data->pin2.len);
+	sc_log(ctx, "iasecc_pin_cmd() cmd 0x%X, PIN type 0x%X, PIN reference %i, PIN-1 %p:%i, PIN-2 %p:%i",
+			data->cmd, data->pin_type, data->pin_reference,
+			data->pin1.data, data->pin1.len, data->pin2.data, data->pin2.len);
   
-	reference = data->pin_reference;
-
 	switch (data->cmd)   {
 	case SC_PIN_CMD_VERIFY:
-		rv = iasecc_pin_verify(card, data->pin_type, reference, data->pin1.data, data->pin1.len, tries_left);
-		LOG_TEST_RET(ctx, rv, "PIN verification error");
-
-		LOG_FUNC_RETURN(ctx, SC_SUCCESS);
+		rv = iasecc_pin_verify(card, data->pin_type, data->pin_reference, data->pin1.data, data->pin1.len, tries_left);
+		LOG_FUNC_RETURN(ctx, rv);
 	case SC_PIN_CMD_CHANGE:
-		if ((card->reader->capabilities & SC_READER_CAP_PIN_PAD))   {
-			if (!data->pin1.data && !data->pin1.len && &data->pin2.data && !data->pin2.len)   {
-				rv = iasecc_chv_change_pinpad(card, reference, tries_left);
-				sc_log(ctx, "iasecc_pin_cmd(SC_PIN_CMD_CHANGE) chv_change_pinpad returned %i", rv);
-				LOG_FUNC_RETURN(ctx, rv);
-			}
-		}
-
-		if (!data->pin1.data && data->pin1.len)
-			LOG_TEST_RET(ctx, SC_ERROR_INVALID_ARGUMENTS, "Invalid PIN1 arguments");
-
-		if (!data->pin2.data && data->pin2.len)
-			LOG_TEST_RET(ctx, SC_ERROR_INVALID_ARGUMENTS, "Invalid PIN2 arguments");
-
-		rv = iasecc_pin_verify(card, data->pin_type, reference, data->pin1.data, data->pin1.len, tries_left);
-		sc_log(ctx, "iasecc_pin_cmd(SC_PIN_CMD_CHANGE) pin_verify returned %i", rv);
-		LOG_TEST_RET(ctx, rv, "PIN verification error");
-
-		if ((unsigned)(data->pin1.len + data->pin2.len) > sizeof(pin_data))
-			LOG_TEST_RET(ctx, SC_ERROR_BUFFER_TOO_SMALL, "Buffer too small for the 'Change PIN' data");
-
-		if (data->pin1.data)
-			memcpy(pin_data, data->pin1.data, data->pin1.len);
-		if (data->pin2.data)
-			memcpy(pin_data + data->pin1.len, data->pin2.data, data->pin2.len);
-
-		sc_format_apdu(card, &apdu, SC_APDU_CASE_3_SHORT, 0x24, 0, reference);
-		apdu.data = pin_data;
-		apdu.datalen = data->pin1.len + data->pin2.len;
-		apdu.lc = apdu.datalen;
-	
-		break;
+		if (data->pin_type == SC_AC_AUT)
+			rv = iasecc_keyset_change(card, data, tries_left);
+		else
+			rv = iasecc_pin_change(card, data, tries_left);
+		LOG_FUNC_RETURN(ctx, rv);
 	case SC_PIN_CMD_UNBLOCK:
-		if (data->pin_type != SC_AC_CHV)   {
-			sc_log(ctx, "To unblock PIN it's CHV reference should be presented");
-			LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
-		}
-
 		rv = iasecc_pin_reset(card, data, tries_left);
-		LOG_TEST_RET(ctx, rv, "PIN unblock error");
-
-		LOG_FUNC_RETURN(ctx, SC_SUCCESS);
+		LOG_FUNC_RETURN(ctx, rv);
 	case SC_PIN_CMD_GET_INFO:
 		rv = iasecc_pin_get_policy(card, data);
 		LOG_FUNC_RETURN(ctx, rv);
@@ -2608,7 +2672,7 @@ iasecc_sdo_key_rsa_put_data(struct sc_card *card, struct iasecc_sdo_rsa_update *
 		sc_log(ctx, "reference of the private key to store: %X", update->sdo_prv_key->sdo_ref);
 
 		if (update->sdo_prv_key->docp.acls_contact.size == 0)
-			LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "extremely strange ... there is no ACLs");
+			LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "extremely strange ... there are no ACLs");
 
 		scb = update->sdo_prv_key->docp.scbs[IASECC_ACLS_RSAKEY_PUT_DATA];
 		sc_log(ctx, "'UPDATE PRIVATE RSA' scb 0x%X", scb);
@@ -2755,7 +2819,7 @@ iasecc_sdo_generate(struct sc_card *card, struct iasecc_sdo *sdo)
 		LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "For a moment, only RSA_PRIVATE class can be accepted for the SDO generation");
 
 	if (sdo->docp.acls_contact.size == 0)
-		LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "iasecc_sdo_generate() Extremely strange ... there is no ACLs");
+		LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "Bewildered ... there are no ACLs");
 
 	scb = sdo->docp.scbs[IASECC_ACLS_RSAKEY_GENERATE];
 	sc_log(ctx, "'generate RSA key' SCB 0x%X", scb);

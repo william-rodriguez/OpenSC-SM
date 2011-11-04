@@ -176,8 +176,8 @@ static int list_apps(FILE *fout)
 	unsigned j;
 	int i;
 
-	for (i=0; i<p15card->card->app_count; i++)   {
-		struct sc_app_info *info = p15card->card->app[i];
+	for (i=0; i < card->app_count; i++)   {
+		struct sc_app_info *info = card->app[i];
 	
 		fprintf(fout, "Application '%s':\n", info->label);
 		fprintf(fout, "\tAID: ");
@@ -271,7 +271,7 @@ int main(int argc, char * const argv[])
 
 		r = sc_pkcs15_bind(card, &aid, &p15card);
 	}
-	else   if (!do_list_sdos && !do_list_apps) {
+	else   if (!do_list_sdos) {
 		r = sc_pkcs15_bind(card, NULL, &p15card);
 	}
 
