@@ -693,9 +693,6 @@ sm_iasecc_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, stru
 
 	LOG_FUNC_CALLED(ctx);
 
-	if (!out || !out_len)
-		LOG_FUNC_RETURN(ctx, 0);
-
 	sc_log(ctx, "IAS/ECC decode answer() rdata length %i, out length %i", rdata->length, out_len);
         for (rapdu = rdata->data; rapdu; rapdu = rapdu->next)   {
                 unsigned char *decrypted;
@@ -707,17 +704,17 @@ sm_iasecc_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, stru
 		unsigned char ticket[8];
 		size_t ticket_len = sizeof(ticket); 
 
-		sc_copy_asn1_entry(c_asn1_iasecc_sm_data_object, asn1_iasecc_sm_data_object);
+		sc_log(ctx, "IAS/ECC decode response(%i) %s", rapdu->apdu.resplen, sc_dump_hex(rapdu->apdu.resp, rapdu->apdu.resplen));
 
+		sc_copy_asn1_entry(c_asn1_iasecc_sm_data_object, asn1_iasecc_sm_data_object);
 		sc_format_asn1_entry(asn1_iasecc_sm_data_object + 0, resp_data, &resp_len, 0);
 		sc_format_asn1_entry(asn1_iasecc_sm_data_object + 1, status, &status_len, 0);
 		sc_format_asn1_entry(asn1_iasecc_sm_data_object + 2, ticket, &ticket_len, 0);
 
-		sc_log(ctx, "IAS/ECC decode data(%i) %s", rapdu->apdu.resplen, sc_dump_hex(rapdu->apdu.resp, rapdu->apdu.resplen));
         	rv = sc_asn1_decode(ctx, asn1_iasecc_sm_data_object, rapdu->apdu.resp, rapdu->apdu.resplen, NULL, NULL);
 		LOG_TEST_RET(ctx, rv, "IAS/ECC decode answer(s): ASN1 decode error");
 
-		sc_log(ctx, "IAS/ECC decode answer() status %02X%02X", status[0], status[1]);
+		sc_log(ctx, "IAS/ECC decode response() SW:%02X%02X, MAC:%s", status[0], status[1], sc_dump_hex(ticket, ticket_len));
 		if (status[0] != 0x90 || status[1] != 0x00)
 			continue;
 
@@ -738,12 +735,15 @@ sm_iasecc_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, stru
 				LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "IAS/ECC decode answer(s): invalid card data padding ");
 			decrypted_len--;
 
-			if (out_len < offs + decrypted_len)
-				LOG_TEST_RET(ctx, SC_ERROR_BUFFER_TOO_SMALL, "IAS/ECC decode answer(s): unsufficient output buffer size");
+			if (out && out_len)   {
+				if (out_len < offs + decrypted_len)
+					LOG_TEST_RET(ctx, SC_ERROR_BUFFER_TOO_SMALL, "IAS/ECC decode answer(s): unsufficient output buffer size");
+				
+				memcpy(out + offs, decrypted, decrypted_len);
 
-			memcpy(out + offs, decrypted, decrypted_len);
-			offs += decrypted_len;
-			sc_log(ctx, "IAS/ECC decode card answer(s): out_len/offs %i/%i", out_len, offs);
+				offs += decrypted_len;
+				sc_log(ctx, "IAS/ECC decode card answer(s): out_len/offs %i/%i", out_len, offs);
+			}
 
 			free(decrypted);
 		}
