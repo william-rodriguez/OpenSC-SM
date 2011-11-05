@@ -3376,7 +3376,8 @@ sc_pkcs15init_update_file(struct sc_profile *profile,
 	if (copy)
 		free(copy);
 	sc_file_free(selected_file);
-	returnr;
+
+	LOG_FUNC_RETURN(ctx, r);
 }
 
 /*
