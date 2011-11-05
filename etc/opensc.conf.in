@@ -420,6 +420,10 @@ app default {
 			# The location of the driver library
 			# module = /usr/lib/opensc/drivers/p15emu_custom.so;
 		# }
+
+                # Encode subjectName into the CommonPrivateKeyAttributes of PrKDF
+                # Default: yes
+                # encode_subjectName = no;
 	}
 }
 
