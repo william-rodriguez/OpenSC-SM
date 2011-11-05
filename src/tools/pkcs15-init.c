@@ -107,10 +107,10 @@ static int	get_key_callback(struct sc_profile *,
 			int method, int reference,
 			const u8 *, size_t, u8 *, size_t *);
 
-static int	do_read_private_key(const char *, const char *,
-				EVP_PKEY **, X509 **, unsigned int);
+static int	do_read_private_key(const char *, const char *, EVP_PKEY **, X509 **, unsigned int);
 static int	do_read_public_key(const char *, const char *, EVP_PKEY **);
 static int	do_read_certificate(const char *, const char *, X509 **);
+static char *	cert_common_name(X509 *x509);
 static void	parse_commandline(int argc, char **argv);
 static void	read_options_file(const char *);
 static void	ossl_print_errors(void);
@@ -914,7 +914,6 @@ do_store_private_key(struct sc_profile *profile)
 	}
 
 	r = sc_pkcs15init_store_private_key(p15card, profile, &args, NULL);
-
 	if (r < 0)
 		return r;
 
@@ -933,8 +932,9 @@ do_store_private_key(struct sc_profile *profile)
 
 		X509_check_purpose(cert[i], -1, -1);
 		cargs.x509_usage = cert[i]->ex_kusage;
-		cargs.label = X509_NAME_oneline(cert[i]->cert_info->subject,
-					namebuf, sizeof(namebuf));
+		cargs.label = cert_common_name(cert[i]);
+		if (!cargs.label)
+			cargs.label = X509_NAME_oneline(cert[i]->cert_info->subject, namebuf, sizeof(namebuf));
 
 		/* Just the first certificate gets the same ID
 		 * as the private key. All others get
@@ -945,15 +945,13 @@ do_store_private_key(struct sc_profile *profile)
 				cargs.label = opt_cert_label;
 		} else {
 			if (is_cacert_already_present(&cargs)) {
-				printf("Certificate #%d already present, "
-					"not stored.\n", i);
+				printf("Certificate #%d already present, not stored.\n", i);
 				goto next_cert;
 			}
 			cargs.authority = 1;
 		}
 
-		r = sc_pkcs15init_store_certificate(p15card, profile,
-			       	&cargs, NULL);
+		r = sc_pkcs15init_store_certificate(p15card, profile, &cargs, NULL);
 next_cert:
 		free(cargs.der_encoded.value);
 	}
@@ -2160,6 +2158,39 @@ do_read_data_object(const char *name, u8 **out, size_t *outlen)
 
 	*outlen = filesize;
 	return 0;
+}
+
+static char *
+cert_common_name(X509 *x509)
+{
+	X509_NAME_ENTRY *ne = NULL;
+	ASN1_STRING *a_str = NULL;
+	char *out = NULL;
+	unsigned char *tmp = NULL;
+	int idx, out_len = 0;
+	
+	idx = X509_NAME_get_index_by_NID(X509_get_subject_name(x509), NID_commonName, -1);
+	if (idx < 0)
+		return NULL;
+
+	ne = X509_NAME_get_entry(X509_get_subject_name(x509), idx);
+	if (!ne)
+	       return NULL;	
+
+	a_str = X509_NAME_ENTRY_get_data(ne);
+	if (!a_str) 
+		return NULL;
+
+	out_len = ASN1_STRING_to_UTF8(&tmp, a_str);
+	if (!tmp)
+		return NULL;
+
+	out = calloc(1, out_len + 1);
+	if (out)
+		memcpy(out, tmp, out_len);
+	OPENSSL_free(tmp);
+
+	return out;
 }
 
 static int do_convert_cert(sc_pkcs15_der_t *der, X509 *cert)
