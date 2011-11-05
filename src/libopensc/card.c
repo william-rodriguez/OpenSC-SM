@@ -99,6 +99,10 @@ static void sc_card_free(sc_card_t *card)
 	free(card->ops);
 	if (card->algorithms != NULL)
 		free(card->algorithms);
+	if (card->cache.current_ef)
+		sc_file_free(card->cache.current_ef);
+	if (card->cache.current_df)
+		sc_file_free(card->cache.current_df);
 	if (card->mutex != NULL) {
 		int r = sc_mutex_destroy(card->ctx, card->mutex);
 		if (r != SC_SUCCESS)

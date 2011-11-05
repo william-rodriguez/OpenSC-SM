@@ -1562,11 +1562,13 @@ sc_pkcs15init_store_certificate(struct sc_pkcs15_card *p15card,
 		}
 	}
 
-	if (r < 0)
+	if (r < 0)   {
+		sc_pkcs15_remove_object(p15card, object);
 		sc_pkcs15_free_object(object);
-
-	if (r >= 0 && res_obj)
+	}
+	else if (res_obj)   {
 		*res_obj = object;
+	}
 
 	profile->dirty = 1;
 
@@ -3374,7 +3376,7 @@ sc_pkcs15init_update_file(struct sc_profile *profile,
 	if (copy)
 		free(copy);
 	sc_file_free(selected_file);
-	return r;
+	returnr;
 }
 
 /*

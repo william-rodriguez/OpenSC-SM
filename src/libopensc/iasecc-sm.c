@@ -348,6 +348,8 @@ iasecc_sm_initialize(struct sc_card *card, unsigned se_num, unsigned cmd)
 		sc_log(ctx, "SM initialization failed, %i tries left", (rdata.data + rdata.length - 1)->apdu.sw2 & 0x0F);
 	LOG_TEST_RET(ctx, rv, "iasecc_sm_initialize() trasmit APDUs failed");
 
+	rdata.free(&rdata);
+
 	sc_log(ctx, "MA data(len:%i) '%s'", cwa_session->mdata_len, sc_dump_hex(cwa_session->mdata, cwa_session->mdata_len));
 	if (sm_info->schannel.session.cwa.mdata_len != 0x48)
 		LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "iasecc_sm_initialize() invalid MUTUAL AUTHENTICATE result data");

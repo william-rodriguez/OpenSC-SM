@@ -743,6 +743,7 @@ _iasecc_sm_update_binary(struct sc_card *card, unsigned int offs,
 	LOG_FUNC_RETURN(ctx, 0);
 }
 
+
 static int
 iasecc_emulate_fcp(struct sc_context *ctx, struct sc_apdu *apdu)
 {
@@ -773,6 +774,9 @@ iasecc_emulate_fcp(struct sc_context *ctx, struct sc_apdu *apdu)
 	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
 }
 
+
+/* TODO: redesign using of cache
+ * TODO: do not keep inermediate results in 'file_out' argument */
 static int
 iasecc_select_file(struct sc_card *card, const struct sc_path *path,
 		 struct sc_file **file_out)
@@ -935,8 +939,10 @@ iasecc_select_file(struct sc_card *card, const struct sc_path *path,
 		if (rv == SC_ERROR_FILE_NOT_FOUND && cache_valid && df_from_cache)   {
 			card->cache.valid = 0;
 			sc_log(ctx, "iasecc_select_file() file not found, retry without cached DF");
-			if (file_out && *file_out)
+			if (file_out && *file_out)   {
 		   		sc_file_free(*file_out); 
+				*file_out = NULL;
+			}
 			rv = iasecc_select_file(card, path, file_out);
 			LOG_FUNC_RETURN(ctx, rv);
 		}
@@ -1301,13 +1307,16 @@ iasecc_finish(struct sc_card *card)
 {
 	struct sc_context *ctx = card->ctx;
 	struct iasecc_private_data *private_data = (struct iasecc_private_data *)card->drv_data;
+	struct iasecc_se_info *se_info = private_data->se_info, *next;
 
 	LOG_FUNC_CALLED(ctx);
 
-	if (private_data->se_info)   {
-		if (private_data->se_info->df)
-			sc_file_free(private_data->se_info->df);
-		free(private_data->se_info);
+	while (se_info)   {
+		if (se_info->df)
+			sc_file_free(se_info->df);
+		next = se_info->next;
+		free(se_info);
+		se_info = next;
 	}
 
 	free(card->drv_data);
@@ -1341,26 +1350,22 @@ iasecc_delete_file(struct sc_card *card, const struct sc_path *path)
 		unsigned char se_num = (entry->method == SC_AC_SCB) ? (entry->key_ref & IASECC_SCB_METHOD_MASK_REF) : 0;
 
 		rv = iasecc_sm_delete_file(card, se_num, file->id);
-		LOG_FUNC_RETURN(ctx, rv);
+	}
+	else   {
+		sc_format_apdu(card, &apdu, SC_APDU_CASE_1, 0xE4, 0x00, 0x00);
+
+		rv = sc_transmit_apdu(card, &apdu);
+		LOG_TEST_RET(ctx, rv, "APDU transmit failed");
+		rv = sc_check_sw(card, apdu.sw1, apdu.sw2);
+		LOG_TEST_RET(ctx, rv, "Delete file failed");
+
+		if (card->cache.valid && card->cache.current_ef)
+			sc_file_free(card->cache.current_ef);
+		card->cache.current_ef = NULL;
 	}
 
-	sc_format_apdu(card, &apdu, SC_APDU_CASE_1, 0xE4, 0x00, 0x00);
-
-	rv = sc_transmit_apdu(card, &apdu);
-	LOG_TEST_RET(ctx, rv, "APDU transmit failed");
-	rv = sc_check_sw(card, apdu.sw1, apdu.sw2);
-	LOG_TEST_RET(ctx, rv, "Delete file failed");
-
-	if (card->cache.valid && card->cache.current_ef)
-		sc_file_free(card->cache.current_ef);
-	card->cache.current_ef = NULL;
-
+	sc_file_free(file);
 	LOG_FUNC_RETURN(ctx, rv);
-
-
-	LOG_FUNC_CALLED(ctx);
-	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
-
 }
 
 
@@ -2210,6 +2215,7 @@ iasecc_keyset_change(struct sc_card *card, struct sc_pin_cmd_data *data, int *tr
 	rv = iasecc_sm_sdo_update(card, (scb & IASECC_SCB_METHOD_MASK_REF), &update);
 	LOG_FUNC_RETURN(ctx, rv);
 }
+
 
 static int
 iasecc_pin_change(struct sc_card *card, struct sc_pin_cmd_data *data, int *tries_left)

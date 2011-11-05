@@ -588,6 +588,7 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 				/* call GET RESPONSE to get more date from
 				 * the card; note: GET RESPONSE returns the
 				 * amount of data left (== SW2) */
+				memset(resp, 0, sizeof(resp));
 				r = card->ops->get_response(card, &resp_len, resp);
 				if (r < 0)   {
 					sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "GET RESPONSE error %i", r);
