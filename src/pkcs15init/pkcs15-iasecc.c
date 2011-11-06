@@ -1394,6 +1394,9 @@ iasecc_store_cert(struct sc_pkcs15_card *p15card, struct sc_profile *profile,
 	rv = iasecc_pkcs15_fix_file_access(p15card, pfile, object);
 	LOG_TEST_RET(ctx, rv, "encode file access rules failed");
 
+	if (pfile)
+		sc_file_free(pfile);
+
 	/* NOT_IMPLEMENTED error code indicates to the upper call to execute the default 'store data' procedure */
 	LOG_FUNC_RETURN(ctx, SC_ERROR_NOT_IMPLEMENTED);
 }

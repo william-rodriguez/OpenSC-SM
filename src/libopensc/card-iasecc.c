@@ -2111,7 +2111,7 @@ iasecc_pin_get_policy (struct sc_card *card, struct sc_pin_cmd_data *data)
 			crt_num++;
 		}
 
-		if (scb & (IASECC_SCB_METHOD_SM || IASECC_SCB_METHOD_EXT_AUTH))   {
+		if (scb & (IASECC_SCB_METHOD_SM | IASECC_SCB_METHOD_EXT_AUTH))   {
 			sc_log(ctx, "'SM' and 'EXTERNAL AUTHENTICATION' protection methods are not supported: SCB:0x%X", scb);
 			/* Set to 'NEVER' if all conditions are needed or 
 			 * there is no user authentication method allowed */
@@ -2889,6 +2889,8 @@ iasecc_get_chv_reference_from_se(struct sc_card *card, int *se_reference)
 	rv = iasecc_se_get_crt(card, &se, &crt);
 	LOG_TEST_RET(ctx, rv, "Cannot get 'USER PASSWORD' authentication template");
 
+	if (se.df)
+		sc_file_free(se.df);
 	LOG_FUNC_RETURN(ctx, crt.refs[0]);
 }
 
