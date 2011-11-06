@@ -2106,7 +2106,7 @@ authentic_decipher(struct sc_card *card, const unsigned char *in, size_t in_len,
 	apdu.lc = in_len;
 	apdu.resp = resp;
 	apdu.resplen = sizeof(resp);
-	apdu.le = in_len - (in_len % 8);
+	apdu.le = 256;
 	
 	rv = sc_transmit_apdu(card, &apdu);
 	LOG_TEST_RET(ctx, rv, "APDU transmit failed");
