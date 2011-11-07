@@ -759,7 +759,9 @@ sc_pkcs11_deri(struct sc_pkcs11_session *session,
 	sc_pkcs11_mechanism_type_t *mt;
 	CK_BYTE_PTR keybuf = NULL; 
 	CK_ULONG ulDataLen = 0;
-	CK_ATTRIBUTE template[] = {CKA_VALUE, keybuf, 0};
+	CK_ATTRIBUTE template[] = {
+		{CKA_VALUE, keybuf, 0}
+	};
 
 	CK_RV rv;
 
