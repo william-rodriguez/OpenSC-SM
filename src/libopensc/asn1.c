@@ -945,8 +945,8 @@ static int asn1_decode_se_info(sc_context_t *ctx, const u8 *obj, size_t objlen,
 {
 	struct sc_pkcs15_sec_env_info **ses;
 	const unsigned char *ptr = obj;
-	size_t idx, ptrlen = objlen;
-	int ret, i;
+	size_t i, idx, ptrlen = objlen;
+	int ret;
 
 	ses = calloc(SC_MAX_SE_NUM, sizeof(sc_pkcs15_sec_env_info_t *));
 	if (ses == NULL)
