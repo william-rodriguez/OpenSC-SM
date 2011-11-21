@@ -860,7 +860,7 @@ md_pkcs15_create_cardcf(PCARD_DATA pCardData, unsigned char *blob, size_t size)
 		logprintf(pCardData, 3, "MdCreateCardcf(): cannot lock card\n");
 		return SCARD_F_INTERNAL_ERROR;
 	}
-	rv = sc_pkcs15init_bind(vs->p15card->card, "pkcs15", NULL, &profile);
+	rv = sc_pkcs15init_bind(vs->p15card->card, "pkcs15", NULL, NULL, &profile);
 	if (rv) {
 		logprintf(pCardData, 3, "MdCreateCardcf(): PKCS#15 bind failed\n");
 	        sc_unlock(vs->p15card->card);
@@ -1065,7 +1065,7 @@ md_pkcs15_create_cmapfile(PCARD_DATA pCardData)
 		logprintf(pCardData, 3, "MdCreateCMapFile(): cannot lock card\n");
 		return SCARD_F_INTERNAL_ERROR;
 	}
-	rv = sc_pkcs15init_bind(vs->p15card->card, "pkcs15", NULL, &profile);
+	rv = sc_pkcs15init_bind(vs->p15card->card, "pkcs15", NULL, NULL, &profile);
 	if (rv) {
 		logprintf(pCardData, 3, "MdCreateCMapFile(): PKCS#15 bind failed\n");
 	        sc_unlock(vs->p15card->card);
@@ -1300,7 +1300,7 @@ md_pkcs15_delete_object(PCARD_DATA pCardData, struct sc_pkcs15_object *obj)
 		logprintf(pCardData, 3, "MdDeleteObject(): cannot lock card\n");
 		return SCARD_F_INTERNAL_ERROR;
 	}
-	rv = sc_pkcs15init_bind(vs->p15card->card, "pkcs15", NULL, &profile);
+	rv = sc_pkcs15init_bind(vs->p15card->card, "pkcs15", NULL, NULL, &profile);
 	if (rv) {
 		logprintf(pCardData, 3, "MdDeleteObject(): PKCS#15 bind failed\n");
 	        sc_unlock(vs->p15card->card);
@@ -2030,7 +2030,7 @@ md_pkcs15_generate_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, DWORD ke
 		logprintf(pCardData, 3, "MdGenerateKey(): cannot lock card\n");
 		return SCARD_F_INTERNAL_ERROR;
 	}
-	rv = sc_pkcs15init_bind(card, "pkcs15", NULL, &profile);
+	rv = sc_pkcs15init_bind(card, "pkcs15", NULL, NULL, &profile);
 	if (rv) {
 		logprintf(pCardData, 3, "MdGenerateKey(): PKCS#15 bind failed\n");
         	sc_unlock(card);
@@ -2142,7 +2142,7 @@ md_pkcs15_store_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, BYTE *blob,
 		logprintf(pCardData, 3, "MdStoreKey(): cannot lock card\n");
 		return SCARD_F_INTERNAL_ERROR;
 	}
-	rv = sc_pkcs15init_bind(card, "pkcs15", NULL, &profile);
+	rv = sc_pkcs15init_bind(card, "pkcs15", NULL, NULL, &profile);
 	if (rv) {
 		logprintf(pCardData, 3, "MdStoreKey(): PKCS#15 bind failed\n");
         	sc_unlock(card);
@@ -2219,7 +2219,7 @@ md_pkcs15_store_certificate(PCARD_DATA pCardData, char *file_name, unsigned char
 		logprintf(pCardData, 3, "MdStoreCert(): cannot lock card\n");
 		return SCARD_F_INTERNAL_ERROR;
 	}
-	rv = sc_pkcs15init_bind(card, "pkcs15", NULL, &profile);
+	rv = sc_pkcs15init_bind(card, "pkcs15", NULL, NULL, &profile);
 	if (rv) {
 		logprintf(pCardData, 3, "MdStoreCert(): PKCS#15 bind failed\n");
         	sc_unlock(card);

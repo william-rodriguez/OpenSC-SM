@@ -278,7 +278,7 @@ load_dynamic_driver(struct sc_context *ctx, void **dll,
  */
 int
 sc_pkcs15init_bind(struct sc_card *card, const char *name, const char *profile_option,
-		struct sc_profile **result)
+		struct sc_app_info *app_info, struct sc_profile **result)
 {
 	struct sc_context *ctx = card->ctx;
 	struct sc_profile *profile;
@@ -330,11 +330,13 @@ sc_pkcs15init_bind(struct sc_card *card, const char *name, const char *profile_o
 		}
 	}
 
+#if 0
 	r = sc_pkcs15init_read_info(card, profile);
 	if (r < 0) {
 		sc_profile_free(profile);
 		LOG_TEST_RET(ctx, r, "Read info error");
 	}
+#endif
 
 	/* Check the config file for a profile name. 
 	 * If none is defined, use the default profile name.
@@ -357,7 +359,7 @@ sc_pkcs15init_bind(struct sc_card *card, const char *name, const char *profile_o
 			break;
 		}
 
-	 	r = sc_profile_finish(profile, NULL);
+	 	r = sc_profile_finish(profile, app_info);
 		if (r < 0)
 			sc_log(ctx, "Failed to finalize profile: %s", sc_strerror(r));
 	}  while (0);
@@ -365,6 +367,28 @@ sc_pkcs15init_bind(struct sc_card *card, const char *name, const char *profile_o
 	if (r < 0)   {
 		sc_profile_free(profile);
 		LOG_TEST_RET(ctx, r, "Load profile error");
+	}
+
+	if (app_info && app_info->aid.len)   {
+		struct sc_path path;
+
+		if (card->ef_atr->aid.len)   {
+			sc_log(ctx, "sc_pkcs15init_bind() select MF");
+			memset(&path, 0, sizeof(struct sc_path));
+			path.type = SC_PATH_TYPE_DF_NAME;
+			path.aid = card->ef_atr->aid;
+			r = sc_select_file(card, &path, NULL);
+			sc_log(ctx, "rv %i", r);
+			if (r)
+				return r;
+		}
+
+		sc_log(ctx, "sc_pkcs15init_bind() select application DF");
+		memset(&path, 0, sizeof(struct sc_path));
+		path.type = SC_PATH_TYPE_DF_NAME;
+		path.aid = app_info->aid;
+		r = sc_select_file(card, &path, NULL);
+		sc_log(ctx, "sc_pkcs15init_bind() select application DF returned %i", r);
 	}
 
 	*result = profile;
@@ -379,6 +403,7 @@ sc_pkcs15init_unbind(struct sc_profile *profile)
 	struct sc_context *ctx = profile->card->ctx;
 
 	LOG_FUNC_CALLED(ctx);
+	sc_log(ctx, "Pksc15init Unbind: %i:%p:%i", profile->dirty, profile->p15_data, profile->pkcs15.do_last_update);
 	if (profile->dirty != 0 && profile->p15_data != NULL && profile->pkcs15.do_last_update) {
 		r = sc_pkcs15init_update_lastupdate(profile->p15_data, profile);
 		if (r < 0)
@@ -387,7 +412,6 @@ sc_pkcs15init_unbind(struct sc_profile *profile)
 	if (profile->dll)
 		sc_dlclose(profile->dll);
 	sc_profile_free(profile);
-	sc_log(ctx, "sc_pkcs15init_unbind() returns");
 }
 
 

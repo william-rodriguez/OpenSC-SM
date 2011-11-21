@@ -1419,7 +1419,7 @@ static CK_RV pkcs15_init_pin(struct sc_pkcs11_card *p11card,
 	if (rc < 0)
 		return sc_to_cryptoki_error(rc, "C_InitPIN");
 
-	rc = sc_pkcs15init_bind(p11card->card, "pkcs15", NULL, &profile);
+	rc = sc_pkcs15init_bind(p11card->card, "pkcs15", NULL, NULL, &profile);
 	if (rc < 0) {
 		sc_unlock(p11card->card);
 		return sc_to_cryptoki_error(rc, "C_InitPIN");
@@ -2068,7 +2068,7 @@ static CK_RV pkcs15_create_object(struct sc_pkcs11_card *p11card,
 		return sc_to_cryptoki_error(rc, "C_CreateObject");
 
 	/* Bind the profile */
-	rc = sc_pkcs15init_bind(p11card->card, "pkcs15", NULL, &profile);
+	rc = sc_pkcs15init_bind(p11card->card, "pkcs15", NULL, NULL, &profile);
 	if (rc < 0) {
 		sc_unlock(p11card->card);
 		return sc_to_cryptoki_error(rc, "C_CreateObject");
@@ -2238,7 +2238,7 @@ static CK_RV pkcs15_gen_keypair(struct sc_pkcs11_card *p11card,
 	if (rc < 0)
 		return sc_to_cryptoki_error(rc, "C_GenerateKeyPair");
 
-	rc = sc_pkcs15init_bind(p11card->card, "pkcs15", NULL, &profile);
+	rc = sc_pkcs15init_bind(p11card->card, "pkcs15", NULL, NULL, &profile);
 	if (rc < 0) {
 		sc_unlock(p11card->card);
 		return sc_to_cryptoki_error(rc, "C_GenerateKeyPair");
@@ -2424,7 +2424,7 @@ static CK_RV pkcs15_any_destroy(struct sc_pkcs11_session *session, void *object)
 		return sc_to_cryptoki_error(rv, "C_DestroyObject");
 
 	/* Bind the profile */
-	rv = sc_pkcs15init_bind(card->card, "pkcs15", NULL, &profile);
+	rv = sc_pkcs15init_bind(card->card, "pkcs15", NULL, NULL, &profile);
 	if (rv < 0) {
 		sc_unlock(card->card);
 		return sc_to_cryptoki_error(rv, "C_DestroyObject");
@@ -2507,7 +2507,7 @@ static CK_RV pkcs15_set_attrib(struct sc_pkcs11_session *session,
 	if (rc < 0)
 		return sc_to_cryptoki_error(rc, "C_SetAttributeValue");
 
-	rc = sc_pkcs15init_bind(p11card->card, "pkcs15", NULL, &profile);
+	rc = sc_pkcs15init_bind(p11card->card, "pkcs15", NULL, NULL, &profile);
 	if (rc < 0) {
 		sc_unlock(p11card->card);
 		return sc_to_cryptoki_error(rc, "C_SetAttributeValue");

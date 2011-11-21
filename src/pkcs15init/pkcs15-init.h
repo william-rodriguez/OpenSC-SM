@@ -273,7 +273,7 @@ extern struct	sc_pkcs15_object *sc_pkcs15init_new_object(int, const char *,
 				struct sc_pkcs15_id *, void *);
 extern void	sc_pkcs15init_set_callbacks(struct sc_pkcs15init_callbacks *);
 extern int	sc_pkcs15init_bind(struct sc_card *, const char *, const char *,
-				struct sc_profile **);
+				struct sc_app_info *app_info, struct sc_profile **);
 extern void	sc_pkcs15init_unbind(struct sc_profile *);
 extern void	sc_pkcs15init_set_p15card(struct sc_profile *,
 				struct sc_pkcs15_card *);
