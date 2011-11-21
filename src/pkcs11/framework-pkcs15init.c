@@ -142,7 +142,7 @@ pkcs15init_initialize(struct sc_pkcs11_card *p11card, void *ptr,
 	/* Change the binding from the pkcs15init framework
 	 * to the pkcs15 framework on the fly.
 	 * First, try to bind pkcs15 framework */
-	if ((rv = framework_pkcs15.bind(p11card)) != CKR_OK) {
+	if ((rv = framework_pkcs15.bind(p11card, NULL)) != CKR_OK) {
 		/* whoops, bad */
 		p11card->fw_data = profile;
 		return rv;

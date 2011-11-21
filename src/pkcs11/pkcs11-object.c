@@ -120,8 +120,7 @@ CK_RV sc_create_object_int(CK_SESSION_HANDLE hSession,	/* the session's handle *
 	if (card->framework->create_object == NULL)
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
 	else
-		rv = card->framework->create_object(card, session->slot,
-				pTemplate, ulCount, phObject);
+		rv = card->framework->create_object(session->slot, pTemplate, ulCount, phObject);
 
 out:	if (use_lock)
 	    sc_pkcs11_unlock();
@@ -980,12 +979,10 @@ CK_RV C_GenerateKeyPair(CK_SESSION_HANDLE hSession,	/* the session's handle */
 	if (slot->card->framework->gen_keypair == NULL) {
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
 	} else {
-		rv = slot->card->framework->gen_keypair(slot->card, slot,
-							pMechanism, pPublicKeyTemplate,
-							ulPublicKeyAttributeCount,
-							pPrivateKeyTemplate,
-							ulPrivateKeyAttributeCount, phPublicKey,
-							phPrivateKey);
+		rv = slot->card->framework->gen_keypair(slot, pMechanism, 
+				pPublicKeyTemplate, ulPublicKeyAttributeCount,
+				pPrivateKeyTemplate, ulPrivateKeyAttributeCount, 
+				phPublicKey, phPrivateKey);
 	}
 
 out:	sc_pkcs11_unlock();
@@ -1120,7 +1117,7 @@ CK_RV C_GenerateRandom(CK_SESSION_HANDLE hSession,	/* the session's handle */
 		if (slot->card->framework->get_random == NULL)
 			rv = CKR_RANDOM_NO_RNG;
 		else
-			rv = slot->card->framework->get_random(slot->card, RandomData, ulRandomLen);
+			rv = slot->card->framework->get_random(slot, RandomData, ulRandomLen);
 	}
 
 	sc_pkcs11_unlock();

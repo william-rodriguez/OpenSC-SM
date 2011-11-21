@@ -138,20 +138,20 @@ struct sc_pkcs11_object {
 
 struct sc_pkcs11_framework_ops {
 	/* Detect and bind card to framework */
-	CK_RV (*bind)(struct sc_pkcs11_card *);
+	CK_RV (*bind)(struct sc_pkcs11_card *, struct sc_app_info *);
 	/* Unbind and release allocated resources */
 	CK_RV (*unbind)(struct sc_pkcs11_card *);
 
 	/* Create tokens to virtual slots and
 	 * objects in tokens; called after bind */
-	CK_RV (*create_tokens)(struct sc_pkcs11_card *);
+	CK_RV (*create_tokens)(struct sc_pkcs11_card *, struct sc_app_info *, struct sc_pkcs11_slot **);
 	CK_RV (*release_token)(struct sc_pkcs11_card *, void *);
 
 	/* Login and logout */
 	CK_RV (*login)(struct sc_pkcs11_slot *,
 				CK_USER_TYPE, CK_CHAR_PTR, CK_ULONG);
-	CK_RV (*logout)(struct sc_pkcs11_card *, void *);
-	CK_RV (*change_pin)(struct sc_pkcs11_card *, void *, int,
+	CK_RV (*logout)(struct sc_pkcs11_slot *);
+	CK_RV (*change_pin)(struct sc_pkcs11_slot *,
 				CK_CHAR_PTR, CK_ULONG,
 				CK_CHAR_PTR, CK_ULONG);
 
@@ -162,20 +162,17 @@ struct sc_pkcs11_framework_ops {
 	CK_RV (*init_token)(struct sc_pkcs11_card *, void *,
 				CK_UTF8CHAR_PTR, CK_ULONG,
 				CK_UTF8CHAR_PTR);
-	CK_RV (*init_pin)(struct sc_pkcs11_card *,
-				struct sc_pkcs11_slot *,
+	CK_RV (*init_pin)(struct sc_pkcs11_slot *,
 				CK_UTF8CHAR_PTR, CK_ULONG);
-	CK_RV (*create_object)(struct sc_pkcs11_card *,
-				struct sc_pkcs11_slot *,
+	CK_RV (*create_object)(struct sc_pkcs11_slot *,
 				CK_ATTRIBUTE_PTR, CK_ULONG,
 				CK_OBJECT_HANDLE_PTR);
-	CK_RV (*gen_keypair)(struct sc_pkcs11_card *p11card,
-				struct sc_pkcs11_slot *slot,
-				CK_MECHANISM_PTR pMechanism,
-				CK_ATTRIBUTE_PTR pPubKeyTempl, CK_ULONG ulPubKeyAttrCnt,
-				CK_ATTRIBUTE_PTR pPrivKeyTempl, CK_ULONG ulPrivKeyAttrCnt,
-				CK_OBJECT_HANDLE_PTR phPubKey, CK_OBJECT_HANDLE_PTR phPrivKey);
-	CK_RV (*get_random)(struct sc_pkcs11_card *p11card,
+	CK_RV (*gen_keypair)(struct sc_pkcs11_slot *,
+				CK_MECHANISM_PTR,
+				CK_ATTRIBUTE_PTR, CK_ULONG,
+				CK_ATTRIBUTE_PTR, CK_ULONG,
+				CK_OBJECT_HANDLE_PTR, CK_OBJECT_HANDLE_PTR);
+	CK_RV (*get_random)(struct sc_pkcs11_slot *,
 				CK_BYTE_PTR, CK_ULONG);
 };
 
