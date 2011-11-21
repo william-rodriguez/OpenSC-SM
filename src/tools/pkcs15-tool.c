@@ -1240,6 +1240,7 @@ static int dump(void)
 		"PRN generation",
 		"EID compliant"
 	};
+	char *last_update = sc_pkcs15_get_lastupdate(p15card);
 
 	int i, count = 0;
 
@@ -1247,10 +1248,13 @@ static int dump(void)
 	printf("\tVersion        : %d\n", p15card->tokeninfo->version);
 	printf("\tSerial number  : %s\n", p15card->tokeninfo->serial_number);
 	printf("\tManufacturer ID: %s\n", p15card->tokeninfo->manufacturer_id);
-	if (p15card->tokeninfo->last_update)
-		printf("\tLast update    : %s\n", p15card->tokeninfo->last_update);
+	if (last_update)
+		printf("\tLast update    : %s\n", last_update);
 	if (p15card->tokeninfo->preferred_language)
 		printf("\tLanguage       : %s\n", p15card->tokeninfo->preferred_language);
+	if (p15card->tokeninfo->profile_indication.name)
+		printf("\tProfile        : %s\n", p15card->tokeninfo->profile_indication.name);
+
 	printf("\tFlags          : ");
 	for (i = 0; i < 4; i++) {
 		if ((p15card->tokeninfo->flags >> i) & 1) {

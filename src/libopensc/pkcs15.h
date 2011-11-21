@@ -522,13 +522,27 @@ typedef struct sc_pkcs15_sec_env_info {
 	struct sc_aid aid;
 } sc_pkcs15_sec_env_info_t;
 
+typedef struct sc_pkcs15_last_update {
+	char *gtime;
+	struct sc_path path;
+
+} sc_pkcs15_last_update_t;
+
+typedef struct sc_pkcs15_profile_indication {
+	struct sc_object_id oid;
+	char *name;
+} sc_pkcs15_profile_indication_t;
+
 typedef struct sc_pkcs15_tokeninfo {
 	unsigned int version;
 	unsigned int flags;
 	char *label;
 	char *serial_number;
-	char *manufacturer_id;	
-	char *last_update;
+	char *manufacturer_id;
+
+	struct sc_pkcs15_last_update last_update;
+	struct sc_pkcs15_profile_indication profile_indication;
+
 	char *preferred_language;
 	sc_pkcs15_sec_env_info_t **seInfo;
 	size_t num_seInfo;
@@ -877,6 +891,9 @@ int sc_pkcs15_fix_ec_parameters(struct sc_context *, struct sc_pkcs15_ec_paramet
 int sc_pkcs15_convert_bignum(sc_pkcs15_bignum_t *dst, const void *bignum);
 int sc_pkcs15_convert_prkey(struct sc_pkcs15_prkey *key, void *evp_key);
 int sc_pkcs15_convert_pubkey(struct sc_pkcs15_pubkey *key, void *evp_key);
+
+/* Get 'LastUpdate' string */
+char *sc_pkcs15_get_lastupdate(struct sc_pkcs15_card *p15card);
 
 /* New object search API.
  * More complex, but also more powerful.

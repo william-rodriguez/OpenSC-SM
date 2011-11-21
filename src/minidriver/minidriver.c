@@ -791,6 +791,7 @@ md_pkcs15_encode_cardcf(PCARD_DATA pCardData, unsigned char *in, size_t in_size,
 		unsigned char *out, size_t *out_size)
 {
 	VENDOR_SPECIFIC *vs;
+	char *last_update = NULL;
 
 	if (!pCardData || !in || in_size < MD_CARDCF_LENGTH
 			|| !out || !out_size || *out_size < MD_CARDCF_LENGTH)
@@ -803,15 +804,17 @@ md_pkcs15_encode_cardcf(PCARD_DATA pCardData, unsigned char *in, size_t in_size,
 	/* write down 'cardcf' with cleared PinsFreshness */
 	((CARD_CACHE_FILE_FORMAT *)out)->bPinsFreshness = PIN_SET_NONE;
 
-	if ((!vs->p15card->tokeninfo->last_update)
-			|| (*out_size < MD_CARDCF_LENGTH + MD_UTC_TIME_LENGTH_MAX))   {
+	last_update = sc_pkcs15_get_lastupdate(vs->p15card);
+	if (!last_update || (*out_size < MD_CARDCF_LENGTH + MD_UTC_TIME_LENGTH_MAX))   {
 		*out_size = MD_CARDCF_LENGTH;
 	}
 	else   {
-		size_t lu_size = strlen(vs->p15card->tokeninfo->last_update);
+		size_t lu_size = strlen(last_update);
+
 		if (lu_size > MD_UTC_TIME_LENGTH_MAX)
 			lu_size = MD_UTC_TIME_LENGTH_MAX;
-		memcpy(out + MD_CARDCF_LENGTH, vs->p15card->tokeninfo->last_update, lu_size);
+
+		memcpy(out + MD_CARDCF_LENGTH, last_update, lu_size);
 		if (lu_size < MD_UTC_TIME_LENGTH_MAX)
 			memset(out + MD_CARDCF_LENGTH + lu_size, 0, MD_UTC_TIME_LENGTH_MAX - lu_size);
 
@@ -1512,7 +1515,7 @@ md_set_cardcf(PCARD_DATA pCardData, struct md_file *file, CARD_CACHE_FILE_FORMAT
 		} while(0);
 	}
 
-	last_update = vs->p15card->tokeninfo->last_update;
+	last_update = sc_pkcs15_get_lastupdate(vs->p15card);
 	if (!data && last_update)   {
 		unsigned crc32 = sc_crc32(last_update, strlen(last_update));
 

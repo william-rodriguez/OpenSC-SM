@@ -59,6 +59,7 @@
 #include "common/libscdl.h"
 #include "libopensc/pkcs15.h"
 #include "libopensc/cardctl.h"
+#include "libopensc/asn1.h"
 #include "libopensc/log.h"
 #include "profile.h"
 #include "pkcs15-init.h"
@@ -83,8 +84,7 @@
 #define SC_MAX_OP_ACS                   16
 
 /* Handle encoding of PKCS15 on the card */
-typedef int	(*pkcs15_encoder)(struct sc_context *,
-			struct sc_pkcs15_card *, u8 **, size_t *);
+typedef int	(*pkcs15_encoder)(struct sc_context *, struct sc_pkcs15_card *, u8 **, size_t *);
 
 static int	sc_pkcs15init_store_data(struct sc_pkcs15_card *,
 			struct sc_profile *, struct sc_pkcs15_object *,
@@ -94,10 +94,9 @@ static size_t	sc_pkcs15init_keybits(struct sc_pkcs15_bignum *);
 static int	sc_pkcs15init_update_dir(struct sc_pkcs15_card *,
 			struct sc_profile *profile,
 			struct sc_app_info *app);
-static int	sc_pkcs15init_update_tokeninfo(struct sc_pkcs15_card *,
-			struct sc_profile *profile);
-static int	sc_pkcs15init_update_odf(struct sc_pkcs15_card *,
-			struct sc_profile *profile);
+static int	sc_pkcs15init_update_tokeninfo(struct sc_pkcs15_card *, struct sc_profile *profile);
+static int	sc_pkcs15init_update_lastupdate(struct sc_pkcs15_card *, struct sc_profile *profile);
+static int	sc_pkcs15init_update_odf(struct sc_pkcs15_card *, struct sc_profile *profile);
 static int	sc_pkcs15init_map_usage(unsigned long, int);
 static int	do_select_parent(struct sc_profile *, struct sc_pkcs15_card *,
 			struct sc_file *, struct sc_file **);
@@ -105,8 +104,7 @@ static int	sc_pkcs15init_create_pin(struct sc_pkcs15_card *, struct sc_profile *
 			struct sc_pkcs15_object *, struct sc_pkcs15init_pinargs *);
 static int	check_keygen_params_consistency(struct sc_card *card, struct sc_pkcs15init_keygen_args *args,
 			unsigned int bits, unsigned int *out_bits);
-static int	check_key_compatibility(struct sc_pkcs15_card *,
-			struct sc_pkcs15_prkey *, unsigned int,
+static int	check_key_compatibility(struct sc_pkcs15_card *, struct sc_pkcs15_prkey *, unsigned int,
 			unsigned int, unsigned int);
 static int	prkey_fixup(struct sc_pkcs15_card *, struct sc_pkcs15_prkey *);
 static int	prkey_bits(struct sc_pkcs15_card *, struct sc_pkcs15_prkey *);
@@ -120,13 +118,10 @@ static int	sc_pkcs15init_get_pin_path(struct sc_pkcs15_card *,
 			struct sc_pkcs15_id *, struct sc_path *);
 static int	sc_pkcs15init_qualify_pin(struct sc_card *, const char *,
 	       		unsigned int, struct sc_pkcs15_auth_info *);
-static struct sc_pkcs15_df * find_df_by_type(struct sc_pkcs15_card *,
-			unsigned int);
+static struct sc_pkcs15_df * find_df_by_type(struct sc_pkcs15_card *, unsigned int);
 static int	sc_pkcs15init_read_info(struct sc_card *card, struct sc_profile *);
-static int	sc_pkcs15init_parse_info(struct sc_card *, const unsigned char *, size_t, 
-			struct sc_profile *);
-static int	sc_pkcs15init_write_info(struct sc_pkcs15_card *, struct sc_profile *,
-			struct sc_pkcs15_object *);
+static int	sc_pkcs15init_parse_info(struct sc_card *, const unsigned char *, size_t, struct sc_profile *);
+static int	sc_pkcs15init_write_info(struct sc_pkcs15_card *, struct sc_profile *, struct sc_pkcs15_object *);
 
 static struct profile_operations {
 	const char *name;
@@ -282,8 +277,7 @@ load_dynamic_driver(struct sc_context *ctx, void **dll,
  * Set up profile
  */
 int
-sc_pkcs15init_bind(struct sc_card *card, const char *name,
-		const char *profile_option,
+sc_pkcs15init_bind(struct sc_card *card, const char *name, const char *profile_option,
 		struct sc_profile **result)
 {
 	struct sc_context *ctx = card->ctx;
@@ -347,9 +341,8 @@ sc_pkcs15init_bind(struct sc_card *card, const char *name,
 	 */
 	if (!get_profile_from_config(card, card_profile, sizeof(card_profile)))
 		strcpy(card_profile, driver);
-	if (profile_option != NULL) {
+	if (profile_option != NULL)
 		strlcpy(card_profile, profile_option, sizeof(card_profile));
-	}
 
 	do   {
 		r = sc_profile_load(profile, profile->name);
@@ -385,27 +378,27 @@ sc_pkcs15init_unbind(struct sc_profile *profile)
 	int r;
 	struct sc_context *ctx = profile->card->ctx;
 
+	LOG_FUNC_CALLED(ctx);
 	if (profile->dirty != 0 && profile->p15_data != NULL && profile->pkcs15.do_last_update) {
-		r = sc_pkcs15init_update_tokeninfo(profile->p15_data, profile);
+		r = sc_pkcs15init_update_lastupdate(profile->p15_data, profile);
 		if (r < 0)
 			sc_log(ctx, "Failed to update TokenInfo: %s", sc_strerror(r));
 	}
 	if (profile->dll)
 		sc_dlclose(profile->dll);
 	sc_profile_free(profile);
+	sc_log(ctx, "sc_pkcs15init_unbind() returns");
 }
 
 
 void
-sc_pkcs15init_set_p15card(struct sc_profile *profile,
-		struct sc_pkcs15_card *p15card)
+sc_pkcs15init_set_p15card(struct sc_profile *profile, struct sc_pkcs15_card *p15card)
 {
 	struct sc_context *ctx = p15card->card->ctx;
 	struct sc_pkcs15_object *p15objects[10];
 	int i, r, nn_objs;
                
 	LOG_FUNC_CALLED(ctx);
-
 	/* Prepare pin-domain instantiation:
 	 * for every present local User PIN, add to the profile EF list the named PIN path. */
 	nn_objs = sc_pkcs15_get_objects(p15card, SC_PKCS15_TYPE_AUTH_PIN, p15objects, 10);
@@ -426,8 +419,7 @@ sc_pkcs15init_set_p15card(struct sc_profile *profile,
 			if (!sc_select_file(p15card->card, &auth_info->path, &file))   {
 				char pin_name[16];
 
-				sprintf(pin_name, "pin-dir-%02X%02X", 
-						file->path.value[file->path.len - 2],
+				sprintf(pin_name, "pin-dir-%02X%02X", file->path.value[file->path.len - 2],
 						file->path.value[file->path.len - 1]);
 				sc_log(ctx, "add '%s' to profile file list", pin_name);
 				sc_profile_add_file(profile, pin_name, file);
@@ -845,8 +837,8 @@ sc_pkcs15init_add_app(struct sc_card *card, struct sc_profile *profile,
 		if (r >= 0)
 			r = sc_pkcs15init_update_tokeninfo(p15card, profile);
 		/* FIXME: what to do if sc_pkcs15init_update_dir failed? */
-	} else {
-
+	} 
+	else {
 		free(app); /* unused */
 	}
 
@@ -2461,20 +2453,19 @@ get_generalized_time(struct sc_context *ctx)
 
 
 static int
-sc_pkcs15init_update_tokeninfo(struct sc_pkcs15_card *p15card,
-		struct sc_profile *profile)
+sc_pkcs15init_update_tokeninfo(struct sc_pkcs15_card *p15card, struct sc_profile *profile)
 {
 	struct sc_card	*card = p15card->card;
 	struct sc_pkcs15_tokeninfo tokeninfo;
-	unsigned char	*buf = NULL;
-	size_t		size;
-	int		r;
+	unsigned char *buf = NULL;
+	size_t size;
+	int r;
 
 	/* set lastUpdate field */
-	if (p15card->tokeninfo->last_update != NULL)
-		free(p15card->tokeninfo->last_update);
-	p15card->tokeninfo->last_update = get_generalized_time(card->ctx);
-	if (p15card->tokeninfo->last_update == NULL)
+	if (p15card->tokeninfo->last_update.gtime != NULL)
+		free(p15card->tokeninfo->last_update.gtime);
+	p15card->tokeninfo->last_update.gtime = get_generalized_time(card->ctx);
+	if (p15card->tokeninfo->last_update.gtime == NULL)
 		return SC_ERROR_INTERNAL;
 
 	tokeninfo = *(p15card->tokeninfo);
@@ -2490,9 +2481,58 @@ sc_pkcs15init_update_tokeninfo(struct sc_pkcs15_card *p15card,
 	return r;
 }
 
+
 static int
-sc_pkcs15init_update_odf(struct sc_pkcs15_card *p15card,
-		struct sc_profile *profile)
+sc_pkcs15init_update_lastupdate(struct sc_pkcs15_card *p15card, struct sc_profile *profile)
+{
+	struct sc_context *ctx = p15card->card->ctx;
+	int		r;
+
+	LOG_FUNC_CALLED(ctx);
+	if (p15card->tokeninfo->last_update.path.len)    {
+		static const struct sc_asn1_entry c_asn1_last_update[2] = {
+		        { "generalizedTime",    SC_ASN1_GENERALIZEDTIME, SC_ASN1_TAG_GENERALIZEDTIME,   SC_ASN1_OPTIONAL, NULL, NULL },
+        		{ NULL, 0, 0, 0, NULL, NULL }
+		};
+		struct sc_asn1_entry asn1_last_update[2];
+		size_t lupdate_len;
+		struct sc_file *file = NULL;
+		struct sc_pkcs15_last_update *last_update = &p15card->tokeninfo->last_update;
+		unsigned char *buf = NULL;
+		size_t buflen;
+
+		/* update 'lastUpdate' file */
+		if (last_update->gtime != NULL)
+			free(last_update->gtime);
+		last_update->gtime = get_generalized_time(ctx);
+		if (last_update->gtime == NULL)
+			return SC_ERROR_INTERNAL;
+
+		sc_copy_asn1_entry(c_asn1_last_update, asn1_last_update);
+		lupdate_len = strlen(last_update->gtime);
+		sc_format_asn1_entry(asn1_last_update + 0, last_update->gtime, &lupdate_len, 1);
+
+		r = sc_asn1_encode(ctx, asn1_last_update, &buf, &buflen);
+		LOG_TEST_RET(ctx, r, "select object path failed");
+
+		r = sc_select_file(p15card->card, &last_update->path, &file);
+		LOG_TEST_RET(ctx, r, "select object path failed");
+
+		r = sc_pkcs15init_update_file(profile, p15card, file, buf, buflen);
+		sc_file_free(file);
+		if (buf)
+			free(buf);
+		LOG_TEST_RET(ctx, r, "Cannot update 'LastUpdate' file");
+		LOG_FUNC_RETURN(ctx, r);
+	}
+
+	r = sc_pkcs15init_update_tokeninfo(p15card, profile);
+	LOG_FUNC_RETURN(ctx, r);
+}
+
+
+static int
+sc_pkcs15init_update_odf(struct sc_pkcs15_card *p15card, struct sc_profile *profile)
 {
 	struct sc_context	*ctx = p15card->card->ctx;
 	unsigned char	*buf = NULL;
@@ -2502,8 +2542,7 @@ sc_pkcs15init_update_odf(struct sc_pkcs15_card *p15card,
 	LOG_FUNC_CALLED(ctx);
 	r = sc_pkcs15_encode_odf(ctx, p15card, &buf, &size);
 	if (r >= 0)
-		r = sc_pkcs15init_update_file(profile, p15card,
-			       p15card->file_odf, buf, size);
+		r = sc_pkcs15init_update_file(profile, p15card, p15card->file_odf, buf, size);
 	if (buf)
 		free(buf);
 	LOG_FUNC_RETURN(ctx, r);
