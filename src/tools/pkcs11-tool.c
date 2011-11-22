@@ -77,6 +77,9 @@ enum {
 	OPT_INIT_PIN,
 	OPT_ATTR_FROM,
 	OPT_KEY_TYPE,
+	OPT_KEY_USAGE_SIGN,
+	OPT_KEY_USAGE_DECRYPT,
+	OPT_KEY_USAGE_NONREPUDIATION,
 	OPT_PRIVATE,
 	OPT_TEST_HOTPLUG,
 	OPT_UNLOCK_PIN,
@@ -84,6 +87,8 @@ enum {
 	OPT_NEW_PIN,
 	OPT_LOGIN_TYPE,
 	OPT_TEST_EC,
+	OPT_TEST_SM_GENERATE_KEY,
+	OPT_TEST_SM_STORE_OBJECT,
 	OPT_DERIVE
 };
 
@@ -112,6 +117,9 @@ static const struct option options[] = {
 	{ "unlock-pin",		0, NULL,		OPT_UNLOCK_PIN },
 	{ "keypairgen", 	0, NULL, 		'k' },
 	{ "key-type",		1, NULL,		OPT_KEY_TYPE },
+	{ "usage-sign",		0, NULL,		OPT_KEY_USAGE_SIGN },
+	{ "usage-decrypt",	0, NULL,		OPT_KEY_USAGE_DECRYPT },
+	{ "usage-nonrepudiation",	0, NULL,	OPT_KEY_USAGE_NONREPUDIATION },
 	{ "write-object",	1, NULL, 		'w' },
 	{ "read-object",	0, NULL, 		'r' },
 	{ "delete-object",	0, NULL, 		'b' },
@@ -135,6 +143,8 @@ static const struct option options[] = {
 	{ "verbose",		0, NULL,		'v' },
 	{ "private",		0, NULL,		OPT_PRIVATE },
 	{ "test-ec",		0, NULL,		OPT_TEST_EC },
+	{ "test-sm-generate-key",0, NULL,		OPT_TEST_SM_GENERATE_KEY },
+	{ "test-sm-store-object",1, NULL,		OPT_TEST_SM_STORE_OBJECT },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -163,6 +173,9 @@ static const char *option_help[] = {
 	"Unlock User PIN (without '--login' unlock in logged in session; otherwise '--login-type' has to be 'context-specific')",
 	"Key pair generation",
 	"Specify the type and length of the key to create, for example rsa:1024 or EC:prime256v1",
+	"Specify 'sign' key usage flag",
+	"Specify 'decrypt' key usage flag",
+	"Specify 'nonrepudiation' key usage flag",
 	"Write an object (key, cert, data) to the card",
 	"Get object's CKA_VALUE attribute (use with --type)",
 	"Delete an object",
@@ -185,7 +198,9 @@ static const char *option_help[] = {
 	"Test Mozilla-like keypair gen and cert req, <arg>=certfile",
 	"Verbose operation. (Set OPENSC_DEBUG to enable OpenSC specific debugging)",
 	"Set the CKA_PRIVATE attribute (object is only viewable after a login)",
-	"Test EC (best used with the --login or --pin option)"
+	"Test EC (best used with the --login or --pin option)",
+	"Test SM: generate key (use multi-application OpenSC-PKCS#11 configuration )"
+	"Test SM: store key (use multi-application OpenSC-PKCS#11 configuration )"
 };
 
 static const char *	app_name = "pkcs11-tool"; /* for utils.c */
@@ -219,6 +234,9 @@ static char *		opt_key_type = NULL;
 static int		opt_is_private = 0;
 static int		opt_test_hotplug = 0;
 static int		opt_login_type = -1;
+static int		opt_key_usage_sign = 0;
+static int		opt_key_usage_decrypt = 0;
+static int		opt_key_usage_nonrepudiation = 0;
 
 static void *module = NULL;
 static CK_FUNCTION_LIST_PTR p11 = NULL;
@@ -314,6 +332,8 @@ static int test_card_detection(int);
 static int		hex_to_bin(const char *in, CK_BYTE *out, size_t *outlen);
 static void		test_kpgen_certwrite(CK_SLOT_ID slot, CK_SESSION_HANDLE session);
 static void		test_ec(CK_SLOT_ID slot, CK_SESSION_HANDLE session);
+static void		test_sm_generate_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session, int, int, int);
+static void		test_sm_store_object(CK_SESSION_HANDLE session, int, int, int);
 static CK_RV find_object_with_attributes(
 		CK_SESSION_HANDLE session, CK_OBJECT_HANDLE *out,
 		CK_ATTRIBUTE *attrs, CK_ULONG attrsLen,
@@ -346,6 +366,8 @@ int main(int argc, char * argv[])
 	int do_test = 0;
 	int do_test_kpgen_certwrite = 0;
 	int do_test_ec = 0;
+	int do_test_sm_generate_key = 0;
+	int do_test_sm_store_object = 0;
 	int need_session = 0;
 	int opt_login = 0;
 	int do_init_token = 0;
@@ -570,6 +592,15 @@ int main(int argc, char * argv[])
 		case OPT_KEY_TYPE:
 			opt_key_type = optarg;
 			break;
+		case OPT_KEY_USAGE_SIGN:
+			opt_key_usage_sign = 1;
+			break;
+		case OPT_KEY_USAGE_DECRYPT:
+			opt_key_usage_decrypt = 1;
+			break;
+		case OPT_KEY_USAGE_NONREPUDIATION:
+			opt_key_usage_nonrepudiation = 1;
+			break;
 		case OPT_PRIVATE:
 			opt_is_private = 1;
 			break;
@@ -579,6 +610,17 @@ int main(int argc, char * argv[])
 			break;
 		case OPT_TEST_EC:
 			do_test_ec = 1;
+			action_count++;
+			break;
+		case OPT_TEST_SM_GENERATE_KEY:
+			need_session |= NEED_SESSION_RW;
+			do_test_sm_generate_key = 1;
+			action_count++;
+			break;
+		case OPT_TEST_SM_STORE_OBJECT:
+			need_session |= NEED_SESSION_RW;
+			do_test_sm_store_object = 1;
+			opt_file_to_write = optarg;
 			action_count++;
 			break;
 		case OPT_DERIVE:
@@ -693,10 +735,10 @@ int main(int argc, char * argv[])
 
 		if (need_session & NEED_SESSION_RW)
 			flags |= CKF_RW_SESSION;
-		rv = p11->C_OpenSession(opt_slot, flags,
-				NULL, NULL, &session);
+		rv = p11->C_OpenSession(opt_slot, flags, NULL, NULL, &session);
 		if (rv != CKR_OK)
 			p11_fatal("C_OpenSession", rv);
+		fprintf(stderr,"Open Session -- OK\n");
 	}
 
 	if (opt_login) {
@@ -708,6 +750,7 @@ int main(int argc, char * argv[])
 		r = login(session, opt_login_type);
 		if (r != 0)
 			return r;
+		fprintf(stderr,"Login -- OK\n");
 	}
 
 	if (do_change_pin)
@@ -799,6 +842,13 @@ int main(int argc, char * argv[])
 	if (do_test_ec) 
 		test_ec(opt_slot, session);
 
+	if (do_test_sm_generate_key) 
+		test_sm_generate_key(opt_slot, session, 
+			opt_key_usage_sign, opt_key_usage_decrypt, opt_key_usage_nonrepudiation);
+
+	if (do_test_sm_store_object) 
+		test_sm_store_object(session, 
+			opt_key_usage_sign, opt_key_usage_decrypt, opt_key_usage_nonrepudiation);
 end:
 	if (session != CK_INVALID_HANDLE) {
 		rv = p11->C_CloseSession(session);
@@ -1600,10 +1650,12 @@ do_read_private_key(unsigned char *data, size_t data_len, EVP_PKEY **key)
 
 	mem = BIO_new(BIO_s_mem());
 	BIO_set_mem_buf(mem, &buf_mem, BIO_NOCLOSE);
-	if (!strstr((char *)data, "-----BEGIN PRIVATE KEY-----"))
+	if (!strstr((char *)data, "-----BEGIN PRIVATE KEY-----"))   {
 		*key = d2i_PrivateKey_bio(mem, NULL);
-	else
+	}
+	else   {
 		*key = PEM_read_bio_PrivateKey(mem, NULL, NULL, NULL);
+	}
 	BIO_free(mem);
 	if (*key == NULL)
 		return -1;
@@ -1704,7 +1756,8 @@ static int parse_gost_private_key(EVP_PKEY *evp_key, struct gostkey_info *gost)
 /* Currently for certificates (-type cert), private keys (-type privkey),
    public keys (-type pubkey) and data objects (-type data).
    Note: only RSA private keys are supported. */
-static int write_object(CK_SESSION_HANDLE session)
+static int 
+write_object(CK_SESSION_HANDLE session)
 {
 	CK_BBOOL _true = TRUE;
 	unsigned char contents[MAX_OBJECT_SIZE];
@@ -2244,6 +2297,7 @@ ATTR_METHOD(VERIFY_RECOVER, CK_BBOOL);
 ATTR_METHOD(WRAP, CK_BBOOL);
 ATTR_METHOD(UNWRAP, CK_BBOOL);
 ATTR_METHOD(DERIVE, CK_BBOOL);
+ATTR_METHOD(OPENSC_NON_REPUDIATION, CK_BBOOL);
 #if 0
 ATTR_METHOD(EXTRACTABLE, CK_BBOOL);
 #endif
@@ -2320,7 +2374,7 @@ static void derive_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session,
 	CK_KEY_TYPE newkey_type = CKK_GENERIC_SECRET;
 	CK_BBOOL true = TRUE;
 	CK_BBOOL false = FALSE;
-	CK_OBJECT_HANDLE newkey = NULL;
+	CK_OBJECT_HANDLE newkey = 0;
 	CK_ECDH1_DERIVE_PARAMS ecdh_parms;
 
 	CK_ATTRIBUTE 	newkey_template[] = {
@@ -2337,7 +2391,7 @@ static void derive_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session,
 	if (!opt_mechanism_used) {
 		opt_mechanism = find_mechanism(slot, CKF_DERIVE|CKF_HW, 1, &opt_mechanism);
 	}
-		printf("Using derive algorithm 0x%8.8x %s\n",
+		printf("Using derive algorithm 0x%8.8lx %s\n",
 				opt_mechanism, p11_mechanism_to_name(opt_mechanism));
 
 	memset(&mech, 0, sizeof(mech));
@@ -2425,7 +2479,7 @@ static void show_key(CK_SESSION_HANDLE sess, CK_OBJECT_HANDLE obj)
 	unsigned char	*id, *oid, *value;
 	const char      *sepa;
 	char		*label;
-	int		pub;
+	int		pub = 1;
 	int		sec = 0;
 
 	switch(getCLASS(sess, obj)) {
@@ -2578,6 +2632,10 @@ static void show_key(CK_SESSION_HANDLE sess, CK_OBJECT_HANDLE obj)
 	}
 	if (!pub && getSIGN(sess, obj)) {
 		printf("%ssign", sepa);
+		sepa = ", ";
+	}
+	if (!pub && getOPENSC_NON_REPUDIATION(sess, obj)) {
+		printf("%snon-repudiation", sepa);
 		sepa = ", ";
 	}
 	if (pub && getVERIFY(sess, obj)) {
@@ -4249,6 +4307,515 @@ static void test_ec(CK_SLOT_ID slot, CK_SESSION_HANDLE session)
 }
 
 
+static int sm_gen_keypair(CK_SESSION_HANDLE session,
+	CK_OBJECT_HANDLE *hPublicKey, CK_OBJECT_HANDLE *hPrivateKey, const char *type,
+	int usage_sign, int usage_decrypt, int non_repudiation)
+{
+	CK_MECHANISM mechanism = {CKM_RSA_PKCS_KEY_PAIR_GEN, NULL_PTR, 0};
+	CK_ULONG modulusBits = 1024;
+	CK_BYTE publicExponent[] = { 0x01, 0x00, 0x01 }; /* 65537 in bytes */
+	CK_BBOOL _true = TRUE;
+	CK_OBJECT_CLASS pubkey_class = CKO_PUBLIC_KEY;
+	CK_OBJECT_CLASS privkey_class = CKO_PRIVATE_KEY;
+	CK_ATTRIBUTE publicKeyTemplate[20] = {
+		{CKA_CLASS, &pubkey_class, sizeof(pubkey_class)},
+		{CKA_TOKEN, &_true, sizeof(_true)},
+	};
+	int n_pubkey_attr = 2;
+
+	CK_ATTRIBUTE privateKeyTemplate[20] = {
+		{CKA_CLASS, &privkey_class, sizeof(privkey_class)},
+		{CKA_TOKEN, &_true, sizeof(_true)},
+		{CKA_PRIVATE, &_true, sizeof(_true)},
+		{CKA_SENSITIVE, &_true, sizeof(_true)},
+	};
+	int n_privkey_attr = 4;
+	CK_RV rv;
+
+	if (usage_decrypt)   {
+		FILL_ATTR(publicKeyTemplate[n_pubkey_attr], CKA_ENCRYPT, &_true, sizeof(_true));
+		n_pubkey_attr++;
+		FILL_ATTR(publicKeyTemplate[n_pubkey_attr], CKA_WRAP, &_true, sizeof(_true));
+		n_pubkey_attr++;
+
+		FILL_ATTR(privateKeyTemplate[n_privkey_attr], CKA_DECRYPT, &_true, sizeof(_true));
+		n_privkey_attr++;
+		FILL_ATTR(privateKeyTemplate[n_privkey_attr], CKA_UNWRAP, &_true, sizeof(_true));
+		n_privkey_attr++;
+	}
+
+	if (usage_sign)   {
+		FILL_ATTR(publicKeyTemplate[n_pubkey_attr], CKA_VERIFY, &_true, sizeof(_true));
+		n_pubkey_attr++;
+
+		FILL_ATTR(privateKeyTemplate[n_privkey_attr], CKA_SIGN, &_true, sizeof(_true));
+		n_privkey_attr++;
+	}
+
+	if (non_repudiation)   {
+		FILL_ATTR(privateKeyTemplate[n_privkey_attr], CKA_OPENSC_NON_REPUDIATION, &_true, sizeof(_true));
+		n_privkey_attr++;
+	}
+
+	if (type != NULL) {
+		if (strncmp(type, "RSA:", 4) == 0 || strncmp(type, "rsa:", 4) == 0) {
+			CK_ULONG    key_length;
+			const char *size = type + 4;
+
+			if (size == NULL)
+				util_fatal("Unknown key type %s", type);
+			key_length = (unsigned long)atol(size);
+			if (key_length != 0)
+				modulusBits = key_length;
+
+			FILL_ATTR(publicKeyTemplate[n_pubkey_attr], CKA_MODULUS_BITS, &modulusBits, sizeof(modulusBits));
+			n_pubkey_attr++;
+			FILL_ATTR(publicKeyTemplate[n_pubkey_attr], CKA_PUBLIC_EXPONENT, publicExponent, sizeof(publicExponent));
+			n_pubkey_attr++;
+
+			mechanism.mechanism = CKM_RSA_PKCS_KEY_PAIR_GEN;
+		}
+		else {
+			util_fatal("Unknown key type %s", type);
+		}
+	}
+
+	if (opt_object_label != NULL) {
+		FILL_ATTR(publicKeyTemplate[n_pubkey_attr], CKA_LABEL,
+			opt_object_label, strlen(opt_object_label));
+		FILL_ATTR(privateKeyTemplate[n_privkey_attr], CKA_LABEL,
+			opt_object_label, strlen(opt_object_label));
+		n_pubkey_attr++;
+		n_privkey_attr++;
+		
+	}
+	if (opt_object_id_len != 0) {
+		FILL_ATTR(publicKeyTemplate[n_pubkey_attr], CKA_ID,
+			opt_object_id, opt_object_id_len);
+		FILL_ATTR(privateKeyTemplate[n_privkey_attr], CKA_ID,
+			opt_object_id, opt_object_id_len);
+		n_pubkey_attr++;
+		n_privkey_attr++;
+	}
+
+	rv = p11->C_GenerateKeyPair(session, &mechanism,
+		publicKeyTemplate, n_pubkey_attr,
+		privateKeyTemplate, n_privkey_attr,
+		hPublicKey, hPrivateKey);
+	if (rv != CKR_OK)
+		p11_fatal("C_GenerateKeyPair", rv);
+
+	printf("SM key pair generated:\n");
+	show_object(session, *hPrivateKey);
+	show_object(session, *hPublicKey);
+
+	return 1;
+}
+
+
+static void 
+test_sm_generate_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session, 
+		int usage_sign, int usage_decrypt, int usage_nonrepudiation)
+{
+	CK_MECHANISM		mech_sign = {CKM_RSA_PKCS, NULL_PTR, 0};
+	CK_MECHANISM_TYPE	*mech_type = NULL;
+	CK_OBJECT_HANDLE	pub_key, priv_key;
+	CK_ULONG		i, num_mechs = 0;
+	CK_RV			rv;
+	CK_BYTE			*tmp;
+	CK_BYTE			*data_to_sign = (CK_BYTE *)"My Heart's in the Highland";
+	CK_BYTE			*data, sig[512];
+	CK_ULONG		data_len, sig_len;
+	CK_BYTE			*id = (CK_BYTE *) "abcdefghijklmnopqrst";
+	CK_ULONG		id_len = strlen((char *)id);
+	CK_BYTE			*label = (CK_BYTE *) "Just a label";
+	CK_ULONG		label_len = 12;
+	CK_ATTRIBUTE		attribs[3] = {
+		{CKA_ID, id, id_len},
+		{CKA_LABEL, label, label_len},
+		{CKA_SUBJECT, (void *) "This won't be used in our lib", 29}
+	};
+
+	num_mechs = get_mechanisms(slot, &mech_type, -1);
+	for (i = 0; i < num_mechs; i++)
+		if (mech_type[i] == CKM_RSA_PKCS_KEY_PAIR_GEN)
+			break;
+	if (i == num_mechs) {
+		printf("ERR: no 'CKM_RSA_PKCS_KEY_PAIR_GEN' found in the mechanism list\n");
+		return;
+	}
+
+	if (!opt_key_type)
+		opt_key_type = "RSA:2048";
+	printf("*** SM generating RSA key pair: sign:%i, decrypt:%i, nonrepudiation:%i ***\n",
+			usage_sign, usage_decrypt, usage_nonrepudiation);
+	if (!sm_gen_keypair(session, &pub_key, &priv_key, opt_key_type, 
+				usage_sign, usage_decrypt, usage_nonrepudiation))
+		return;
+
+	tmp = getID(session, priv_key, (CK_ULONG *) &opt_object_id_len);
+	if (opt_object_id == NULL || opt_object_id_len == 0) {
+		printf("ERR: newly generated private key has no (or an empty) CKA_ID\n");
+		return;
+	}
+	memcpy(opt_object_id, tmp, opt_object_id_len);
+
+	printf("*** SM changing the CKA_ID of private and public key into one of 20 bytes ***\n");
+	rv = p11->C_SetAttributeValue(session, priv_key, attribs, 1);
+	if (rv != CKR_OK)
+		p11_fatal("C_SetAttributeValue(priv_key)", rv);
+
+	rv = p11->C_SetAttributeValue(session, pub_key, attribs, 1);
+	if (rv != CKR_OK)
+		p11_fatal("C_SetAttributeValue(pub_key)", rv);
+
+	if (opt_mechanism_used)
+		mech_sign.mechanism = opt_mechanism;
+
+	printf("*** SM do a signature ***\n");
+	data = data_to_sign;
+	data_len = strlen((char *)data_to_sign);
+	rv = p11->C_SignInit(session, &mech_sign, priv_key);
+	if (rv != CKR_OK)
+		p11_fatal("C_SignInit", rv);
+	rv = p11->C_Sign(session, data, data_len, NULL, &sig_len);
+	printf("*** SM do a signature(1): sig-len %li ***\n", sig_len);
+	if (rv != CKR_OK)
+		p11_fatal("C_Sign", rv);
+	sig_len = 20;
+	rv = p11->C_Sign(session, data, data_len, sig, &sig_len);
+	printf("*** SM do a signature(2): sig-len %li ***\n", sig_len);
+	if (rv != CKR_BUFFER_TOO_SMALL) {
+		printf("ERR: C_Sign() didn't return CKR_BUFFER_TO_SMALL but %s\n", CKR2Str(rv));
+		return;
+	}
+	rv = p11->C_Sign(session, data, data_len, sig, &sig_len);
+	printf("*** SM do a signature(3): sig-len %li ***\n", sig_len);
+	if (rv != CKR_OK)
+		p11_fatal("C_Sign", rv);
+
+	printf("*** Changing the CKA_LABEL, CKA_ID and CKA_SUBJECT of the public key ***\n");
+	rv = p11->C_SetAttributeValue(session, pub_key, attribs, 3);
+	if (rv != CKR_OK)
+		p11_fatal("C_SetAttributeValue", rv);
+
+	printf("==> OK\n");	
+}
+
+
+static void 
+test_sm_store_object(CK_SESSION_HANDLE session, 
+		int usage_sign, int usage_decrypt, int usage_nonrepudiation)
+{
+	CK_BBOOL _true = TRUE;
+	unsigned char contents[MAX_OBJECT_SIZE], certdata[MAX_OBJECT_SIZE];
+	int contents_len = 0, certdata_len = 0;
+	FILE *f;
+	CK_OBJECT_HANDLE cert_obj, privkey_obj, pubkey_obj, data_obj;
+	CK_ATTRIBUTE cert_templ[20], privkey_templ[24], pubkey_templ[20], data_templ[20];
+	int n_cert_attr = 0, n_privkey_attr = 0, n_pubkey_attr = 0, n_data_attr = 0;
+	struct sc_object_id oid;
+	CK_RV rv;
+	int need_to_parse_certdata = 0;
+	struct x509cert_info cert;
+	struct rsakey_info rsa;
+	EVP_PKEY *evp_key = NULL;
+
+	memset(&cert, 0, sizeof(cert));
+	memset(&rsa,  0, sizeof(rsa));
+
+	f = fopen(opt_file_to_write, "rb");
+	if (f == NULL)
+		util_fatal("SM: couldn't open file \"%s\"\n", opt_file_to_write);
+	contents_len = fread(contents, 1, sizeof(contents), f);
+	if (contents_len < 0)
+		util_fatal("SM: couldn't read from file \"%s\"\n", opt_file_to_write);
+	fclose(f);
+
+	if (opt_attr_from_file) {
+		f = fopen(opt_attr_from_file, "rb");
+		if (!f)
+			util_fatal("SM: couldn't open file \"%s\"\n", opt_attr_from_file);
+		certdata_len = fread(certdata, 1, sizeof(certdata), f);
+		fclose(f);
+		if (certdata_len < 0)
+			util_fatal("SM: couldn't read from file \"%s\"\n", opt_attr_from_file);
+		need_to_parse_certdata = 1;
+	}
+
+	if (opt_object_class == CKO_CERTIFICATE && !opt_attr_from_file) {
+		memcpy(certdata, contents, MAX_OBJECT_SIZE);
+		certdata_len = contents_len;
+		need_to_parse_certdata = 1;
+	}
+
+	if (need_to_parse_certdata)
+		parse_certificate(&cert, certdata, certdata_len);
+
+	if (opt_object_class == CKO_PRIVATE_KEY) {
+		int rv; 
+
+		rv = do_read_private_key(contents, contents_len, &evp_key);
+		if (rv)
+			util_fatal("SM: cannot read private key\n");
+
+		if (evp_key->type == EVP_PKEY_RSA)
+			rv = parse_rsa_private_key(&rsa, contents, contents_len);
+		else
+			util_fatal("SM: unsupported key type: 0x%X\n", evp_key->type);
+
+		if (rv)
+			util_fatal("SM: cannot parse private key\n");
+	}
+
+	if (opt_object_class == CKO_PUBLIC_KEY)
+		parse_rsa_public_key(&rsa, contents, contents_len);
+
+	if (opt_object_class == CKO_CERTIFICATE) {
+		CK_OBJECT_CLASS clazz = CKO_CERTIFICATE;
+		CK_CERTIFICATE_TYPE cert_type = CKC_X_509;
+
+		FILL_ATTR(cert_templ[0], CKA_TOKEN, &_true, sizeof(_true));
+		FILL_ATTR(cert_templ[1], CKA_VALUE, contents, contents_len);
+		FILL_ATTR(cert_templ[2], CKA_CLASS, &clazz, sizeof(clazz));
+		FILL_ATTR(cert_templ[3], CKA_CERTIFICATE_TYPE, &cert_type, sizeof(cert_type));
+		n_cert_attr = 4;
+
+		if (opt_object_label != NULL) {
+			FILL_ATTR(cert_templ[n_cert_attr], CKA_LABEL, opt_object_label, strlen(opt_object_label));
+			n_cert_attr++;
+		}
+		if (opt_object_id_len != 0) {
+			FILL_ATTR(cert_templ[n_cert_attr], CKA_ID, opt_object_id, opt_object_id_len);
+			n_cert_attr++;
+		}
+		/* according to PKCS #11 CKA_SUBJECT MUST be specified */
+		FILL_ATTR(cert_templ[n_cert_attr], CKA_SUBJECT, cert.subject, cert.subject_len);
+		n_cert_attr++;
+		FILL_ATTR(cert_templ[n_cert_attr], CKA_ISSUER, cert.issuer, cert.issuer_len);
+		n_cert_attr++;
+		FILL_ATTR(cert_templ[n_cert_attr], CKA_SERIAL_NUMBER, cert.serialnum, cert.serialnum_len);
+		n_cert_attr++;
+	}
+	else if (opt_object_class == CKO_PRIVATE_KEY) {
+		CK_OBJECT_CLASS clazz = CKO_PRIVATE_KEY;
+
+		n_privkey_attr = 0;
+		FILL_ATTR(privkey_templ[n_privkey_attr], CKA_CLASS, &clazz, sizeof(clazz));
+		n_privkey_attr++;
+		FILL_ATTR(privkey_templ[n_privkey_attr], CKA_TOKEN, &_true, sizeof(_true));
+		n_privkey_attr++;
+		FILL_ATTR(privkey_templ[n_privkey_attr], CKA_PRIVATE, &_true, sizeof(_true));
+		n_privkey_attr++;
+		FILL_ATTR(privkey_templ[n_privkey_attr], CKA_SENSITIVE, &_true, sizeof(_true));
+		n_privkey_attr++;
+
+		if (opt_object_label != NULL) {
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_LABEL, opt_object_label, strlen(opt_object_label));
+			n_privkey_attr++;
+		}
+
+		if (opt_object_id_len != 0) {
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_ID, opt_object_id, opt_object_id_len);
+			n_privkey_attr++;
+		}
+
+		if (cert.subject_len != 0) {
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_SUBJECT, cert.subject, cert.subject_len);
+			n_privkey_attr++;
+		}
+
+		if (evp_key->type == EVP_PKEY_RSA)   {
+			CK_KEY_TYPE type = CKK_RSA;
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_KEY_TYPE, &type, sizeof(type));
+			n_privkey_attr++;
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_MODULUS, rsa.modulus, rsa.modulus_len);
+			n_privkey_attr++;
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_PUBLIC_EXPONENT, rsa.public_exponent, rsa.public_exponent_len);
+			n_privkey_attr++;
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_PRIVATE_EXPONENT, rsa.private_exponent, rsa.private_exponent_len);
+			n_privkey_attr++;
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_PRIME_1, rsa.prime_1, rsa.prime_1_len);
+			n_privkey_attr++;
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_PRIME_2, rsa.prime_2, rsa.prime_2_len);
+			n_privkey_attr++;
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_EXPONENT_1, rsa.exponent_1, rsa.exponent_1_len);
+			n_privkey_attr++;
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_EXPONENT_2, rsa.exponent_2, rsa.exponent_2_len);
+			n_privkey_attr++;
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_COEFFICIENT, rsa.coefficient, rsa.coefficient_len);
+			n_privkey_attr++;
+		}
+
+		printf("key usage decrypt:%i, sign:%i, nonrepuduation:%i\n", usage_decrypt, usage_sign, usage_nonrepudiation);
+		if (usage_decrypt)   {
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_DECRYPT, &_true, sizeof(_true));
+			n_privkey_attr++;
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_UNWRAP, &_true, sizeof(_true));
+			n_privkey_attr++;
+		}
+
+		if (usage_sign)   {
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_SIGN, &_true, sizeof(_true));
+			n_privkey_attr++;
+		}
+
+		if (usage_nonrepudiation)   {
+			FILL_ATTR(privkey_templ[n_privkey_attr], CKA_OPENSC_NON_REPUDIATION, &_true, sizeof(_true));
+			n_privkey_attr++;
+		}
+	}
+	else if (opt_object_class == CKO_PUBLIC_KEY) {
+		CK_OBJECT_CLASS clazz = CKO_PUBLIC_KEY;
+		CK_KEY_TYPE type = CKK_RSA;
+		CK_ULONG modulus_bits = rsa.modulus_len * 8;
+
+		FILL_ATTR(pubkey_templ[0], CKA_CLASS, &clazz, sizeof(clazz));
+		FILL_ATTR(pubkey_templ[1], CKA_KEY_TYPE, &type, sizeof(type));
+		FILL_ATTR(pubkey_templ[2], CKA_TOKEN, &_true, sizeof(_true));
+		n_pubkey_attr = 3;
+
+		if (opt_is_private != 0) {
+			FILL_ATTR(data_templ[n_data_attr], CKA_PRIVATE, &_true, sizeof(_true));
+			n_data_attr++;
+		}
+
+		if (opt_object_label != NULL) {
+			FILL_ATTR(pubkey_templ[n_pubkey_attr], CKA_LABEL, opt_object_label, strlen(opt_object_label));
+			n_pubkey_attr++;
+		}
+
+		if (opt_object_id_len != 0) {
+			FILL_ATTR(pubkey_templ[n_pubkey_attr], CKA_ID, opt_object_id, opt_object_id_len);
+			n_pubkey_attr++;
+		}
+
+		if (cert.subject_len != 0) {
+			FILL_ATTR(pubkey_templ[n_pubkey_attr], CKA_SUBJECT, cert.subject, cert.subject_len);
+			n_pubkey_attr++;
+		
+		}
+
+		FILL_ATTR(pubkey_templ[n_pubkey_attr], CKA_MODULUS, rsa.modulus, rsa.modulus_len);
+		n_pubkey_attr++;
+		FILL_ATTR(pubkey_templ[n_pubkey_attr], CKA_MODULUS_BITS, &modulus_bits, sizeof (modulus_bits));
+		n_pubkey_attr++;
+		FILL_ATTR(pubkey_templ[n_pubkey_attr], CKA_PUBLIC_EXPONENT, rsa.public_exponent, rsa.public_exponent_len);
+		n_pubkey_attr++;
+
+		if (usage_decrypt)   {
+			FILL_ATTR(pubkey_templ[n_pubkey_attr], CKA_ENCRYPT, &_true, sizeof(_true));
+			n_pubkey_attr++;
+			FILL_ATTR(pubkey_templ[n_pubkey_attr], CKA_WRAP, &_true, sizeof(_true));
+			n_pubkey_attr++;
+		}
+
+		if (usage_sign)   {
+			FILL_ATTR(pubkey_templ[n_pubkey_attr], CKA_VERIFY, &_true, sizeof(_true));
+			n_pubkey_attr++;
+		}
+	}
+	else if (opt_object_class == CKO_DATA) {
+		CK_OBJECT_CLASS clazz = CKO_DATA;
+
+		FILL_ATTR(data_templ[0], CKA_CLASS, &clazz, sizeof(clazz));
+		FILL_ATTR(data_templ[1], CKA_TOKEN, &_true, sizeof(_true));
+		FILL_ATTR(data_templ[2], CKA_VALUE, &contents, contents_len);
+
+		n_data_attr = 3;
+
+		if (opt_is_private != 0) {
+			FILL_ATTR(data_templ[n_data_attr], CKA_PRIVATE,
+				&_true, sizeof(_true));
+			n_data_attr++;
+		}
+
+		if (opt_application_label != NULL) {
+			FILL_ATTR(data_templ[n_data_attr], CKA_APPLICATION,
+				opt_application_label, strlen(opt_application_label));
+			n_data_attr++;
+		}
+
+		if (opt_application_id != NULL) {
+			sc_format_oid(&oid, opt_application_id);
+			FILL_ATTR(data_templ[n_data_attr], CKA_OBJECT_ID,
+				(unsigned char *)oid.value, sizeof(oid.value));
+			n_data_attr++;
+		}
+
+		if (opt_object_label != NULL) {
+			FILL_ATTR(data_templ[n_data_attr], CKA_LABEL,
+				opt_object_label, strlen(opt_object_label));
+			n_data_attr++;
+		}
+		
+	}
+	else
+		util_fatal("SM: writing of a \"%s\" type not (yet) supported\n", opt_object_class_str);
+
+	if (n_data_attr) {
+		rv = p11->C_CreateObject(session, data_templ, n_data_attr, &data_obj);
+		if (rv != CKR_OK)
+			p11_fatal("C_CreateObject", rv);
+		
+		printf("SM: created Data Object:\n");
+		show_dobj(session, data_obj);
+	}
+
+	if (n_cert_attr) {
+		rv = p11->C_CreateObject(session, cert_templ, n_cert_attr, &cert_obj);
+		if (rv != CKR_OK)
+			p11_fatal("C_CreateObject", rv);
+		
+		printf("SM: created certificate:\n");
+		show_object(session, cert_obj);
+	}
+
+	if (n_pubkey_attr) {
+		rv = p11->C_CreateObject(session, pubkey_templ, n_pubkey_attr, &pubkey_obj);
+		if (rv != CKR_OK)
+			p11_fatal("C_CreateObject", rv);
+		
+		printf("SM: created public key:\n");
+		show_object(session, pubkey_obj);
+	}
+
+	if (n_privkey_attr) {
+		CK_BYTE *data = (CK_BYTE *)"My Heart's in the Highland";
+		CK_BYTE sig[512];
+		CK_ULONG data_len = 0, sig_len = 0;
+		CK_MECHANISM mech_sign = {CKM_RSA_PKCS, NULL_PTR, 0};
+		char hex_sig[1537];
+
+		rv = p11->C_CreateObject(session, privkey_templ, n_privkey_attr, &privkey_obj);
+		if (rv != CKR_OK)
+			p11_fatal("C_CreateObject", rv);
+		
+		printf("SM: created private key:\n");
+		show_object(session, privkey_obj);
+
+		if (opt_mechanism_used)
+			mech_sign.mechanism = opt_mechanism;
+
+		printf("SM: try to sign\n");
+		data_len = strlen((char *)data);
+		rv = p11->C_SignInit(session, &mech_sign, privkey_obj);
+		if (rv != CKR_OK)
+			p11_fatal("C_SignInit", rv);
+
+		rv = p11->C_Sign(session, data, data_len, NULL, &sig_len);
+		printf("SM: signature length %li\n", sig_len);
+		if (rv != CKR_OK)
+			p11_fatal("C_Sign", rv);
+	
+		rv = p11->C_Sign(session, data, data_len, sig, &sig_len);
+		if (rv != CKR_OK)
+			p11_fatal("C_Sign", rv);
+
+		sc_bin_to_hex(sig, sig_len, hex_sig, sizeof(hex_sig), ':');
+		printf("SM: signature OK\n%s\n", hex_sig);
+	}
+}
 
 static const char *p11_flag_names(struct flag_info *list, CK_FLAGS value)
 {
