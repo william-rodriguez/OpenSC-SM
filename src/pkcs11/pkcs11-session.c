@@ -141,7 +141,7 @@ CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
 	if (rv != CKR_OK)
 		return rv;
 
-	sc_log(context, "C_CloseSession(0x%lx)\n", hSession);
+	sc_log(context, "C_CloseSession(0x%lx)", hSession);
 
 	rv = sc_pkcs11_close_session(hSession);
 
@@ -364,8 +364,7 @@ CK_RV C_SetPIN(CK_SESSION_HANDLE hSession,
 	struct sc_pkcs11_session *session;
 	struct sc_pkcs11_slot *slot;
 
-	if ((pOldPin == NULL_PTR && ulOldLen > 0)
-	    || (pNewPin == NULL_PTR && ulNewLen > 0))
+	if ((pOldPin == NULL_PTR && ulOldLen > 0) || (pNewPin == NULL_PTR && ulNewLen > 0))
 		return CKR_ARGUMENTS_BAD;
 
 	rv = sc_pkcs11_lock();
@@ -379,7 +378,7 @@ CK_RV C_SetPIN(CK_SESSION_HANDLE hSession,
 	}
 
 	slot = session->slot;
-	sc_log(context, "Changing PIN (session 0x%lx; login user %d)\n", hSession, slot->login_user);
+	sc_log(context, "Changing PIN (session 0x%lx; login user %d)", hSession, slot->login_user);
 
 	if (!(session->flags & CKF_RW_SESSION)) {
 		rv = CKR_SESSION_READ_ONLY;

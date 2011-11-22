@@ -832,7 +832,7 @@ pkcs15_add_object(struct sc_pkcs11_slot *slot, struct pkcs15_any_object *obj,
 		*pHandle = (CK_OBJECT_HANDLE)obj; /* cast pointer to long */
 
 	list_append(&slot->objects, obj);
-	sc_log(context, "Setting object handle of 0x%lx to 0x%lx", obj->base.handle, (CK_OBJECT_HANDLE)obj);
+	sc_log(context, "Slot:%X Setting object handle of 0x%lx to 0x%lx", slot->id, obj->base.handle, (CK_OBJECT_HANDLE)obj);
 	obj->base.handle = (CK_OBJECT_HANDLE)obj; /* cast pointer to long */
 	obj->base.flags |= SC_PKCS11_OBJECT_SEEN;
 	obj->refcount++;
@@ -936,7 +936,7 @@ FIXME: configurable option
 
 
 static CK_RV 
-pkcs15_create_slot(struct sc_pkcs11_card *p11card,struct pkcs15_fw_data *fw_data,
+pkcs15_create_slot(struct sc_pkcs11_card *p11card, struct pkcs15_fw_data *fw_data,
 		struct sc_pkcs15_object *auth, struct sc_app_info *app,
 		struct sc_pkcs11_slot **out)
 {
@@ -2717,9 +2717,10 @@ static void pkcs15_cert_release(void *obj)
 	}
 }
 
-static CK_RV pkcs15_cert_set_attribute(struct sc_pkcs11_session *session,
-                               void *object,
-                               CK_ATTRIBUTE_PTR attr)
+
+static CK_RV 
+pkcs15_cert_set_attribute(struct sc_pkcs11_session *session,
+		void *object, CK_ATTRIBUTE_PTR attr)
 {
 	struct pkcs15_cert_object *cert = (struct pkcs15_cert_object*) object;
 	return pkcs15_set_attrib(session, cert->base.p15_object, attr);

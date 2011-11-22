@@ -976,14 +976,13 @@ CK_RV C_GenerateKeyPair(CK_SESSION_HANDLE hSession,	/* the session's handle */
 	}
 
 	slot = session->slot;
-	if (slot->card->framework->gen_keypair == NULL) {
+	if (slot->card->framework->gen_keypair == NULL)
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
-	} else {
+	else
 		rv = slot->card->framework->gen_keypair(slot, pMechanism, 
 				pPublicKeyTemplate, ulPublicKeyAttributeCount,
 				pPrivateKeyTemplate, ulPrivateKeyAttributeCount, 
 				phPublicKey, phPrivateKey);
-	}
 
 out:	sc_pkcs11_unlock();
 	return rv;
