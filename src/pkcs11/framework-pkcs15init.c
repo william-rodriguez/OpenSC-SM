@@ -30,7 +30,7 @@
 /*
  * Deal with uninitialized cards
  */
-static CK_RV pkcs15init_bind(struct sc_pkcs11_card *p11card)
+static CK_RV pkcs15init_bind(struct sc_pkcs11_card *p11card, struct sc_app_info *app_info)
 {
 	struct sc_card	*card = p11card->card;
 	struct sc_profile *profile;
@@ -51,7 +51,7 @@ static CK_RV pkcs15init_unbind(struct sc_pkcs11_card *p11card)
 	return CKR_OK;
 }
 
-static CK_RV pkcs15init_create_tokens(struct sc_pkcs11_card *p11card)
+static CK_RV pkcs15init_create_tokens(struct sc_pkcs11_card *p11card, struct sc_app_info *app_info)
 {
 	struct sc_profile	*profile;
 	struct sc_pkcs11_slot	*slot;
