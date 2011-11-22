@@ -72,7 +72,46 @@ static int object_list_seeker(const void *el, const void *key)
 		return 1;
 	return 0;
 }
-								
+
+
+struct sc_app_info *
+get_generic_application(struct sc_card * card)
+{
+	struct sc_app_info *out = NULL;
+	scconf_block *conf_block = sc_get_conf_block(context, "pkcs11", NULL, 1);
+	int i, rv;
+
+	if (!card || !conf_block)
+		return NULL;	
+
+	if (card->app_count < 0)   {
+		rv = sc_enum_apps(card);
+        	if (rv < 0 && rv != SC_ERROR_FILE_NOT_FOUND)
+			return NULL;
+	}
+
+	for (i = 0; i < card->app_count; i++)   {
+		struct sc_app_info *app_info = card->app[i];
+		scconf_block **blocks = NULL;
+		char str_path[SC_MAX_AID_STRING_SIZE];
+
+		sc_bin_to_hex(app_info->aid.value, app_info->aid.len, str_path, sizeof(str_path), 0);
+		blocks = scconf_find_blocks(context->conf, conf_block, "application", str_path);
+		if (blocks)   {
+			if (blocks[0])   {
+				char *type = (char *)scconf_get_str(blocks[0], "type", "generic");
+				if (strcmp(type, "protected"))   {
+					out = app_info;
+					break;
+				}
+			}
+			free(blocks);
+		}
+	}
+
+	return out;
+}
+
 CK_RV create_slot(sc_reader_t *reader)
 {
 	struct sc_pkcs11_slot *slot;
@@ -115,7 +154,7 @@ CK_RV initialize_reader(sc_reader_t *reader)
 		list = scconf_find_list(conf_block, "ignored_readers");
 		while (list != NULL) {
 			if (strstr(reader->name, list->data) != NULL) {
-				sc_log(context, "Ignoring reader \'%s\' because of \'%s\'\n", reader->name, list->data);
+				sc_log(context, "Ignoring reader \'%s\' because of \'%s\'", reader->name, list->data);
 				return CKR_OK;
 			}
 			list = list->next;
@@ -180,27 +219,27 @@ CK_RV card_removed(sc_reader_t * reader)
 CK_RV card_detect(sc_reader_t *reader)
 {
 	struct sc_pkcs11_card *p11card = NULL;
-	int rc, rv;
+	int rc, rv, j;
 	unsigned int i;
 
 	rv = CKR_OK;
 
-	sc_log(context, "%s: Detecting smart card\n", reader->name);
+	sc_log(context, "%s: Detecting smart card", reader->name);
       /* Check if someone inserted a card */
       again:rc = sc_detect_card_presence(reader);
 	if (rc < 0) {
-		sc_log(context, "%s: failed, %s\n", reader->name, sc_strerror(rc));
+		sc_log(context, "%s: failed, %s", reader->name, sc_strerror(rc));
 		return sc_to_cryptoki_error(rc, NULL);
 	}
 	if (rc == 0) {
-		sc_log(context, "%s: card absent\n", reader->name);
+		sc_log(context, "%s: card absent", reader->name);
 		card_removed(reader);	/* Release all resources */
 		return CKR_TOKEN_NOT_PRESENT;
 	}
 
 	/* If the card was changed, disconnect the current one */
 	if (rc & SC_READER_CARD_CHANGED) {
-		sc_log(context, "%s: Card changed\n", reader->name);
+		sc_log(context, "%s: Card changed", reader->name);
 		/* The following should never happen - but if it
 		 * does we'll be stuck in an endless loop.
 		 * So better be fussy. 
@@ -237,28 +276,52 @@ CK_RV card_detect(sc_reader_t *reader)
 
 	/* Detect the framework */
 	if (p11card->framework == NULL) {
-		sc_log(context, "%s: Detecting Framework\n", reader->name);
+		struct sc_app_info *app_generic = get_generic_application(p11card->card);
+		struct sc_pkcs11_slot *first_slot = NULL;
 
-		for (i = 0; frameworks[i]; i++) {
-			if (frameworks[i]->bind == NULL)
-				continue;
-			rv = frameworks[i]->bind(p11card, NULL);
-			if (rv == CKR_OK)
+		sc_log(context, "%s: Detecting Framework", reader->name);
+		sc_log(context, "%s: generic application '%s'", reader->name, app_generic ? app_generic->label : "<none>");
+
+		for (i = 0; frameworks[i]; i++)
+			if (frameworks[i]->bind != NULL)
 				break;
-		}
-
 		if (frameworks[i] == NULL)
 			return CKR_TOKEN_NOT_RECOGNIZED;
 
 		/* Initialize framework */
-		sc_log(context, "%s: Detected framework %d. Creating tokens.\n", reader->name, i);
-		rv = frameworks[i]->create_tokens(p11card, NULL, NULL);
-		if (rv != CKR_OK)
-			return rv;
+		sc_log(context, "%s: Detected framework %d. Creating tokens.", reader->name, i);
+		if (app_generic)   {
+			rv = frameworks[i]->bind(p11card, app_generic);
+			sc_log(context, "%s: generic bind result %i", reader->name, rv);
+			if (rv != CKR_OK)
+				return rv;
+
+			rv = frameworks[i]->create_tokens(p11card, app_generic, &first_slot);
+			sc_log(context, "%s: generic create tokens result %i", reader->name, rv);
+			if (rv != CKR_OK)
+				return rv;
+		}
+
+		for (j = 0; j < p11card->card->app_count; j++)   {
+			struct sc_app_info *app_info = p11card->card->app[j];
+
+			if (app_generic && app_generic == p11card->card->app[j])
+				continue;
+
+			rv = frameworks[i]->bind(p11card, app_info);
+			sc_log(context, "%s: bind result %i", reader->name, rv);
+			if (rv != CKR_OK)
+				continue;
+
+			rv = frameworks[i]->create_tokens(p11card, app_info, &first_slot);
+			sc_log(context, "%s: create tokens result %i", reader->name, rv);
+			if (rv != CKR_OK)
+				return rv;
+		}
 
 		p11card->framework = frameworks[i];
 	}
-	sc_log(context, "%s: Detection ended\n", reader->name);
+	sc_log(context, "%s: Detection ended", reader->name);
 	return CKR_OK;
 }
 
