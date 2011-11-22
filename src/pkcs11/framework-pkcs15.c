@@ -2170,11 +2170,14 @@ static CK_RV
 pkcs15_create_object(struct sc_pkcs11_slot *slot, CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 		CK_OBJECT_HANDLE_PTR phObject)
 {
-	struct sc_profile *profile = NULL;
 	struct sc_pkcs11_card *p11card = slot->card;
+	struct pkcs15_fw_data *fw_data = NULL;
+	struct sc_profile *profile = NULL;
 	CK_OBJECT_CLASS	_class;
 	CK_BBOOL _token = FALSE;
 	int rv, rc;
+
+	fw_data = (struct pkcs15_fw_data *) p11card->fws_data[slot->fw_data_idx];
 
 	rv = attr_find(pTemplate, ulCount, CKA_CLASS, &_class, NULL);
 	if (rv != CKR_OK)
@@ -2211,12 +2214,14 @@ pkcs15_create_object(struct sc_pkcs11_slot *slot, CK_ATTRIBUTE_PTR pTemplate, CK
 			return sc_to_cryptoki_error(rc, "C_CreateObject");
 		}
 
-		rc = sc_pkcs15init_finalize_profile(p11card->card, profile, NULL);
+		rc = sc_pkcs15init_finalize_profile(p11card->card, profile, &slot->app_info->aid);
 		if (rc != CKR_OK) {
 			sc_log(context, "Cannot finalize profile: %i", rc);
 			sc_unlock(p11card->card);
 			return sc_to_cryptoki_error(rc, "C_CreateObject");
 		}
+
+		sc_pkcs15init_set_p15card(profile, fw_data->p15_card);
 	}
 
 	switch (_class) {
@@ -2462,11 +2467,9 @@ pkcs15_gen_keypair(struct sc_pkcs11_slot *slot, CK_MECHANISM_PTR pMechanism,
 		pub_args.label = pub_label;
 	}
 
-	rv = get_X509_usage_privk(pPrivTpl, ulPrivCnt,
-	    	&keygen_args.prkey_args.x509_usage);
+	rv = get_X509_usage_privk(pPrivTpl, ulPrivCnt, &keygen_args.prkey_args.x509_usage);
 	if (rv == CKR_OK)
-		rv = get_X509_usage_pubk(pPubTpl, ulPubCnt,
-			&keygen_args.prkey_args.x509_usage);
+		rv = get_X509_usage_pubk(pPubTpl, ulPubCnt, &keygen_args.prkey_args.x509_usage);
 	if (rv != CKR_OK)
 		goto kpgen_done;
 	pub_args.x509_usage = keygen_args.prkey_args.x509_usage;
