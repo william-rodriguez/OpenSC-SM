@@ -626,8 +626,7 @@ __pkcs15_create_data_object(struct pkcs15_fw_data *fw_data,
 
 static int
 __pkcs15_create_secret_key_object(struct pkcs15_fw_data *fw_data,
-		    struct sc_pkcs15_object *object, 
-		    struct pkcs15_any_object **skey_object)
+		struct sc_pkcs15_object *object, struct pkcs15_any_object **skey_object)
 {
 	struct pkcs15_skey_object *skey = NULL;
 	int rv;
@@ -959,97 +958,201 @@ pkcs15_create_slot(struct sc_pkcs11_card *p11card,struct pkcs15_fw_data *fw_data
 }
 
 
+static int 
+_pkcs15_create_typed_objects(struct pkcs15_fw_data *fw_data)
+{
+	int rv;
+
+	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_PRKEY_RSA, "RSA private key",
+			__pkcs15_create_prkey_object);
+ 	if (rv < 0)
+ 		return rv;
+
+ 	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_PUBKEY_RSA, "RSA public key",
+			__pkcs15_create_pubkey_object);
+ 	if (rv < 0)
+ 		return rv;
+
+	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_PRKEY_EC, "EC private key",
+			__pkcs15_create_prkey_object);
+ 	if (rv < 0)
+ 		return rv;
+
+ 	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_PUBKEY_EC, "EC public key",
+			__pkcs15_create_pubkey_object);
+ 	if (rv < 0)
+ 		return rv;
+
+	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_PRKEY_GOSTR3410, "GOSTR3410 private key",
+			__pkcs15_create_prkey_object);
+	if (rv < 0)
+ 		return rv;
+
+	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_PUBKEY_GOSTR3410, "GOSTR3410 public key",
+			__pkcs15_create_pubkey_object);
+	if (rv < 0)
+ 		return rv;
+
+	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_CERT_X509, "certificate",
+			__pkcs15_create_cert_object);
+	if (rv < 0)
+ 		return rv;
+
+	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_DATA_OBJECT, "data object",
+			__pkcs15_create_data_object);
+	if (rv < 0)
+ 		return rv;
+
+	/* Match up related keys and certificates */
+	pkcs15_bind_related_objects(fw_data);
+	sc_log(context, "found %i FW objects", fw_data->num_objects);
+
+	return rv;
+}
+
+
+int
+_is_slot_auth_object(struct sc_pkcs15_auth_info *pin_info)
+{
+
+	/* Ignore all but PIN authentication objects */
+	if (pin_info->auth_type != SC_PKCS15_PIN_AUTH_TYPE_PIN)
+		return 0;
+
+	/* Ignore any non-authentication PINs */
+	if ((pin_info->attrs.pin.flags & SC_PKCS15_PIN_FLAG_SO_PIN) != 0)
+		return 0;
+
+	/* Ignore unblocking pins for hacked module */
+	if (hack_enabled && (pin_info->attrs.pin.flags & SC_PKCS15_PIN_FLAG_UNBLOCKING_PIN) != 0)
+		return 0;
+
+	/* Ignore unblocking pins */
+	if (!sc_pkcs11_conf.create_puk_slot)
+		if (pin_info->attrs.pin.flags & SC_PKCS15_PIN_FLAG_UNBLOCKING_PIN)
+			return 0;
+
+	return 1;
+}
+
+
+static void
+_add_pin_related_objects(struct sc_pkcs11_slot *slot, struct sc_pkcs15_object *pin_obj,
+		struct pkcs15_fw_data *fw_data)
+{
+	struct sc_pkcs15_auth_info *pin_info = (struct sc_pkcs15_auth_info *)pin_obj->data;
+	int i;
+
+	sc_log(context, "PinID:%s", sc_pkcs15_print_id(&pin_info->auth_id));
+	for (i=0; i < fw_data->num_objects; i++) {
+		struct pkcs15_any_object *obj = fw_data->objects[i];
+
+		/* "Fake" objects we've generated */
+		if (__p15_type(obj) == (unsigned int)-1)
+			continue;
+		/* Some objects have an auth_id even though they are
+		 * not private. Just ignore those... */
+		if (!(obj->p15_object->flags & SC_PKCS15_CO_FLAG_PRIVATE))
+			continue;
+		sc_log(context, "ObjID(%p,%s,%x):%s", obj, obj->p15_object->label, obj->p15_object->type, 
+				sc_pkcs15_print_id(&obj->p15_object->auth_id));
+		if (!sc_pkcs15_compare_id(&pin_info->auth_id, &obj->p15_object->auth_id))   {
+			sc_log(context, "Ignoring object %d", i);
+			continue;
+		}
+
+		if (is_privkey(obj)) {
+			sc_log(context, "Slot:%p, obj:%p  Adding private key %d to PIN '%s'", slot, obj, i, pin_obj->label);
+			pkcs15_add_object(slot, obj, NULL);
+		}
+		else if (is_data(obj)) {
+			sc_log(context, "Slot:%p Adding data object %d to PIN '%s'", slot, i, pin_obj->label);
+			pkcs15_add_object(slot, obj, NULL);
+		}
+		else if (is_cert(obj)) {
+			sc_log(context, "Slot:%p Adding cert object %d to PIN '%s'", slot, i, pin_obj->label);
+			pkcs15_add_object(slot, obj, NULL);
+		}
+		else   {
+			sc_log(context, "Slot:%p Object %d skeeped", slot, i);
+			continue;
+		}
+	}
+}
+
+
+static void
+_add_public_objects(struct sc_pkcs11_slot *slot, struct pkcs15_fw_data *fw_data)
+{
+	int i;
+
+	sc_log(context, "%i public objects to process", fw_data->num_objects);
+	for (i=0; i < fw_data->num_objects; i++) {
+		struct pkcs15_any_object *obj = fw_data->objects[i];
+
+		/* "Fake" objects we've generated */
+		if (__p15_type(obj) == (unsigned int)-1)
+			continue;
+		/* Ignore seen object */
+		if (obj->base.flags & SC_PKCS11_OBJECT_SEEN)
+			continue;
+		/* Ignore 'private' object and the ones with 'auth_id' defined */
+		if (obj->p15_object->flags & SC_PKCS15_CO_FLAG_PRIVATE)
+			continue;
+		if (obj->p15_object->auth_id.len)
+			continue;
+
+		sc_log(context, "Add public object(%p,%s,%x)", obj, obj->p15_object->label, obj->p15_object->type);
+		pkcs15_add_object(slot, obj, NULL);
+	}
+}
+
+
 static CK_RV 
 pkcs15_create_tokens(struct sc_pkcs11_card *p11card, struct sc_app_info *app_info, 
 		struct sc_pkcs11_slot **first_slot)
 {
 	struct pkcs15_fw_data *fw_data = NULL;
 	struct sc_pkcs15_object *auths[MAX_OBJECTS];
+	struct sc_pkcs15_object *auth_user_pin = NULL, *auth_sign_pin = NULL, *fauo = NULL;
 	struct sc_pkcs11_slot *slot = NULL;
 	int i, rv, idx, auth_count, found_auth_count = 0;
 	unsigned int j;
 
+	sc_log(context, "create PKCS#15 tokens; p11card:%p; fws:%p,%p,%p", p11card, 
+			p11card->fws_data[0], p11card->fws_data[1], p11card->fws_data[2]);
+	sc_log(context, "CreateSlotsFlags: 0x%X", sc_pkcs11_conf.create_slots_flags);
+
+	/* Find out framework data related to the given application */
 	fw_data = get_fw_data(p11card, app_info, &idx);
 	if (!fw_data)
 		return sc_to_cryptoki_error(SC_ERROR_PKCS15_APP_NOT_FOUND, NULL);
 	sc_log(context, "Use FW data with index %i", idx);
 
-	rv = sc_pkcs15_get_objects(fw_data->p15_card, 
-			SC_PKCS15_TYPE_AUTH_PIN, auths, SC_PKCS15_MAX_PINS);
+	/* Get authentication PKCS#15 objects present in the given application */
+	memset(auths, 0, sizeof(auths));
+	rv = sc_pkcs15_get_objects(fw_data->p15_card, SC_PKCS15_TYPE_AUTH_PIN, auths, SC_PKCS15_MAX_PINS);
 	if (rv < 0)
 		return sc_to_cryptoki_error(rv, NULL);
 	sc_log(context, "Found %d authentication objects", rv);
 	auth_count = rv;
 
-	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_PRKEY_RSA, "RSA private key",
-			__pkcs15_create_prkey_object);
- 	if (rv < 0)
- 		return sc_to_cryptoki_error(rv, NULL);
-
- 	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_PUBKEY_RSA, "RSA public key",
-			__pkcs15_create_pubkey_object);
- 	if (rv < 0)
- 		return sc_to_cryptoki_error(rv, NULL);
-
-	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_PRKEY_EC, "EC private key",
-			__pkcs15_create_prkey_object);
- 	if (rv < 0)
- 		return sc_to_cryptoki_error(rv, NULL);
-
- 	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_PUBKEY_EC, "EC public key",
-			__pkcs15_create_pubkey_object);
- 	if (rv < 0)
- 		return sc_to_cryptoki_error(rv, NULL);
-
-
-	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_PRKEY_GOSTR3410, "GOSTR3410 private key",
-			__pkcs15_create_prkey_object);
+	/* Add PKCS#15 objects of the known types to the framework data */
+	rv = _pkcs15_create_typed_objects(fw_data);
 	if (rv < 0)
 		return sc_to_cryptoki_error(rv, NULL);
-
-	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_PUBKEY_GOSTR3410, "GOSTR3410 public key",
-			__pkcs15_create_pubkey_object);
-	if (rv < 0)
-		return sc_to_cryptoki_error(rv, NULL);
-
-	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_CERT_X509, "certificate",
-			__pkcs15_create_cert_object);
-	if (rv < 0)
-		return sc_to_cryptoki_error(rv, NULL);
-
-	rv = pkcs15_create_pkcs11_objects(fw_data, SC_PKCS15_TYPE_DATA_OBJECT, "data object",
-			__pkcs15_create_data_object);
-	if (rv < 0)
-		return sc_to_cryptoki_error(rv, NULL);
-
-	/* Match up related keys and certificates */
-	pkcs15_bind_related_objects(fw_data);
+	sc_log(context, "Found %d FW objects", fw_data->num_objects);
 
 	if (hack_enabled)
 		auth_count = 1;
 
 	for (i = 0; i < auth_count; i++) {
-		struct sc_pkcs15_auth_info *pin_info = NULL;
+		struct sc_pkcs15_auth_info *pin_info = (struct sc_pkcs15_auth_info*) auths[i]->data;
 
-		pin_info = (struct sc_pkcs15_auth_info*) auths[i]->data;
-
-		/* Ignore all but PIN authentication objects */
-		if (pin_info->auth_type != SC_PKCS15_PIN_AUTH_TYPE_PIN)
+		sc_log(context, "Found authentication object '%s'", auths[i]->label);
+		/* Check if a slot could be created with this PIN */
+		if (!_is_slot_auth_object(pin_info))
 			continue;
-
-		/* Ignore any non-authentication PINs */
-		if ((pin_info->attrs.pin.flags & SC_PKCS15_PIN_FLAG_SO_PIN) != 0)
-			continue;
-
-		/* Ignore unblocking pins for hacked module */
-		if (hack_enabled && (pin_info->attrs.pin.flags & SC_PKCS15_PIN_FLAG_UNBLOCKING_PIN) != 0)
-			continue;
-
-		/* Ignore unblocking pins */
-		if (!sc_pkcs11_conf.create_puk_slot)
-			if (pin_info->attrs.pin.flags & SC_PKCS15_PIN_FLAG_UNBLOCKING_PIN)
-				continue;
-
 		found_auth_count++;
 
 		rv = pkcs15_create_slot(p11card, fw_data, auths[i], app_info, &slot);
@@ -1057,32 +1160,7 @@ pkcs15_create_tokens(struct sc_pkcs11_card *p11card, struct sc_app_info *app_inf
 			return CKR_OK; /* no more slots available for this card */
 
 		/* Add all objects related to this pin */
-		for (j=0; j < fw_data->num_objects; j++) {
-			struct pkcs15_any_object *obj = fw_data->objects[j];
-
-			/* "Fake" objects we've generated */
-			if (__p15_type(obj) == (unsigned int)-1)
-				continue;
-			/* Some objects have an auth_id even though they are
-			 * not private. Just ignore those... */
-			if (!(obj->p15_object->flags & SC_PKCS15_CO_FLAG_PRIVATE))
-				continue;
-			if (!sc_pkcs15_compare_id(&pin_info->auth_id, &obj->p15_object->auth_id))
-				continue;
-
-			if (is_privkey(obj)) {
-				sc_log(context, "Adding private key %d to PIN %d", j, i);
-				pkcs15_add_object(slot, obj, NULL);
-			}
-			else if (is_data(obj)) {
-				sc_log(context, "Adding data object %d to PIN %d", j, i);
-				pkcs15_add_object(slot, obj, NULL);
-			}
-			else if (is_cert(obj)) {
-				sc_log(context, "Adding cert object %d to PIN %d", j, i);
-				pkcs15_add_object(slot, obj, NULL);
-			}
-		}
+		_add_pin_related_objects(slot, auths[i], fw_data);
 	}
 
 	auth_count = found_auth_count;
@@ -1091,38 +1169,25 @@ pkcs15_create_tokens(struct sc_pkcs11_card *p11card, struct sc_app_info *app_inf
 	 * If there's only 1 pin and the hide_empty_tokens option is set,
 	 * add the public objects to the slot that corresponds to that pin.
 	 */
-	if (!(auth_count == 1 && (sc_pkcs11_conf.hide_empty_tokens || (fw_data->p15_card->flags & SC_PKCS15_CARD_FLAG_EMULATED))))
+	if (!(auth_count == 1 && (sc_pkcs11_conf.hide_empty_tokens || (fw_data->p15_card->flags & SC_PKCS15_CARD_FLAG_EMULATED))))   {
 		slot = NULL;
+		for (j = 0; j < fw_data->num_objects; j++)    {
+			struct pkcs15_any_object *obj = fw_data->objects[j];
 
-	/* Add all the remaining objects */
-	for (j = 0; j < fw_data->num_objects; j++) {
-		struct pkcs15_any_object *obj = fw_data->objects[j];
-		/* We only have one pin and only the things related to it. */
-		if (hack_enabled)
-			break;
-
-		if (!(obj->base.flags & SC_PKCS11_OBJECT_SEEN)) {
-			sc_log(context, "%d: Object ('%s',type:%X) was not seen previously", j, 
-					obj->p15_object->label, obj->p15_object->type);
-			if (!slot) {
+			if (hack_enabled)
+				break;
+			if (!(obj->base.flags & SC_PKCS11_OBJECT_SEEN))   {
 				rv = pkcs15_create_slot(p11card, fw_data, NULL, app_info, &slot);
 				if (rv != CKR_OK)
 					return CKR_OK; /* no more slots available for this card */
+				break;
 			}
-			pkcs15_add_object(slot, obj, NULL);
 		}
 	}
 
-	/* FIXME Create read/write slots 
-	while (slot_allocate(&slot, p11card) == CKR_OK) {
-		if (!sc_pkcs11_conf.hide_empty_tokens && !(fw_data->p15_card->flags & SC_PKCS15_CARD_FLAG_EMULATED)) {
-			slot->slot_info.flags |= CKF_TOKEN_PRESENT;
-			pkcs15_init_token_info(fw_data->p15_card, &slot->token_info);
-			strcpy_bp(slot->token_info.label, fw_data->p15_card->label, 32);
-			slot->token_info.flags |= CKF_TOKEN_INITIALIZED;
-		}
-	}
-	*/
+	/* Add all the remaining objects */
+	_add_public_objects(slot, fw_data);
+
 	sc_log(context, "All tokens created");
 	return CKR_OK;
 }
