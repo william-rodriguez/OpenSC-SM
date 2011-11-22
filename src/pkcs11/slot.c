@@ -28,11 +28,6 @@
 
 static struct sc_pkcs11_framework_ops *frameworks[] = {
 	&framework_pkcs15,
-#ifdef USE_PKCS15_INIT
-	/* This should be the last framework, because it
-	 * will assume the card is blank and try to initialize it */
-	&framework_pkcs15init,
-#endif
 	NULL
 };
 
