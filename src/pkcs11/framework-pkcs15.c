@@ -29,8 +29,6 @@
 #include "pkcs15init/pkcs15-init.h"
 #endif
 
-extern int hack_enabled;
-
 struct pkcs15_slot_data {
 	struct sc_pkcs15_object *auth_obj;
 };
@@ -1041,10 +1039,6 @@ _is_slot_auth_object(struct sc_pkcs15_auth_info *pin_info)
 	if ((pin_info->attrs.pin.flags & SC_PKCS15_PIN_FLAG_SO_PIN) != 0)
 		return 0;
 
-	/* Ignore unblocking pins for hacked module */
-	if (hack_enabled && (pin_info->attrs.pin.flags & SC_PKCS15_PIN_FLAG_UNBLOCKING_PIN) != 0)
-		return 0;
-
 	/* Ignore unblocking pins */
 	if (!sc_pkcs11_conf.create_puk_slot)
 		if (pin_info->attrs.pin.flags & SC_PKCS15_PIN_FLAG_UNBLOCKING_PIN)
@@ -1251,9 +1245,6 @@ pkcs15_create_tokens(struct sc_pkcs11_card *p11card, struct sc_app_info *app_inf
 	if (rv < 0)
 		return sc_to_cryptoki_error(rv, NULL);
 	auth_count = rv;
-
-	if (hack_enabled)
-		auth_count = 1;
 	sc_log(context, "Found %d authentication objects", auth_count);
 
 	auth_user_pin = _get_auth_object_by_name(&auths[0], auth_count, "UserPIN");

@@ -1,6 +1,5 @@
 TOPDIR = ..\..
 
-TARGET0                 = onepin-opensc-pkcs11.dll
 TARGET1                 = opensc-pkcs11.dll
 TARGET3			= pkcs11-spy.dll
 
@@ -11,22 +10,15 @@ OBJECTS			= pkcs11-global.obj pkcs11-session.obj pkcs11-object.obj misc.obj slot
 OBJECTS3		= pkcs11-spy.obj pkcs11-display.obj \
 				$(TOPDIR)\win32\versioninfo.res
 
-all: $(TOPDIR)\win32\versioninfo.res $(TARGET0) $(TARGET1) $(TARGET3)
+all: $(TOPDIR)\win32\versioninfo.res $(TARGET1) $(TARGET3)
 
 !INCLUDE $(TOPDIR)\win32\Make.rules.mak
 
-$(TARGET0): $(OBJECTS) hack-enabled.obj ..\libopensc\opensc_a.lib ..\pkcs15init\pkcs15init.lib
+$(TARGET1): $(OBJECTS) ..\libopensc\opensc_a.lib ..\pkcs15init\pkcs15init.lib
 	echo LIBRARY $* > $*.def
 	echo EXPORTS >> $*.def
 	type opensc-pkcs11.exports >> $*.def
-	link $(LINKFLAGS) /dll /def:$*.def /implib:$*.lib /out:$(TARGET0) $(OBJECTS) hack-enabled.obj  ..\libopensc\opensc_a.lib ..\pkcs15init\pkcs15init.lib $(OPENSSL_LIB) gdi32.lib
-	if EXIST $(TARGET0).manifest mt -manifest $(TARGET0).manifest -outputresource:$(TARGET0);2
-
-$(TARGET1): $(OBJECTS) hack-disabled.obj ..\libopensc\opensc_a.lib ..\pkcs15init\pkcs15init.lib
-	echo LIBRARY $* > $*.def
-	echo EXPORTS >> $*.def
-	type opensc-pkcs11.exports >> $*.def
-	link $(LINKFLAGS) /dll /def:$*.def /implib:$*.lib /out:$(TARGET1) $(OBJECTS) hack-disabled.obj ..\libopensc\opensc_a.lib ..\pkcs15init\pkcs15init.lib $(OPENSSL_LIB) gdi32.lib
+	link $(LINKFLAGS) /dll /def:$*.def /implib:$*.lib /out:$(TARGET1) $(OBJECTS) ..\libopensc\opensc_a.lib ..\pkcs15init\pkcs15init.lib $(OPENSSL_LIB) gdi32.lib
 	if EXIST $(TARGET1).manifest mt -manifest $(TARGET1).manifest -outputresource:$(TARGET1);2
 
 $(TARGET3): $(OBJECTS3) ..\libopensc\opensc.lib
