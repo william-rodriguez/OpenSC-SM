@@ -119,7 +119,7 @@ static const struct option options[] = {
 	{ "key-type",		1, NULL,		OPT_KEY_TYPE },
 	{ "usage-sign",		0, NULL,		OPT_KEY_USAGE_SIGN },
 	{ "usage-decrypt",	0, NULL,		OPT_KEY_USAGE_DECRYPT },
-	{ "usage-nonrepudiation",	0, NULL,	OPT_KEY_USAGE_NONREPUDIATION },
+	{ "usage-nonrepudiation",0, NULL,		OPT_KEY_USAGE_NONREPUDIATION },
 	{ "write-object",	1, NULL, 		'w' },
 	{ "read-object",	0, NULL, 		'r' },
 	{ "delete-object",	0, NULL, 		'b' },
@@ -200,7 +200,7 @@ static const char *option_help[] = {
 	"Set the CKA_PRIVATE attribute (object is only viewable after a login)",
 	"Test EC (best used with the --login or --pin option)",
 	"Test SM: generate key (use multi-application OpenSC-PKCS#11 configuration )"
-	"Test SM: store key (use multi-application OpenSC-PKCS#11 configuration )"
+	"Test SM: store object (use multi-application OpenSC-PKCS#11 configuration )"
 };
 
 static const char *	app_name = "pkcs11-tool"; /* for utils.c */
