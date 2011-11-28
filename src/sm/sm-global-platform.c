@@ -60,7 +60,7 @@ static const struct sc_asn1_entry c_asn1_card_response[2] = {
 };
 
 int 
-sm_gp_decode_card_answer(struct sc_context *ctx, char *str_data, unsigned char *out, size_t out_len)
+sm_gp_decode_card_answer(struct sc_context *ctx, struct sc_remote_data *rdata, unsigned char *out, size_t out_len)
 {
 #if 0
 	struct sc_asn1_entry asn1_authentic_card_response[4], asn1_card_response[2];
@@ -143,8 +143,7 @@ sm_gp_initialize(struct sc_context *ctx, struct sm_info *sm_info,  struct sc_rem
 	struct sc_serial_number sn = sm_info->serialnr;
 	struct sc_remote_apdu *new_rapdu = NULL;
 	struct sc_apdu *apdu = NULL;
-	unsigned char sbuf[0x100];
-	int rv, offs;
+	int rv;
 
 	LOG_FUNC_CALLED(ctx);
 	sc_log(ctx, "SM GP initialize: serial:%s", sc_dump_hex(sn.value, sn.len));

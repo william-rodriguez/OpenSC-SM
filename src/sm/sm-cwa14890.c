@@ -251,7 +251,7 @@ sm_cwa_initialize(struct sc_context *ctx, struct sm_info *sm_info, struct sc_rem
 	struct sm_cwa_session *session_data = &sm_info->schannel.session.cwa;
 	struct sm_cwa_keyset *keyset = &sm_info->schannel.keyset.cwa;
 	struct sc_serial_number sn = sm_info->serialnr;
-	int icc_sn_len = sizeof(session_data->icc.sn);
+	size_t icc_sn_len = sizeof(session_data->icc.sn);
 	struct sc_remote_apdu *new_rapdu = NULL;
 	struct sc_apdu *apdu = NULL;
 	unsigned char buf[0x100], *encrypted;

@@ -268,7 +268,7 @@ sm_decrypt_des_cbc3(struct sc_context *ctx, unsigned char *key,
 	DES_cblock kk,k2;
 	DES_key_schedule ks,ks2;
 	DES_cblock icv={0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
-	int ii;
+	size_t st;
 	
 	LOG_FUNC_CALLED(ctx);
 	if (!out || !out_len)
@@ -287,9 +287,9 @@ sm_decrypt_des_cbc3(struct sc_context *ctx, unsigned char *key,
 	DES_set_key_unchecked(&kk,&ks);
 	DES_set_key_unchecked(&k2,&ks2);
 
-	for (ii=0; ii<data_len; ii+=8)   
-		DES_3cbc_encrypt((DES_cblock *)(data + ii),
-				(DES_cblock *)(*out + ii), 8, &ks, &ks2, &icv, DES_DECRYPT);
+	for (st=0; st<data_len; st+=8)   
+		DES_3cbc_encrypt((DES_cblock *)(data + st),
+				(DES_cblock *)(*out + st), 8, &ks, &ks2, &icv, DES_DECRYPT);
 
 	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
 }
@@ -304,8 +304,7 @@ sm_encrypt_des_cbc3(struct sc_context *ctx, unsigned char *key,
 	DES_key_schedule ks,ks2;
 	DES_cblock icv={0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 	unsigned char *data;
-	size_t data_len;
-	int ii;
+	size_t data_len, st;
 
 	LOG_FUNC_CALLED(ctx);
 	sc_log(ctx, "SM encrypt_des_cbc3: not_force_pad:%i,in_len:%i", not_force_pad, in_len);
@@ -347,8 +346,8 @@ sm_encrypt_des_cbc3(struct sc_context *ctx, unsigned char *key,
 	DES_set_key_unchecked(&kk,&ks);
 	DES_set_key_unchecked(&k2,&ks2);
 	
-	for (ii=0; ii<data_len; ii+=8)
-		DES_3cbc_encrypt((DES_cblock *)(data + ii), (DES_cblock *)(*out + ii), 8, &ks, &ks2, &icv, DES_ENCRYPT);
+	for (st=0; st<data_len; st+=8)
+		DES_3cbc_encrypt((DES_cblock *)(data + st), (DES_cblock *)(*out + st), 8, &ks, &ks2, &icv, DES_ENCRYPT);
 
 	free(data);
 	LOG_FUNC_RETURN(ctx, SC_SUCCESS);

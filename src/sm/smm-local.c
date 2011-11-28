@@ -305,19 +305,19 @@ get_apdus(struct sc_context *ctx, struct sm_info *sm_info, unsigned char *init_d
  * Decode card answer(s)
  */
 int
-finalize(struct sc_context *ctx, struct sm_info *sm_info, char *str_data, unsigned char *out, size_t out_len)
+finalize(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata, unsigned char *out, size_t out_len)
 {
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "SM finalize: buffer length %i for decoded card response of %i bytes length", out_len, strlen(str_data));
-	if (!str_data || strlen(str_data) == 0)
+	sc_log(ctx, "SM finalize: out buffer(%i) %p", out_len, out);
+	if (!sm_info || !rdata)
 		LOG_FUNC_RETURN(ctx, SC_SUCCESS);
 
 	if (sm_info->sm_type == SM_TYPE_GP_SCP01)
-		rv = sm_gp_decode_card_answer(ctx, str_data, out, out_len);
+		rv = sm_gp_decode_card_answer(ctx, rdata, out, out_len);
 	else if (sm_info->card_type/10*10 == SC_CARD_TYPE_IASECC_BASE)
-		rv = sm_iasecc_decode_card_data(ctx, sm_info, str_data, out, out_len);
+		rv = sm_iasecc_decode_card_data(ctx, sm_info, rdata, out, out_len);
 	else
 		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "SM finalize: cannot decode card response(s)");
 
@@ -352,7 +352,7 @@ module_cleanup(struct sc_context *ctx)
 
 
 int
-callback_sm_test(struct sc_context *ctx, struct sm_info *info, char *out, size_t *out_len)
+test(struct sc_context *ctx, struct sm_info *info, char *out, size_t *out_len)
 {
 	sc_log(ctx, "Test");
 	return SC_SUCCESS;

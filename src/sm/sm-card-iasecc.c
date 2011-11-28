@@ -490,10 +490,6 @@ sm_iasecc_get_apdu_update_rsa(struct sc_context *ctx, struct sm_info *sm_info, s
 				rapdu->flags |= SC_REMOTE_APDU_FLAG_RETURN_ANSWER;
 
 				offs += len;
-
-				struct sc_remote_apdu *rr;
-				for (rr = rdata->data; rr->next; rr = rr->next)
-					sc_log(ctx, "rr->apdu.ins 0x%X", rr->apdu.ins);
 			}
 			free(encoded);
 		}

@@ -60,7 +60,7 @@ int sm_gp_initialize(struct sc_context *ctx, struct sm_info *sm_info,
 		struct sc_remote_data *out);
 int sm_gp_securize_apdu(struct sc_context *ctx, struct sm_info *sm_info,
 		char *init_data, struct sc_apdu *apdu);
-int sm_gp_decode_card_answer(struct sc_context *ctx, char *str_data,
+int sm_gp_decode_card_answer(struct sc_context *ctx, struct sc_remote_data *rdata,
 		unsigned char *out, size_t out_len);
 void sm_gp_close_session(struct sc_context *ctx, struct sm_secure_channel *sc);
 
@@ -81,6 +81,12 @@ int sm_cwa_init_session_keys(struct sc_context *ctx, struct sm_cwa_session *sess
 /* SM AuthentIC v3 definitions */
 int sm_authentic_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
 		unsigned char *init_data, size_t init_len, struct sc_remote_data *out, int release_sm);
+
+/* SM IAS/ECC definitions */
+int sm_iasecc_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
+		unsigned char *init_data, size_t init_len, struct sc_remote_data *out, int release_sm);
+int sm_iasecc_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata,
+		unsigned char *out, size_t out_len);
 #ifdef __cplusplus
 }
 #endif
