@@ -10,6 +10,9 @@ WIX_PATH = "C:\Program Files (x86)\Windows Installer XML v3.6"
 WIX_PATH = "C:\Program Files\Windows Installer XML v3.6"
 !ENDIF
 
+#Include support for Secure Messaging
+SM_DEF = /DENABLE_SM
+
 # If you want support for OpenSSL (needed for pkcs15-init tool, software hashing in PKCS#11 library and verification):
 # - download and build OpenSSL
 # - uncomment the line starting with OPENSSL_DEF
