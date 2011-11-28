@@ -219,16 +219,22 @@ static int load_parameters(sc_context_t *ctx, scconf_block *block,
 	int err = 0;
 	const scconf_list *list;
 	const char *val, *s_internal = "internal";
-    const char *debug = NULL;
+	const char *debug = NULL;
+	int reopen = 0;
 
 	ctx->debug = scconf_get_int(block, "debug", ctx->debug);
+	reopen = scconf_get_bool(block, "reopen_debug_file", 0);
+
 	debug = getenv("OPENSC_DEBUG");
 	if (debug)
 		ctx->debug = atoi(debug);
 
 	val = scconf_get_str(block, "debug_file", NULL);
-	if (val)
+	if (val)   {
+		if (reopen)
+			ctx->debug_filename = strdup(val);
 		sc_ctx_log_to_file(ctx, val);
+	}
 
 	val = scconf_get_str(block, "force_card_driver", NULL);
 	if (val) {
@@ -764,9 +770,11 @@ int sc_release_context(sc_context_t *ctx)
 		scconf_free(ctx->conf);
 	if (ctx->debug_file && (ctx->debug_file != stdout && ctx->debug_file != stderr))
 		fclose(ctx->debug_file);
+	if (ctx->debug_filename != NULL)
+		free(ctx->debug_filename);
 	if (ctx->app_name != NULL)
 		free(ctx->app_name);
-		list_destroy(&ctx->readers);
+	list_destroy(&ctx->readers);
 	sc_mem_clear(ctx, sizeof(*ctx));
 	free(ctx);
 	return SC_SUCCESS;

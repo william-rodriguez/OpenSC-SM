@@ -285,6 +285,7 @@ pkcs15_init_token_info(struct sc_pkcs15_card *p15card, CK_TOKEN_INFO_PTR pToken)
 		scconf_block **blocks = NULL;
 		char str_path[SC_MAX_AID_STRING_SIZE];
 
+		memset(str_path, 0, sizeof(str_path));
 		sc_bin_to_hex(p15card->file_app->path.value, p15card->file_app->path.len, str_path, sizeof(str_path), 0);
 		blocks = scconf_find_blocks(p15card->card->ctx->conf, p11_conf_block, "application", str_path);
 		if (blocks)   {

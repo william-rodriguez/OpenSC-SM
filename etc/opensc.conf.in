@@ -22,6 +22,15 @@ app default {
 	# debug_file = /tmp/opensc-debug.log;
 	# debug_file = "C:\Documents and Settings\All Users\Documents\opensc-debug.log";
 
+	# Re-open debug file  (in WIN32)
+	#
+	# In Windows, file handles can not be shared between DLL-s, 
+	#  each DLL has a separate file handle table.
+	# For that reason reopen debug file before every debug message.
+	#
+	# Default: false
+	# reopen_debug_file = true;
+
 	# PKCS#15 initialization / personalization
 	# profiles directory for pkcs15-init.
 	# Default: @pkgdatadir@
@@ -270,7 +279,12 @@ app default {
                 driver = "iasecc";
                 name = "Gemalto MultiApp IAS/ECC v1.0.1";
                 secure_messaging = local_gemalto_iam;
-        #        # secure_messaging = local_adele;
+        }
+	card_atr 3B:7F:96:00:00:00:31:B8:64:40:70:14:10:73:94:01:80:82:90:00 {
+                type = 25001;
+                driver = "iasecc";
+                name = "Gemalto MultiApp IAS/ECC v1.0.1";
+                secure_messaging = local_gemalto_iam;
         }
         #card_atr 3B:DD:18:00:81:31:FE:45:80:F9:A0:00:00:00:77:01:08:00:07:90:00:FE {
         #        type = 25002;
@@ -562,8 +576,9 @@ app opensc-pkcs11 {
                 #   optionally for PUK (see option 'create_puk_slot')
                 # 
                 # Default: all
-                # create_slots_for_pins = user, sign
-                # create_slots_for_pins = application
+                # create_slots_for_pins = "user,sign";
+                # create_slots_for_pins = application;
+                # create_slots_for_pins = "application,sign";
 	}
 }
 
