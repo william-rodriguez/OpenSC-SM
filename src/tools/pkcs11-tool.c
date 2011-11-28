@@ -143,8 +143,8 @@ static const struct option options[] = {
 	{ "verbose",		0, NULL,		'v' },
 	{ "private",		0, NULL,		OPT_PRIVATE },
 	{ "test-ec",		0, NULL,		OPT_TEST_EC },
-	{ "test-sm-generate-key",0, NULL,		OPT_TEST_SM_GENERATE_KEY },
-	{ "test-sm-store-object",1, NULL,		OPT_TEST_SM_STORE_OBJECT },
+	{ "test-sm-generate-key",	0, NULL,		OPT_TEST_SM_GENERATE_KEY },
+	{ "test-sm-store-object",	1, NULL,		OPT_TEST_SM_STORE_OBJECT },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -199,7 +199,7 @@ static const char *option_help[] = {
 	"Verbose operation. (Set OPENSC_DEBUG to enable OpenSC specific debugging)",
 	"Set the CKA_PRIVATE attribute (object is only viewable after a login)",
 	"Test EC (best used with the --login or --pin option)",
-	"Test SM: generate key (use multi-application OpenSC-PKCS#11 configuration )"
+	"Test SM: generate key (use multi-application OpenSC-PKCS#11 configuration )",
 	"Test SM: store object (use multi-application OpenSC-PKCS#11 configuration )"
 };
 
