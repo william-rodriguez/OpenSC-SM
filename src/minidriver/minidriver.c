@@ -1639,7 +1639,7 @@ md_set_cmapfile(PCARD_DATA pCardData, struct md_file *file)
 			continue;
 		}
 
-		rv = sc_pkcs15_get_guid(vs->p15card, key_obj, cont->guid, sizeof(cont->guid));
+		rv = sc_pkcs15_get_guid(vs->p15card, key_obj, 0, cont->guid, sizeof(cont->guid));
 		if (rv)   {
 			logprintf(pCardData, 2, "sc_pkcs15_get_guid() error %d\n", rv);
 			return SCARD_F_INTERNAL_ERROR;
@@ -2055,7 +2055,7 @@ md_pkcs15_generate_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, DWORD ke
 	cont->id = ((struct sc_pkcs15_prkey_info *)cont->prkey_obj->data)->id;
 	cont->index = idx;
 	cont->flags = CONTAINER_MAP_VALID_CONTAINER;
-	rv = sc_pkcs15_get_guid(vs->p15card, cont->prkey_obj, cont->guid, sizeof(cont->guid));
+	rv = sc_pkcs15_get_guid(vs->p15card, cont->prkey_obj, 0, cont->guid, sizeof(cont->guid));
 	if (rv)   {
 		logprintf(pCardData, 2, "sc_pkcs15_get_guid() error %d\n", rv);
 		return SCARD_F_INTERNAL_ERROR;
@@ -2173,7 +2173,7 @@ md_pkcs15_store_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, BYTE *blob,
 	cont->id = ((struct sc_pkcs15_prkey_info *)cont->prkey_obj->data)->id;
 	cont->index = idx;
 	cont->flags = CONTAINER_MAP_VALID_CONTAINER;
-	rv = sc_pkcs15_get_guid(vs->p15card, cont->prkey_obj, cont->guid, sizeof(cont->guid));
+	rv = sc_pkcs15_get_guid(vs->p15card, cont->prkey_obj, 0, cont->guid, sizeof(cont->guid));
 	if (rv)   {
 		logprintf(pCardData, 2, "MdStoreKey(): get key's GUID error %i\n", rv);
 		return SCARD_F_INTERNAL_ERROR;

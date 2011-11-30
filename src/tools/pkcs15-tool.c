@@ -226,7 +226,7 @@ static void print_cert_info(const struct sc_pkcs15_object *obj)
 	printf("\tPath           : %s\n", sc_print_path(&cert_info->path));
 	printf("\tID             : %s\n", sc_pkcs15_print_id(&cert_info->id));
 
-	rv = sc_pkcs15_get_guid(p15card, obj, guid, sizeof(guid));
+	rv = sc_pkcs15_get_guid(p15card, obj, 0, guid, sizeof(guid));
 	if (!rv)
 		printf("\tGUID           : %s\n", guid);
 
@@ -550,7 +550,7 @@ static void print_prkey_info(const struct sc_pkcs15_object *obj)
 		printf("\tAuth ID        : %s\n", sc_pkcs15_print_id(&obj->auth_id));
 	printf("\tID             : %s\n", sc_pkcs15_print_id(&prkey->id));
 
-	if (!sc_pkcs15_get_guid(p15card, obj, guid, sizeof(guid)))
+	if (!sc_pkcs15_get_guid(p15card, obj, 0, guid, sizeof(guid)))
 		printf("\tGUID           : %s\n", guid);
 
 }
@@ -745,7 +745,7 @@ static void print_skey_info(const struct sc_pkcs15_object *obj)
 
 	if (skey->path.len || skey->path.aid.len)
 		printf("\tPath           : %s\n", sc_print_path(&skey->path));
-	if (!sc_pkcs15_get_guid(p15card, obj, guid, sizeof(guid)))
+	if (!sc_pkcs15_get_guid(p15card, obj, 0, guid, sizeof(guid)))
 		printf("\tGUID           : %s\n", guid);
 
 }

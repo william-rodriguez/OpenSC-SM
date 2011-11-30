@@ -865,7 +865,7 @@ void sc_pkcs15_format_id(const char *id_in, struct sc_pkcs15_id *id_out);
 int sc_pkcs15_hex_string_to_id(const char *in, struct sc_pkcs15_id *out);
 int sc_der_copy(sc_pkcs15_der_t *, const sc_pkcs15_der_t *);
 int sc_pkcs15_get_object_id(const struct sc_pkcs15_object *, struct sc_pkcs15_id *);
-int sc_pkcs15_get_guid(struct sc_pkcs15_card *, const struct sc_pkcs15_object *, 
+int sc_pkcs15_get_guid(struct sc_pkcs15_card *, const struct sc_pkcs15_object *, unsigned, 
 		char *, size_t);
 int sc_encode_oid (struct sc_context *, struct sc_object_id *, 
 		unsigned char **, size_t *);

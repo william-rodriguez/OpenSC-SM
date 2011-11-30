@@ -2355,7 +2355,7 @@ sc_pkcs15_get_object_id(const struct sc_pkcs15_object *obj, struct sc_pkcs15_id 
  *  that are described in RFC-4122 .
  */
 static int
-sc_pkcs15_serialize_guid(unsigned char *in, size_t in_size, 
+sc_pkcs15_serialize_guid(unsigned char *in, size_t in_size, unsigned flags, 
 		char *out, size_t out_size)
 {
 	int ii, jj, offs = 0;
@@ -2365,7 +2365,9 @@ sc_pkcs15_serialize_guid(unsigned char *in, size_t in_size,
 	if (out_size < 39) 
 		return SC_ERROR_BUFFER_TOO_SMALL;
 
-	strcpy(out, "{");
+	*out = '\0';
+	if (!flags)
+		strcpy(out, "{");
 	for (ii=0; ii<4; ii++)
 		sprintf(out + strlen(out), "%02x", *(in + offs++));
 	for (jj=0; jj<3; jj++)   {
@@ -2376,14 +2378,15 @@ sc_pkcs15_serialize_guid(unsigned char *in, size_t in_size,
 	strcat(out, "-");
 	for (ii=0; ii<6; ii++)
 		sprintf(out + strlen(out), "%02x", *(in + offs++));
-	strcat(out, "}");
+	if (!flags)
+		strcat(out, "}");
 
 	return SC_SUCCESS;
 }
 
 int 
 sc_pkcs15_get_guid(struct sc_pkcs15_card *p15card, const struct sc_pkcs15_object *obj,
-		                char *out, size_t out_size)
+		                unsigned flags, char *out, size_t out_size)
 {
 	struct sc_serial_number serialnr;
 	struct sc_pkcs15_id  id;
@@ -2405,7 +2408,7 @@ sc_pkcs15_get_guid(struct sc_pkcs15_card *p15card, const struct sc_pkcs15_object
 	memcpy(guid_bin, id.value, id.len);
 	memcpy(guid_bin + id.len, serialnr.value, serialnr.len);
 
-	return sc_pkcs15_serialize_guid(guid_bin, id.len + serialnr.len, out, out_size);
+	return sc_pkcs15_serialize_guid(guid_bin, id.len + serialnr.len, flags, out, out_size);
 }
 
 void sc_pkcs15_free_key_params(struct sc_pkcs15_key_params *params)   
