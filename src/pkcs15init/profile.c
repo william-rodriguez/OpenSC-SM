@@ -199,6 +199,11 @@ static struct map		idStyleNames[] = {
 	{ "rfc2459",		SC_PKCS15INIT_ID_STYLE_RFC2459 },
 	{ NULL, 0 }
 };
+static struct map		mdStyleNames[] = {
+	{ "none",		SC_PKCS15INIT_MD_STYLE_NONE },
+	{ "gemalto",		SC_PKCS15INIT_MD_STYLE_GEMALTO },
+	{ NULL, 0 }
+};
 static struct {
 	const char *		name;
 	struct map *		addr;
@@ -900,6 +905,12 @@ static int
 do_pkcs15_id_style(struct state *cur, int argc, char **argv)
 {
 	return map_str2int(cur, argv[0], &cur->profile->id_style, idStyleNames);
+}
+
+static int
+do_minidriver_support_style(struct state *cur, int argc, char **argv)
+{
+	return map_str2int(cur, argv[0], &cur->profile->md_style, mdStyleNames);
 }
 
 /*
@@ -1780,10 +1791,11 @@ static struct command	pi_commands[] = {
  * pkcs15 dialect section
  */
 static struct command	p15_commands[] = {
- { "direct-certificates", 1,	1,	do_direct_certificates },
- { "encode-df-length",	1,	1,	do_encode_df_length },
- { "do-last-update", 1, 1, do_encode_update_field },
- { "pkcs15-id-style", 1, 1, do_pkcs15_id_style },
+ { "direct-certificates",	1,	1,	do_direct_certificates },
+ { "encode-df-length",		1,	1,	do_encode_df_length },
+ { "do-last-update",		1,	1,	do_encode_update_field },
+ { "pkcs15-id-style",		1,	1,	do_pkcs15_id_style },
+ { "minidriver-support-style",	1,	1,	do_minidriver_support_style },
  { NULL, 0, 0, NULL }
 };
 
