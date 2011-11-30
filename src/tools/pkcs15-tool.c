@@ -20,6 +20,7 @@
  */
 
 #include "config.h"
+#include <ctype.h>
 
 #ifdef ENABLE_OPENSSL
 #if defined(HAVE_INTTYPES_H)
@@ -312,12 +313,20 @@ print_pem_object(const char *kind, const u8*data, size_t data_len)
 static int
 list_data_object(const char *kind, const u8*data, size_t data_len)
 {
+	char title[0x100];
 	size_t i;
 	
-	printf("%s (%lu bytes): <", kind, (unsigned long) data_len);
-	for (i = 0; i < data_len; i++)
-		printf(" %02X", data[i]);
-	printf(" >\n");
+	snprintf(title, sizeof(title), "%s (%lu bytes): ", kind, (unsigned long) data_len);
+	printf("%s", title);
+	for(i=0;i<strlen(title);i++)
+		if (isgraph(title[i]))
+			title[i] = ' ';
+	for (i = 0; i < data_len; i++)   {
+		if (i && !(i%48))
+			printf("\n%s", title);
+		printf("%02X", data[i]);
+	}
+	printf("\n");
 
 	return 0;
 }
@@ -458,11 +467,13 @@ static int list_data_objects(void)
 		int idx;
 		struct sc_pkcs15_data_info *cinfo = (struct sc_pkcs15_data_info *) objs[i]->data;
 
-		printf("Reading data object <%i>\n", i);
-		printf("applicationName: %s\n", cinfo->app_label);
-		printf("Label:           %s\n", objs[i]->label);
-		printf("applicationOID:  ");
+		if (objs[i]->label)
+			printf("Data object [%s]\n", objs[i]->label);
+		else
+			printf("Data object <%i>\n", i);
+		printf("\tapplicationName: %s\n", cinfo->app_label);
 		if (cinfo->app_oid.value[0] >= 0) {
+			printf("\tapplicationOID:  ");
 			printf("%i", cinfo->app_oid.value[0]);
 			idx = 1;
 			while (idx < SC_MAX_OBJECT_ID_OCTETS) {
@@ -471,9 +482,8 @@ static int list_data_objects(void)
 				printf(".%i", cinfo->app_oid.value[idx++]);
 			}
 			printf("\n");
-		} else
-			printf("NONE\n");
-		printf("Path:            %s\n", sc_print_path(&cinfo->path));
+		}
+		printf("\tPath:            %s\n", sc_print_path(&cinfo->path));
 		if (objs[i]->auth_id.len == 0) {
 			struct sc_pkcs15_data *data_object;
 			r = sc_pkcs15_read_data_object(p15card, cinfo, &data_object);
@@ -483,11 +493,12 @@ static int list_data_objects(void)
 					 continue; /* DEE emulation may say there is a file */
 				return 1;
 			}
-			r = list_data_object("Data Object", data_object->data, data_object->data_len);
+			r = list_data_object("\tdata", data_object->data, data_object->data_len);
 			sc_pkcs15_free_data_object(data_object);
 		} else {
-			printf("Auth ID:         %s\n", sc_pkcs15_print_id(&objs[i]->auth_id));
+			printf("\tAuth ID:         %s\n", sc_pkcs15_print_id(&objs[i]->auth_id));
 		}
+		printf("\n");
 	}
 	return 0;
 }
