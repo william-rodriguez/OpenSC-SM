@@ -666,11 +666,12 @@ iasecc_erase_binary(struct sc_card *card, unsigned int offs, size_t count, unsig
 	LOG_FUNC_CALLED(ctx);
 	sc_log(ctx, "iasecc_erase_binary(card:%p) count %i", card, count);
 	if (!count)
-		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "'ERASE BINARY' with ZERO count not supported");
+		LOG_TEST_RET(ctx, SC_ERROR_INVALID_ARGUMENTS, "'ERASE BINARY' failed: invalid size to erase");
 
-	tmp = calloc(1, count);
+	tmp = malloc(count);
 	if (!tmp)
 		LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "Cannot allocate temporary buffer");
+	memset(tmp, 0xFF, count);
 
 	rv = sc_update_binary(card, offs, tmp, count, flags);
 	free(tmp);
@@ -1344,11 +1345,12 @@ iasecc_delete_file(struct sc_card *card, const struct sc_path *path)
 	LOG_TEST_RET(ctx, rv, "Cannot select file to delete");
 
 	entry = sc_file_get_acl_entry(file, SC_AC_OP_DELETE);
+	if (!entry)
+		LOG_TEST_RET(ctx, SC_ERROR_OBJECT_NOT_FOUND, "Cannot delete file: no 'DELETE' acl");
 	sc_log(ctx, "DELETE method/reference %X/%X", entry->method, entry->key_ref);
 
 	if (entry->method == SC_AC_SCB && (entry->key_ref & IASECC_SCB_METHOD_SM))   {
 		unsigned char se_num = (entry->method == SC_AC_SCB) ? (entry->key_ref & IASECC_SCB_METHOD_MASK_REF) : 0;
-
 		rv = iasecc_sm_delete_file(card, se_num, file->id);
 	}
 	else   {
