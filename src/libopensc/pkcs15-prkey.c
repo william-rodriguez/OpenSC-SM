@@ -139,16 +139,6 @@ static const struct sc_asn1_entry c_asn1_prkey[C_ASN1_PRKEY_SIZE] = {
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
 
-static int
-_config_encode_subjectName(sc_context_t *ctx)   {
-	scconf_block *conf_block = sc_get_conf_block(ctx, "framework", "pkcs15", 1);
-	int ret = 1;
-
-	if (conf_block)
-		return scconf_get_bool(conf_block, "encode_subjectName", ret);
-	return ret;
-}
-
 int sc_pkcs15_decode_prkdf_entry(struct sc_pkcs15_card *p15card,
 				 struct sc_pkcs15_object *obj,
 				 const u8 ** buf, size_t *buflen)
@@ -397,15 +387,14 @@ int sc_pkcs15_encode_prkdf_entry(sc_context_t *ctx, const struct sc_pkcs15_objec
 	}
 	sc_format_asn1_entry(asn1_com_key_attr + 5, asn1_supported_algorithms, NULL, prkey->algo_refs[0] != 0);
 
-	if (_config_encode_subjectName(ctx))
-		sc_format_asn1_entry(asn1_com_prkey_attr + 0, 
-				prkey->subject.value ? prkey->subject.value : (unsigned char *)"", &prkey->subject.len, 1);
+	if (prkey->subject.value && prkey->subject.len)
+		sc_format_asn1_entry(asn1_com_prkey_attr + 0, prkey->subject.value, &prkey->subject.len, 1);
+	else
+		sc_format_asn1_entry(asn1_com_prkey_attr + 0, NULL, NULL, 1);
 
 	r = sc_asn1_encode(ctx, asn1_prkey, buf, buflen);
 
-	sc_debug(ctx, SC_LOG_DEBUG_ASN1, "Key Subject %s", sc_dump_hex(prkey->subject.value, prkey->subject.len));
 	sc_debug(ctx, SC_LOG_DEBUG_ASN1, "Key path %s", sc_print_path(&prkey->path));
-
 	return r;
 }
 
