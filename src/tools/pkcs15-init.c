@@ -136,6 +136,7 @@ enum {
 	OPT_BIND_TO_AID,
 	OPT_UPDATE_LAST_UPDATE,
 	OPT_ERASE_APPLICATION,
+	OPT_IGNORE_CA_CERTIFICATES,
 
 	OPT_PIN1     = 0x10000,	/* don't touch these values */
 	OPT_PUK1     = 0x10001,
@@ -186,6 +187,7 @@ const struct option	options[] = {
 	{ "key-usage",		required_argument, NULL,	'u' },
 	{ "finalize",		no_argument,       NULL,   	'F' },
 	{ "update-last-update",	no_argument,       NULL,	OPT_UPDATE_LAST_UPDATE},
+	{ "ignore-ca-certificates",no_argument,    NULL,	OPT_IGNORE_CA_CERTIFICATES},
 
 	{ "extractable",	no_argument, NULL,		OPT_EXTRACTABLE },
 	{ "insecure",		no_argument, NULL,		OPT_INSECURE },
@@ -245,6 +247,7 @@ static const char *		option_help[] = {
 	"Specify X.509 key usage (use \"--key-usage help\" for more information)",
 	"Finish initialization phase of the smart card",
 	"Update 'lastUpdate' attribut of tokenInfo",
+	"When storing PKCS#12 ignore CA certificates",
 
 	"Private key stored as an extractable key",
 	"Insecure mode: do not require a PIN for private key",
@@ -356,6 +359,7 @@ static unsigned int		opt_type = 0;
 static int			ignore_cmdline_pins = 0;
 static struct secret		opt_secrets[MAX_SECRETS];
 static unsigned int		opt_secret_count;
+static int			opt_ignore_ca_certs = 0;
 static int			verbose = 0;
 
 static struct sc_pkcs15init_callbacks callbacks = {
@@ -873,11 +877,9 @@ do_store_private_key(struct sc_profile *profile)
 		char	namebuf[256];
 
 		printf("Importing %d certificates:\n", ncerts);
-		for (i = 0; i < ncerts; i++) {
-			printf("  %d: %s\n",
-				i, X509_NAME_oneline(cert[i]->cert_info->subject,
+		for (i = 0; i < ncerts && !(i && opt_ignore_ca_certs); i++)
+			printf("  %d: %s\n", i, X509_NAME_oneline(cert[i]->cert_info->subject,
 					namebuf, sizeof(namebuf)));
-		}
 	}
 
 	r = sc_pkcs15_convert_prkey(&args.key, pkey);
@@ -924,6 +926,9 @@ do_store_private_key(struct sc_profile *profile)
 		struct sc_pkcs15init_certargs cargs;
 		char	namebuf[SC_PKCS15_MAX_LABEL_SIZE-1];
 
+		if (i && opt_ignore_ca_certs)
+			break;
+
 		memset(&cargs, 0, sizeof(cargs));
 
 		/* Encode the cert */
@@ -943,7 +948,8 @@ do_store_private_key(struct sc_profile *profile)
 			cargs.id = args.id;
 			if (opt_cert_label != 0)
 				cargs.label = opt_cert_label;
-		} else {
+		} 
+		else {
 			if (is_cacert_already_present(&cargs)) {
 				printf("Certificate #%d already present, not stored.\n", i);
 				goto next_cert;
@@ -957,9 +963,8 @@ next_cert:
 	}
 	
 	/* No certificates - store the public key */
-	if (ncerts == 0) {
+	if (ncerts == 0)
 		r = do_store_public_key(profile, pkey);
-	}
 
 	return r;
 }
@@ -2496,6 +2501,9 @@ handle_option(const struct option *opt)
 	case OPT_ERASE_APPLICATION:
 		opt_bind_to_aid = optarg;
 		this_action = ACTION_ERASE_APPLICATION;
+		break;
+	case OPT_IGNORE_CA_CERTIFICATES:
+		opt_ignore_ca_certs = 1;
 		break;
 	default:
 		util_print_usage_and_die(app_name, options, option_help);
