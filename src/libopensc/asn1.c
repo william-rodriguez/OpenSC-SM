@@ -1045,7 +1045,8 @@ err:
 	return ret;
 }
 
-
+/* TODO: According to specification type of 'SecurityCondition' is 'CHOICE'.
+ *       Do it at least for SC_ASN1_PKCS15_ID(authId), SC_ASN1_STRUCT(authReference) and NULL(always). */
 static const struct sc_asn1_entry c_asn1_access_control_rule[3] = {
 	{ "accessMode", SC_ASN1_BIT_FIELD, SC_ASN1_TAG_BIT_STRING, SC_ASN1_OPTIONAL, NULL, NULL },
 	{ "securityCondition", SC_ASN1_PKCS15_ID, SC_ASN1_TAG_OCTET_STRING, SC_ASN1_OPTIONAL, NULL, NULL },
@@ -1632,8 +1633,7 @@ static int asn1_encode_entry(sc_context_t *ctx, const struct sc_asn1_entry *entr
 	 *  -	any other empty objects are considered bogus
 	 */
 no_object:
-	if (!buflen && entry->flags & SC_ASN1_OPTIONAL &&
-	    !(entry->flags & SC_ASN1_PRESENT)) {
+	if (!buflen && entry->flags & SC_ASN1_OPTIONAL && !(entry->flags & SC_ASN1_PRESENT)) {
 		/* This happens when we try to encode e.g. the
 		 * subClassAttributes, which may be empty */
 		*obj = NULL;
@@ -1645,10 +1645,8 @@ no_object:
 		r = asn1_write_element(ctx, entry->tag, buf, buflen, obj, objlen);
 		if (r)
 			sc_debug(ctx, SC_LOG_DEBUG_ASN1, "error writing ASN.1 tag and length: %s\n", sc_strerror(r)); 
-	} else if (buflen || entry->type == SC_ASN1_NULL ||
-	           entry->tag & SC_ASN1_CONS) {
-		r = asn1_write_element(ctx, entry->tag,
-					buf, buflen, obj, objlen);
+	} else if (buflen || entry->type == SC_ASN1_NULL || entry->tag & SC_ASN1_CONS) {
+		r = asn1_write_element(ctx, entry->tag, buf, buflen, obj, objlen);
 		if (r)
 			sc_debug(ctx, SC_LOG_DEBUG_ASN1, "error writing ASN.1 tag and length: %s\n",
 					sc_strerror(r));
