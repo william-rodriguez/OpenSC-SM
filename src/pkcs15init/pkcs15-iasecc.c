@@ -913,14 +913,16 @@ iasecc_pkcs15_fix_private_key_attributes(struct sc_profile *profile, struct sc_p
 			rv = iasecc_pkcs15_add_access_rule(object, keys_access_modes[ii], &auth_id);
 			LOG_TEST_RET(ctx, rv, "Cannot add access rule");
 
-			if (ii == IASECC_ACLS_RSAKEY_PSO_SIGN 
-					|| ii == IASECC_ACLS_RSAKEY_INTERNAL_AUTH 
+			if (ii == IASECC_ACLS_RSAKEY_PSO_SIGN || ii == IASECC_ACLS_RSAKEY_INTERNAL_AUTH 
 					|| ii == IASECC_ACLS_RSAKEY_PSO_DECIPHER)   {
 				if (!sc_pkcs15_compare_id(&object->auth_id, &auth_id))   {
 					/* Sorry, this will silently overwrite the profile option.*/ 
 					sc_log(ctx, "Change object's authId for the one that really protects crypto operation.");
 					object->auth_id = auth_id;
 				}
+
+				rv = iasecc_pkcs15_add_access_rule(object, SC_PKCS15_ACCESS_RULE_MODE_EXECUTE, &auth_id);
+				LOG_TEST_RET(ctx, rv, "Cannot add 'EXECUTE' access rule");
 			}
 		}
 
@@ -934,8 +936,10 @@ iasecc_pkcs15_fix_private_key_attributes(struct sc_profile *profile, struct sc_p
 			LOG_TEST_RET(ctx, rv, "Cannot add RSA_PKCS SHA2 supported mechanism");
 
 			key_info->usage |= SC_PKCS15_PRKEY_USAGE_SIGN;
-			if (sdo_prvkey->docp.non_repudiation.value && sdo_prvkey->docp.non_repudiation.value[0])
+			if (sdo_prvkey->docp.non_repudiation.value && sdo_prvkey->docp.non_repudiation.value[0])   {
 				key_info->usage |= SC_PKCS15_PRKEY_USAGE_NONREPUDIATION;
+				object->user_consent = 1;
+			}
 		}
 		else if (ii == IASECC_ACLS_RSAKEY_INTERNAL_AUTH)   {
 			rv = iasecc_pkcs15_add_algorithm_reference(p15card, key_info, IASECC_ALGORITHM_RSA_PKCS);
