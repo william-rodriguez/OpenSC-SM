@@ -390,7 +390,7 @@ int sc_pkcs15_encode_prkdf_entry(sc_context_t *ctx, const struct sc_pkcs15_objec
 	if (prkey->subject.value && prkey->subject.len)
 		sc_format_asn1_entry(asn1_com_prkey_attr + 0, prkey->subject.value, &prkey->subject.len, 1);
 	else
-		sc_format_asn1_entry(asn1_com_prkey_attr + 0, NULL, NULL, 1);
+		memset(asn1_com_prkey_attr, 0, sizeof(asn1_com_prkey_attr));
 
 	r = sc_asn1_encode(ctx, asn1_prkey, buf, buflen);
 

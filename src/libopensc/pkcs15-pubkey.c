@@ -342,11 +342,14 @@ int sc_pkcs15_encode_pukdf_entry(sc_context_t *ctx,
 		sc_format_asn1_entry(asn1_com_key_attr + 4, &pubkey->key_reference, NULL, 1);
 	sc_format_asn1_entry(asn1_pubkey + 0, asn1_pubkey_choice, NULL, 1);
 
-	sc_format_asn1_entry(asn1_com_pubkey_attr + 0, 
-			pubkey->subject.value ? pubkey->subject.value : (unsigned char *)"", &pubkey->subject.len, 1);
+	if (pubkey->subject.value && pubkey->subject.len)
+		sc_format_asn1_entry(asn1_com_pubkey_attr + 0, pubkey->subject.value, &pubkey->subject.len, 1);
+	else
+		memset(asn1_com_pubkey_attr, 0, sizeof(asn1_com_pubkey_attr));
 
 	r = sc_asn1_encode(ctx, asn1_pubkey, buf, buflen);
 
+	sc_debug(ctx, SC_LOG_DEBUG_ASN1, "Key path %s", sc_print_path(&pubkey->path));
 	return r;
 }
 

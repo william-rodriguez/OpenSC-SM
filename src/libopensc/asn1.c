@@ -1173,7 +1173,7 @@ static int asn1_encode_p15_object(sc_context_t *ctx, const struct sc_asn1_pkcs15
 
 	sc_format_asn1_entry(asn1_p15_obj + 0, asn1_c_attr, NULL, 1);
 	sc_format_asn1_entry(asn1_p15_obj + 1, obj->asn1_class_attr, NULL, 1);
-	if (obj->asn1_subclass_attr != NULL)
+	if (obj->asn1_subclass_attr != NULL && obj->asn1_subclass_attr->name)
 		sc_format_asn1_entry(asn1_p15_obj + 2, obj->asn1_subclass_attr, NULL, 1);
 	sc_format_asn1_entry(asn1_p15_obj + 3, obj->asn1_type_attr, NULL, 1);
 
