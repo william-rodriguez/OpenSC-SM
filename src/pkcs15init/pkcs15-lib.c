@@ -1382,11 +1382,13 @@ sc_pkcs15init_store_private_key(struct sc_pkcs15_card *p15card,
 
 	/* Now update the PrKDF */
 	r = sc_pkcs15init_add_object(p15card, profile, SC_PKCS15_PRKDF, object);
+	LOG_TEST_RET(ctx, r, "Failed to add new private key PKCS#15 object");
 
-	if (profile->ops->emu_store_data)   {
+	if (!r && profile->ops->emu_store_data)   {
 		r = profile->ops->emu_store_data(p15card, profile, object, NULL, NULL);
-		if (r != SC_ERROR_NOT_IMPLEMENTED)
-			LOG_TEST_RET(ctx, r, "Card specific 'store data' failed");
+		if (r == SC_ERROR_NOT_IMPLEMENTED)
+			r = SC_SUCCESS;
+		LOG_TEST_RET(ctx, r, "Card specific 'store data' failed");
 	}
 
 	if (r >= 0 && res_obj)
