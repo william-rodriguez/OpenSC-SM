@@ -163,8 +163,9 @@ int sc_pkcs1_strip_02_padding(const u8 *data, size_t len, u8 *out,
 	/* Now move decrypted contents to head of buffer */
 	if (*out_len < len -  n)
 		return SC_ERROR_INTERNAL;
-	memmove(out, data + n, len - n);
-	return len - n;
+        *out_len = len - n;
+	memmove(out, data + n, *out_len);
+	return *out_len;
 }
 
 /* add/remove DigestInfo prefix */

@@ -814,8 +814,10 @@ CK_RV C_DecryptInit(CK_SESSION_HANDLE hSession,	/* the session's handle */
 {				/* handle of the decryption key */
 	CK_RV rv;
 	CK_BBOOL can_decrypt;
+	CK_BBOOL can_unwrap;
 	CK_KEY_TYPE key_type;
 	CK_ATTRIBUTE decrypt_attribute = { CKA_DECRYPT, &can_decrypt, sizeof(can_decrypt) };
+	CK_ATTRIBUTE unwrap_attribute = { CKA_UNWRAP, &can_unwrap, sizeof(can_unwrap) };
 	CK_ATTRIBUTE key_type_attr = { CKA_KEY_TYPE, &key_type, sizeof(key_type) };
 	struct sc_pkcs11_session *session;
 	struct sc_pkcs11_object *object;
@@ -841,8 +843,12 @@ CK_RV C_DecryptInit(CK_SESSION_HANDLE hSession,	/* the session's handle */
 
 	rv = object->ops->get_attribute(session, object, &decrypt_attribute);
 	if (rv != CKR_OK || !can_decrypt) {
-		rv = CKR_KEY_TYPE_INCONSISTENT;
-		goto out;
+		// Also accept UNWRAP - apps call Decrypt when they mean Unwrap
+		rv = object->ops->get_attribute(session, object, &unwrap_attribute);
+		if (rv != CKR_OK || !can_unwrap) {
+			rv = CKR_KEY_TYPE_INCONSISTENT;
+			goto out;
+		}
 	}
 	rv = object->ops->get_attribute(session, object, &key_type_attr);
 	if (rv != CKR_OK) {

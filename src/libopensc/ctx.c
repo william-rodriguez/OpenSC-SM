@@ -51,7 +51,7 @@ int _sc_delete_reader(sc_context_t *ctx, sc_reader_t *reader)
 {
 	assert(reader != NULL);
 	if (reader->ops->release)
-			reader->ops->release(reader);
+		reader->ops->release(reader);
 	if (reader->name)
 		free(reader->name);
 	list_delete(&ctx->readers, reader);
@@ -623,6 +623,23 @@ int sc_establish_context(sc_context_t **ctx_out, const char *app_name)
 	ctx_param.ver      = 0;
 	ctx_param.app_name = app_name;
 	return sc_context_create(ctx_out, &ctx_param);
+}
+
+// For multithreaded issues
+int sc_context_repair(sc_context_t **ctx_out)
+{
+	// Must already exist
+	if ((ctx_out == NULL) || (*ctx_out == NULL) ||
+	    ((*ctx_out)->app_name == NULL))
+		return SC_ERROR_INVALID_ARGUMENTS;
+
+	// The only thing that should be shared across different contexts are the
+	// card drivers - so rebuild the ATR's
+	load_card_atrs(*ctx_out);
+
+	// TODO: May need to re-open any card driver DLL's
+
+	return SC_SUCCESS;
 }
 
 int sc_context_create(sc_context_t **ctx_out, const sc_context_param_t *parm)

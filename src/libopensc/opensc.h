@@ -688,6 +688,16 @@ typedef struct {
 	/** mutex functions to use (optional) */
 	sc_thread_context_t *thread_ctx;
 } sc_context_param_t;
+
+/**
+ * Repairs an already existing sc_context_t object. This may occur if
+ * multithreaded issues mean that another context in the same heap is deleted.
+ * @param  ctx   pointer to a sc_context_t pointer containing the (partial)
+ *               context.
+ * @return SC_SUCCESS or an error value if an error occurred.
+ */
+int sc_context_repair(sc_context_t **ctx);
+
 /**
  * Creates a new sc_context_t object.
  * @param  ctx   pointer to a sc_context_t pointer for the newly

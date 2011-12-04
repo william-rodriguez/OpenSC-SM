@@ -32,6 +32,10 @@
 #include "pkcs15.h"
 #include "asn1.h"
 
+#ifdef ENABLE_OPENSSL
+#include <openssl/sha.h>
+#endif
+
 static const struct sc_asn1_entry c_asn1_twlabel[] = {
 	{ "twlabel", SC_ASN1_UTF8STRING, SC_ASN1_TAG_UTF8STRING, 0, NULL, NULL },
 	{ NULL, 0, 0, 0, NULL, NULL }
@@ -2407,6 +2411,14 @@ sc_pkcs15_get_guid(struct sc_pkcs15_card *p15card, const struct sc_pkcs15_object
 	memset(guid_bin, 0, sizeof(guid_bin));
 	memcpy(guid_bin, id.value, id.len);
 	memcpy(guid_bin + id.len, serialnr.value, serialnr.len);
+
+        // If OpenSSL is available (SHA1), then rather use the hash of the data
+        // - this also protects against data being too short
+#ifdef ENABLE_OPENSSL
+        SHA1(guid_bin, id.len + serialnr.len, guid_bin);
+        id.len = SHA_DIGEST_LENGTH;
+        serialnr.len = 0;
+#endif
 
 	return sc_pkcs15_serialize_guid(guid_bin, id.len + serialnr.len, flags, out, out_size);
 }
