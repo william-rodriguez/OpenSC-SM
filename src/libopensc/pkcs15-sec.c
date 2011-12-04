@@ -41,27 +41,36 @@ static int select_key_file(struct sc_pkcs15_card *p15card,
 
 	LOG_FUNC_CALLED(ctx);
 
-	if (prkey->path.len < 2)
-		LOG_TEST_RET(ctx, SC_ERROR_INVALID_ARGUMENTS, "invalid private key path");
-
 	memset(&path, 0, sizeof(sc_path_t));
 	memset(&file_id, 0, sizeof(sc_path_t));
 
+	/* TODO: Why file_app may be NULL -- at least 3F00 has to be present?
+	 *       Check validity of the following assumption. */
 	/* For pkcs15-emulated cards, the file_app may be NULL,
 	   in that case we allways assume an absolute path */
-	if (prkey->path.len == 2 && p15card->file_app != NULL) {
+	if (!prkey->path.len && prkey->path.aid.len)   {
+		path = prkey->path;
+	}
+	else if (prkey->path.len == 2 && p15card->file_app != NULL) {
 		/* Path is relative to app. DF */
 		path = p15card->file_app->path;
 		file_id = prkey->path;
 		sc_append_path(&path, &file_id);
-	} else {
+		senv->file_ref = file_id;
+		senv->flags |= SC_SEC_ENV_FILE_REF_PRESENT;
+	} 
+	else if (prkey->path.len > 2)   {
 		path = prkey->path;
 		memcpy(file_id.value, prkey->path.value + prkey->path.len - 2, 2);
 		file_id.len = 2;
 		file_id.type = SC_PATH_TYPE_FILE_ID;
+		senv->file_ref = file_id;
+		senv->flags |= SC_SEC_ENV_FILE_REF_PRESENT;
 	}
-	senv->file_ref = file_id;
-	senv->flags |= SC_SEC_ENV_FILE_REF_PRESENT;
+	else   {
+		 LOG_TEST_RET(ctx, SC_ERROR_INVALID_ARGUMENTS, "invalid private key path");
+	}
+
 	r = sc_select_file(p15card->card, &path, NULL);
 	LOG_TEST_RET(ctx, r, "sc_select_file() failed");
 
@@ -136,8 +145,7 @@ int sc_pkcs15_decipher(struct sc_pkcs15_card *p15card,
 	r = sc_lock(p15card->card);
 	LOG_TEST_RET(ctx, r, "sc_lock() failed");
 
-	if (prkey->path.len != 0)
-	{
+	if (prkey->path.len != 0 || prkey->path.aid.len != 0)   {
 		r = select_key_file(p15card, prkey, &senv);
 		if (r < 0) {
 			sc_unlock(p15card->card);
@@ -242,8 +250,7 @@ int sc_pkcs15_derive(struct sc_pkcs15_card *p15card,
 	r = sc_lock(p15card->card);
 	LOG_TEST_RET(ctx, r, "sc_lock() failed");
 
-	if (prkey->path.len != 0)
-	{
+	if (prkey->path.len != 0 || prkey->path.aid.len != 0)   {
 		r = select_key_file(p15card, prkey, &senv);
 		if (r < 0) {
 			sc_unlock(p15card->card);
@@ -470,7 +477,8 @@ int sc_pkcs15_compute_signature(struct sc_pkcs15_card *p15card,
 	r = sc_lock(p15card->card);
 	LOG_TEST_RET(ctx, r, "sc_lock() failed");
 
-	if (prkey->path.len != 0) {
+	sc_debug(ctx, SC_LOG_DEBUG_ASN1, "Private key path '%s'", sc_print_path(&prkey->path));
+	if (prkey->path.len != 0 || prkey->path.aid.len != 0) {
 		r = select_key_file(p15card, prkey, &senv);
 		if (r < 0) {
 			sc_unlock(p15card->card);

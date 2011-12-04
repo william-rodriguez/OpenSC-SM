@@ -876,7 +876,7 @@ do_store_private_key(struct sc_profile *profile)
 	if (ncerts) {
 		char	namebuf[256];
 
-		printf("Importing %d certificates:\n", ncerts);
+		printf("Importing %d certificates:\n", opt_ignore_ca_certs ? 1 : ncerts);
 		for (i = 0; i < ncerts && !(i && opt_ignore_ca_certs); i++)
 			printf("  %d: %s\n", i, X509_NAME_oneline(cert[i]->cert_info->subject,
 					namebuf, sizeof(namebuf)));
