@@ -1050,80 +1050,53 @@ _is_slot_auth_object(struct sc_pkcs15_auth_info *pin_info)
 
 
 struct sc_pkcs15_object *
-_get_auth_object_by_flags(struct sc_pkcs15_object **auths, size_t num, unsigned template, unsigned mask, 
-		int *out_idx)
+_get_auth_object_by_name(struct sc_pkcs15_card *p15card, char *name)
 {
 	struct sc_pkcs15_object *out = NULL;
-	int i, idx = out_idx ? *out_idx : 0;
-
-	for (i = idx; i < num; i++)   {
-		struct sc_pkcs15_auth_info *pin_info = (struct sc_pkcs15_auth_info *)(*(auths + i))->data;
-		unsigned flags;
-
-		if (!pin_info || pin_info->auth_type != SC_PKCS15_PIN_AUTH_TYPE_PIN)
-			continue;
-
-		flags = pin_info->attrs.pin.flags;
-		if ((flags & mask) != template)
-			continue;
-
-		out = *(auths + i);
-		if (out_idx)
-			*out_idx = i;
-		break;
-	}
-
-	return out;
-}
-
-
-struct sc_pkcs15_object *
-_get_auth_object_by_name(struct sc_pkcs15_object **auths, size_t num, char *name)
-{
-	struct sc_pkcs15_object *out = NULL;
-	int idx = 0;
+	int rv = SC_ERROR_OBJECT_NOT_FOUND;
 
 	if (!strcmp(name, "UserPIN"))   {
 		/* Firstly try to get 'global' PIN, if no, get 'local' one */
-		out = _get_auth_object_by_flags(auths, num, 0x10, 0xD2, &idx);
-		if (!out)
-			out = _get_auth_object_by_flags(auths, num, 0x12, 0xD2, &idx);
+		rv = sc_pkcs15_find_pin_by_flags(p15card, 0x10, 0xD2, NULL, &out);
+		if (rv)
+			rv = sc_pkcs15_find_pin_by_flags(p15card, 0x12, 0xD2, NULL, &out);
 	}
 	else if (!strcmp(name, "SignPIN"))   {
-		int up_idx = 0, s_idx = 0;
-		/* Try to get UserPIN */
-		if (_get_auth_object_by_flags(auths, num, 0x10, 0xD2, &up_idx))   {
-			/* Global UserPIN exists, try to get local PIN */
-			out = _get_auth_object_by_flags(auths, num, 0x12, 0xD2, &s_idx);
-			if (!out)   {
-				/* No local PIN, try to get second global PIN */
-				s_idx = up_idx + 1;
-				out = _get_auth_object_by_flags(auths, num, 0x10, 0xD2, &s_idx);
-			}
+		int idx = 0;
+
+		/* Get global UserPIN */
+		rv = sc_pkcs15_find_pin_by_flags(p15card, 0x10, 0xD2, NULL, &out);
+		if (!rv)   {
+			/* Global UserPIN exists, get local PIN */
+			rv = sc_pkcs15_find_pin_by_flags(p15card, 0x12, 0xD2, NULL, &out);
 		}
-		/* No global PIN, try to get first local one -- UserPIN */
-		else if (_get_auth_object_by_flags(auths, num, 0x12, 0xD2, &up_idx))   {
-			/* UserPIN is local, try to get second local PIN */
-			s_idx = up_idx + 1;
-			out = _get_auth_object_by_flags(auths, num, 0x12, 0xD2, &s_idx);
+		else   {
+			/* No global PIN, try to get first local one -- UserPIN */
+			rv = sc_pkcs15_find_pin_by_flags(p15card, 0x12, 0xD2, &idx, &out);
+			if (!rv)   {
+				/* UserPIN is local, try to get second local PIN */
+				idx++;
+				rv = sc_pkcs15_find_pin_by_flags(p15card, 0x12, 0xD2, &idx, &out);
+			}
 		}
 	}
 	else if (!strcmp(name, "UserPUK"))   {
 		/* Firstly try to get 'global' PIN, if no, get 'local' one */
-		out = _get_auth_object_by_flags(auths, num, 0x50, 0xD2, NULL);
-		if (!out)
-			out = _get_auth_object_by_flags(auths, num, 0x52, 0xD2, NULL);
+		rv = sc_pkcs15_find_pin_by_flags(p15card, 0x50, 0xD2, NULL, &out);
+		if (rv)
+			rv = sc_pkcs15_find_pin_by_flags(p15card, 0x52, 0xD2, NULL, &out);
 	}
 	else if (!strcmp(name, "SignPUK"))   {
 		/* SignPIN can be only local, and only if 'global' PIN is already present */
-		if (_get_auth_object_by_flags(auths, num, 0x50, 0xD2, NULL))
-			out = _get_auth_object_by_flags(auths, num, 0x52, 0xD2, NULL);
+		rv = sc_pkcs15_find_pin_by_flags(p15card, 0x50, 0xD2, NULL, &out);
+		if (!rv)
+			rv = sc_pkcs15_find_pin_by_flags(p15card, 0x52, 0xD2, NULL, &out);
 	}
 	else if (!strcmp(name, "SoPIN"))   {
-		out = _get_auth_object_by_flags(auths, num, 0x90, 0x90, NULL);
+		rv = sc_pkcs15_find_pin_by_flags(p15card, 0x90, 0x90, NULL, &out);
 	}
 
-	return out;
+	return rv ? NULL : out;
 }
 
 
@@ -1132,9 +1105,9 @@ _add_pin_related_objects(struct sc_pkcs11_slot *slot, struct sc_pkcs15_object *p
 		struct pkcs15_fw_data *fw_data, struct pkcs15_fw_data *move_to_fw)
 {
 	struct sc_pkcs15_auth_info *pin_info = (struct sc_pkcs15_auth_info *)pin_obj->data;
-	int i;
+	unsigned i;
 
-	sc_log(context, "PinID:%s", sc_pkcs15_print_id(&pin_info->auth_id));
+	sc_log(context, "Add objects related to PIN('%s',ID:%s)", pin_obj->label, sc_pkcs15_print_id(&pin_info->auth_id));
 	for (i=0; i < fw_data->num_objects; i++) {
 		struct pkcs15_any_object *obj = fw_data->objects[i];
 
@@ -1185,7 +1158,7 @@ _add_pin_related_objects(struct sc_pkcs11_slot *slot, struct sc_pkcs15_object *p
 static void
 _add_public_objects(struct sc_pkcs11_slot *slot, struct pkcs15_fw_data *fw_data, struct pkcs15_fw_data *move_to_fw)
 {
-	int i;
+	unsigned i;
 
 	sc_log(context, "%i public objects to process", fw_data->num_objects);
 	for (i=0; i < fw_data->num_objects; i++) {
@@ -1225,15 +1198,13 @@ pkcs15_create_tokens(struct sc_pkcs11_card *p11card, struct sc_app_info *app_inf
 		struct sc_pkcs11_slot **first_slot)
 {
 	struct pkcs15_fw_data *fw_data = NULL, *ffda = NULL;
-	struct sc_pkcs15_object *auths[MAX_OBJECTS];
 	struct sc_pkcs15_object *auth_user_pin = NULL, *auth_sign_pin = NULL, *fauo = NULL;
 	struct sc_pkcs11_slot *slot = NULL;
-	int i, rv, idx, auth_count;
+	int i, rv, idx;
 
 	sc_log(context, "create PKCS#15 tokens; p11card:%p; fws:%p,%p,%p",
 			p11card, p11card->fws_data[0], p11card->fws_data[1], p11card->fws_data[2]);
 	sc_log(context, "CreateSlotsFlags: 0x%X", sc_pkcs11_conf.create_slots_flags);
-	memset(auths, 0, sizeof(auths));
 
 	/* Find out framework data corresponding to the given application */
 	fw_data = get_fw_data(p11card, app_info, &idx);
@@ -1241,16 +1212,9 @@ pkcs15_create_tokens(struct sc_pkcs11_card *p11card, struct sc_app_info *app_inf
 		return sc_to_cryptoki_error(SC_ERROR_PKCS15_APP_NOT_FOUND, NULL);
 	sc_log(context, "Use FW data with index %i", idx);
 
-	/* Get authentication PKCS#15 objects that are present in the given application */
-	rv = sc_pkcs15_get_objects(fw_data->p15_card, SC_PKCS15_TYPE_AUTH_PIN, auths, SC_PKCS15_MAX_PINS);
-	if (rv < 0)
-		return sc_to_cryptoki_error(rv, NULL);
-	auth_count = rv;
-	sc_log(context, "Found %d authentication objects", auth_count);
-
-	auth_user_pin = _get_auth_object_by_name(&auths[0], auth_count, "UserPIN");
+	auth_user_pin = _get_auth_object_by_name(fw_data->p15_card, "UserPIN");
 	if (sc_pkcs11_conf.create_slots_flags & SC_PKCS11_SLOT_FOR_PIN_SIGN)
-		auth_sign_pin = _get_auth_object_by_name(&auths[0], auth_count, "SignPIN");
+		auth_sign_pin = _get_auth_object_by_name(fw_data->p15_card, "SignPIN");
 	sc_log(context, "Flags:0x%X; Auth User/Sign PINs %p/%p", sc_pkcs11_conf.create_slots_flags, auth_user_pin, auth_sign_pin);
 
 	/* Add PKCS#15 objects of the known types to the framework data */
@@ -1260,6 +1224,17 @@ pkcs15_create_tokens(struct sc_pkcs11_card *p11card, struct sc_app_info *app_inf
 	sc_log(context, "Found %d FW objects objects", fw_data->num_objects);
 
 	if (sc_pkcs11_conf.create_slots_flags & SC_PKCS11_SLOT_CREATE_ALL)   {
+		struct sc_pkcs15_object *auths[MAX_OBJECTS];
+		int auth_count;
+
+		memset(auths, 0, sizeof(auths));
+		/* Get authentication PKCS#15 objects that are present in the given application */
+		rv = sc_pkcs15_get_objects(fw_data->p15_card, SC_PKCS15_TYPE_AUTH_PIN, auths, SC_PKCS15_MAX_PINS);
+		if (rv < 0)
+			return sc_to_cryptoki_error(rv, NULL);
+		auth_count = rv;
+		sc_log(context, "Found %d authentication objects", auth_count);
+
 		for (i = 0; i < auth_count; i++) {
 			struct sc_pkcs15_auth_info *pin_info = (struct sc_pkcs15_auth_info*)auths[i]->data;
 			struct sc_pkcs11_slot *islot = NULL;
