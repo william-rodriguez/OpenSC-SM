@@ -746,6 +746,9 @@ int sc_pkcs15_find_pin_by_type_and_reference(struct sc_pkcs15_card *card,
 				    struct sc_pkcs15_object **out);
 int sc_pkcs15_find_so_pin(struct sc_pkcs15_card *card,
 			struct sc_pkcs15_object **out);
+int sc_pkcs15_find_pin_by_flags(struct sc_pkcs15_card *p15card,
+		unsigned flags, unsigned mask, int *index,
+		struct sc_pkcs15_object **out);
 
 void sc_pkcs15_pincache_add(struct sc_pkcs15_card *, struct sc_pkcs15_object *, 
 			const u8 *, size_t);

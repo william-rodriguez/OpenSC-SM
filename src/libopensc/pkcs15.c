@@ -1539,6 +1539,50 @@ int sc_pkcs15_find_pin_by_type_and_reference(struct sc_pkcs15_card *p15card,
 	return SC_ERROR_OBJECT_NOT_FOUND;
 }
 
+int sc_pkcs15_find_so_pin(struct sc_pkcs15_card *p15card, struct sc_pkcs15_object **out)
+{
+	struct sc_pkcs15_search_key sk;
+
+	memset(&sk, 0, sizeof(sk));
+	sk.flags_mask = sk.flags_value = SC_PKCS15_PIN_FLAG_SO_PIN;
+	
+	return find_by_key(p15card, SC_PKCS15_TYPE_AUTH_PIN, &sk, out);
+}
+
+int sc_pkcs15_find_pin_by_flags(struct sc_pkcs15_card *p15card, 
+		unsigned flags, unsigned mask, int *index,
+		struct sc_pkcs15_object **out)
+{
+	struct sc_pkcs15_object *auths[SC_PKCS15_MAX_PINS];
+	int r, i, num, idx = 0;
+
+	if (index)
+		idx = *index;
+	/* Get authentication PKCS#15 objects that are present in the given application */
+	r = sc_pkcs15_get_objects(p15card, SC_PKCS15_TYPE_AUTH_PIN, auths, SC_PKCS15_MAX_PINS);
+	if (r < 0)
+		return r;
+	num = r;
+
+	for (i=idx; i<num; i++)   {
+		struct sc_pkcs15_auth_info *pin_info = (struct sc_pkcs15_auth_info *)(*(auths + i))->data;
+		
+		if (!pin_info || pin_info->auth_type != SC_PKCS15_PIN_AUTH_TYPE_PIN)
+			continue;
+
+		if ((pin_info->attrs.pin.flags & mask) != flags)
+			continue;
+
+		if (out)
+			*out = *(auths + i);
+		if (index)
+			*index = i;
+
+		return SC_SUCCESS;
+	}
+	return SC_ERROR_OBJECT_NOT_FOUND; 
+}
+
 int sc_pkcs15_find_data_object_by_id(struct sc_pkcs15_card *p15card,
 				const struct sc_pkcs15_id *id,
 				struct sc_pkcs15_object **out)
@@ -1615,17 +1659,6 @@ int sc_pkcs15_find_prkey_by_reference(sc_pkcs15_card_t *p15card,
 	sk.path = path;
 
 	return find_by_key(p15card, SC_PKCS15_TYPE_PRKEY, &sk, out);
-}
-
-int sc_pkcs15_find_so_pin(struct sc_pkcs15_card *p15card,
-			struct sc_pkcs15_object **out)
-{
-	struct sc_pkcs15_search_key sk;
-
-	memset(&sk, 0, sizeof(sk));
-	sk.flags_mask = sk.flags_value = SC_PKCS15_PIN_FLAG_SO_PIN;
-	
-	return find_by_key(p15card, SC_PKCS15_TYPE_AUTH_PIN, &sk, out);
 }
 
 int sc_pkcs15_add_object(struct sc_pkcs15_card *p15card,
