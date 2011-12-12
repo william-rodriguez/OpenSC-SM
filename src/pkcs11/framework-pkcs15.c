@@ -1048,7 +1048,6 @@ _is_slot_auth_object(struct sc_pkcs15_auth_info *pin_info)
 	return 1;
 }
 
-
 struct sc_pkcs15_object *
 _get_auth_object_by_name(struct sc_pkcs15_card *p15card, char *name)
 {
@@ -1056,44 +1055,50 @@ _get_auth_object_by_name(struct sc_pkcs15_card *p15card, char *name)
 	int rv = SC_ERROR_OBJECT_NOT_FOUND;
 
 	if (!strcmp(name, "UserPIN"))   {
-		/* Firstly try to get 'global' PIN, if no, get 'local' one */
-		rv = sc_pkcs15_find_pin_by_flags(p15card, 0x10, 0xD2, NULL, &out);
+		/* Try to get 'global' PIN; if no, get the 'local' one */
+		rv = sc_pkcs15_find_pin_by_flags(p15card, SC_PKCS15_PIN_TYPE_FLAGS_PIN_GLOBAL, 
+				SC_PKCS15_PIN_TYPE_FLAGS_MASK, NULL, &out);
 		if (rv)
-			rv = sc_pkcs15_find_pin_by_flags(p15card, 0x12, 0xD2, NULL, &out);
+			rv = sc_pkcs15_find_pin_by_flags(p15card, SC_PKCS15_PIN_TYPE_FLAGS_PIN_LOCAL, 
+					SC_PKCS15_PIN_TYPE_FLAGS_MASK, NULL, &out);
 	}
 	else if (!strcmp(name, "SignPIN"))   {
 		int idx = 0;
 
-		/* Get global UserPIN */
-		rv = sc_pkcs15_find_pin_by_flags(p15card, 0x10, 0xD2, NULL, &out);
+		/* Get the 'global' user PIN */
+		rv = sc_pkcs15_find_pin_by_flags(p15card, SC_PKCS15_PIN_TYPE_FLAGS_PIN_GLOBAL, 
+				SC_PKCS15_PIN_TYPE_FLAGS_MASK, NULL, &out);
 		if (!rv)   {
-			/* Global UserPIN exists, get local PIN */
-			rv = sc_pkcs15_find_pin_by_flags(p15card, 0x12, 0xD2, NULL, &out);
+			/* Global (user) PIN exists, get the local one -- sign PIN */
+			rv = sc_pkcs15_find_pin_by_flags(p15card, SC_PKCS15_PIN_TYPE_FLAGS_PIN_LOCAL, 
+					SC_PKCS15_PIN_TYPE_FLAGS_MASK, NULL, &out);
 		}
 		else   {
-			/* No global PIN, try to get first local one -- UserPIN */
-			rv = sc_pkcs15_find_pin_by_flags(p15card, 0x12, 0xD2, &idx, &out);
+			/* No global PIN, try to get first local one -- user PIN */
+			rv = sc_pkcs15_find_pin_by_flags(p15card, SC_PKCS15_PIN_TYPE_FLAGS_PIN_LOCAL, 
+					SC_PKCS15_PIN_TYPE_FLAGS_MASK, &idx, &out);
 			if (!rv)   {
-				/* UserPIN is local, try to get second local PIN */
+				/* User PIN is local, try to get the second local -- sign PIN */
 				idx++;
-				rv = sc_pkcs15_find_pin_by_flags(p15card, 0x12, 0xD2, &idx, &out);
+				rv = sc_pkcs15_find_pin_by_flags(p15card, SC_PKCS15_PIN_TYPE_FLAGS_PIN_LOCAL, 
+						SC_PKCS15_PIN_TYPE_FLAGS_MASK, &idx, &out);
 			}
 		}
 	}
 	else if (!strcmp(name, "UserPUK"))   {
-		/* Firstly try to get 'global' PIN, if no, get 'local' one */
-		rv = sc_pkcs15_find_pin_by_flags(p15card, 0x50, 0xD2, NULL, &out);
+		/* Get the 'global' PUK; if no, get the 'local' one */
+		rv = sc_pkcs15_find_pin_by_flags(p15card, SC_PKCS15_PIN_TYPE_FLAGS_PUK_GLOBAL, 
+				SC_PKCS15_PIN_TYPE_FLAGS_MASK, NULL, &out);
 		if (rv)
-			rv = sc_pkcs15_find_pin_by_flags(p15card, 0x52, 0xD2, NULL, &out);
+			rv = sc_pkcs15_find_pin_by_flags(p15card, SC_PKCS15_PIN_TYPE_FLAGS_PUK_LOCAL, 
+					SC_PKCS15_PIN_TYPE_FLAGS_MASK, NULL, &out);
 	}
 	else if (!strcmp(name, "SignPUK"))   {
-		/* SignPIN can be only local, and only if 'global' PIN is already present */
-		rv = sc_pkcs15_find_pin_by_flags(p15card, 0x50, 0xD2, NULL, &out);
-		if (!rv)
-			rv = sc_pkcs15_find_pin_by_flags(p15card, 0x52, 0xD2, NULL, &out);
+		/* TODO: Sign PUK to be defined */
 	}
 	else if (!strcmp(name, "SoPIN"))   {
-		rv = sc_pkcs15_find_pin_by_flags(p15card, 0x90, 0x90, NULL, &out);
+		rv = sc_pkcs15_find_pin_by_flags(p15card, SC_PKCS15_PIN_TYPE_FLAGS_SOPIN, 
+				SC_PKCS15_PIN_TYPE_FLAGS_SOPIN, NULL, &out);
 	}
 
 	return rv ? NULL : out;
