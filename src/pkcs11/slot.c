@@ -69,44 +69,6 @@ static int object_list_seeker(const void *el, const void *key)
 }
 
 
-struct sc_app_info *
-get_generic_application(struct sc_card * card)
-{
-	struct sc_app_info *out = NULL;
-	scconf_block *conf_block = sc_get_conf_block(context, "pkcs11", NULL, 1);
-	int i, rv;
-
-	if (!card || !conf_block)
-		return NULL;	
-
-	if (card->app_count < 0)   {
-		rv = sc_enum_apps(card);
-        	if (rv < 0 && rv != SC_ERROR_FILE_NOT_FOUND)
-			return NULL;
-	}
-
-	for (i = 0; i < card->app_count; i++)   {
-		struct sc_app_info *app_info = card->app[i];
-		scconf_block **blocks = NULL;
-		char str_path[SC_MAX_AID_STRING_SIZE];
-
-		sc_bin_to_hex(app_info->aid.value, app_info->aid.len, str_path, sizeof(str_path), 0);
-		blocks = scconf_find_blocks(context->conf, conf_block, "application", str_path);
-		if (blocks)   {
-			if (blocks[0])   {
-				char *type = (char *)scconf_get_str(blocks[0], "type", "generic");
-				if (strcmp(type, "protected"))   {
-					out = app_info;
-					break;
-				}
-			}
-			free(blocks);
-		}
-	}
-
-	return out;
-}
-
 CK_RV create_slot(sc_reader_t *reader)
 {
 	struct sc_pkcs11_slot *slot;
@@ -271,7 +233,7 @@ CK_RV card_detect(sc_reader_t *reader)
 
 	/* Detect the framework */
 	if (p11card->framework == NULL) {
-		struct sc_app_info *app_generic = get_generic_application(p11card->card);
+		struct sc_app_info *app_generic = sc_pkcs15_get_application_by_type(p11card->card, "generic");
 		struct sc_pkcs11_slot *first_slot = NULL;
 
 		sc_log(context, "%s: Detecting Framework", reader->name);

@@ -434,6 +434,27 @@ app default {
 			# The location of the driver library
 			# module = /usr/lib/opensc/drivers/p15emu_custom.so;
 		# }
+
+                application E828BD080FD25047656E65726963 {
+                        type = generic;
+                        model = "ECC Generic PKI";
+                }
+
+                application E828BD080FD2500000040301 {
+                        type = generic;
+                        model = "Adèle Générique";
+                }
+
+                application E828BD080FD2504543432D654944 {
+                        type = protected;
+                        model = "ECC eID";
+                }
+
+                application E828BD080FD2500000040201 {
+                        type = protected;
+                        model = "Adèle Admin-2";
+                }
+
 	}
 }
 
@@ -534,26 +555,6 @@ app opensc-pkcs11 {
 		#
 		# Default: empty
 		# ignored_readers = "CardMan 1021", "SPR 532";
-
-                application E828BD080FD25047656E65726963 {
-                        type = generic;
-                        model = "ECC Generic PKI";
-                }
-
-                application E828BD080FD2500000040301 {
-                        type = generic;
-                        model = "Adèle Générique";
-                }
-
-                application E828BD080FD2504543432D654944 {
-                        type = protected;
-                        model = "ECC eID";
-                }
-
-                application E828BD080FD2500000040201 {
-                        type = protected;
-                        model = "Adèle Admin-2";
-                }
 
                 # Symbolic names of PINs for which slots are created
                 # Card can contain more then one PINs or more then one on-card application with 
