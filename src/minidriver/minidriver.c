@@ -131,8 +131,7 @@ struct md_pkcs15_container {
 
 typedef struct _VENDOR_SPECIFIC
 {
-	struct sc_pkcs15_object *pin_objs[8];
-	int pin_count;
+	struct sc_pkcs15_object *obj_user_pin, *obj_sopin;
 
 	struct sc_pkcs15_object *p15obj_cardcf;
 
@@ -334,7 +333,7 @@ static DWORD
 md_get_pin_by_role(PCARD_DATA pCardData, PIN_ID role, struct sc_pkcs15_object **ret_obj)
 {
 	VENDOR_SPECIFIC *vs;
-	int i;
+	int rv = SC_SUCCESS;
 
 	if (!pCardData)
 		return SCARD_E_INVALID_PARAMETER;
@@ -342,111 +341,46 @@ md_get_pin_by_role(PCARD_DATA pCardData, PIN_ID role, struct sc_pkcs15_object **
 	logprintf(pCardData, 2, "get PIN with role %i\n", role);
 
 	vs = (VENDOR_SPECIFIC*)(pCardData->pvVendorSpecific);
-	if (vs->pin_count == 0)   {
-		logprintf(pCardData, 2, "cannot get PIN object: no PIN defined\n");
-		return SCARD_E_UNSUPPORTED_FEATURE;
-	}
-
 	if (!ret_obj)
 		return SCARD_E_INVALID_PARAMETER;
 
 	*ret_obj = NULL;
 
-	for(i = 0; i < vs->pin_count; i++)   {
-		struct sc_pkcs15_object *obj = vs->pin_objs[i];
-		struct sc_pkcs15_auth_info *auth_info = (struct sc_pkcs15_auth_info *) (obj->data);
-		unsigned int pin_flags = auth_info->attrs.pin.flags;
-		unsigned int admin_pin_flags = SC_PKCS15_PIN_FLAG_UNBLOCKING_PIN | SC_PKCS15_PIN_FLAG_SO_PIN;
+	if (role == ROLE_USER)   {
+		if (!vs->obj_user_pin)   {
+			/* Get 'global' User PIN; if no, get the 'local' one */
+			rv = sc_pkcs15_find_pin_by_flags(vs->p15card, SC_PKCS15_PIN_TYPE_FLAGS_PIN_GLOBAL,
+					SC_PKCS15_PIN_TYPE_FLAGS_MASK, NULL, &vs->obj_user_pin);
+			if (rv)
+				rv = sc_pkcs15_find_pin_by_flags(vs->p15card, SC_PKCS15_PIN_TYPE_FLAGS_PIN_LOCAL,
+						SC_PKCS15_PIN_TYPE_FLAGS_MASK, NULL, &vs->obj_user_pin);
+		}
 
-		logprintf(pCardData, 2, "PIN[%s] flags 0x%X\n", obj->label, pin_flags);
-		if (role == ROLE_USER)   {
-			if (!(pin_flags & admin_pin_flags))   {
-				*ret_obj = obj;
-				break;
-			}
-		}
-		else if (role == ROLE_ADMIN)   {
-			if (pin_flags & admin_pin_flags)   {
-				*ret_obj = obj;
-				break;
-			}
-		}
-		else   {
-			logprintf(pCardData, 2, "cannot get PIN object: unsupported role\n");
-			return SCARD_E_UNSUPPORTED_FEATURE;
-		}
+		*ret_obj = vs->obj_user_pin;
 	}
+	else if (role == ROLE_ADMIN)  {
+		/* Get SO PIN; if no, get the 'global' PUK; if no get the 'local' one  */
+		if (!vs->obj_sopin)   {
+			rv = sc_pkcs15_find_pin_by_flags(vs->p15card, SC_PKCS15_PIN_TYPE_FLAGS_SOPIN, 
+					SC_PKCS15_PIN_TYPE_FLAGS_SOPIN, NULL, &vs->obj_sopin);
+			if (rv)
+				rv = sc_pkcs15_find_pin_by_flags(vs->p15card, SC_PKCS15_PIN_TYPE_FLAGS_PUK_GLOBAL,
+						SC_PKCS15_PIN_TYPE_FLAGS_MASK, NULL, &vs->obj_sopin);
+			if (rv)
+				rv = sc_pkcs15_find_pin_by_flags(vs->p15card, SC_PKCS15_PIN_TYPE_FLAGS_PUK_LOCAL,
+						SC_PKCS15_PIN_TYPE_FLAGS_MASK, NULL, &vs->obj_sopin);
+		}
 
-	if (i == vs->pin_count)   {
-		logprintf(pCardData, 2, "cannot get PIN object: not found\n");
+		*ret_obj = vs->obj_sopin;
+	}
+	else   {
+		logprintf(pCardData, 2, "cannot get PIN object: unsupported role\n");
 		return SCARD_E_UNSUPPORTED_FEATURE;
 	}
 
-	return SCARD_S_SUCCESS;
+	return (rv == SC_SUCCESS) ? SCARD_E_UNSUPPORTED_FEATURE : SCARD_S_SUCCESS;
 }
 
-
-static void 
-dump_objects(PCARD_DATA pCardData)
-{
-	VENDOR_SPECIFIC *vs;
-	int i;
-
-	if (!pCardData)
-		return;
-
-	vs = (VENDOR_SPECIFIC*)(pCardData->pvVendorSpecific);
-	if (!vs)
-		return;
-
-	logprintf(pCardData, 2, "TODO: dump certs and keys\n");
-
-	for(i = 0; i < vs->pin_count; i++)   {
-		const char *pin_flags[] =   {
-			"case-sensitive", "local", "change-disabled",
-			"unblock-disabled", "initialized", "needs-padding",
-			"unblockingPin", "soPin", "disable_allowed",
-			"integrity-protected", "confidentiality-protected",
-			"exchangeRefData"
-		};
-		const char *pin_types[] = {"bcd", "ascii-numeric", "UTF-8", "halfnibble bcd", "iso 9664-1"};
-		const struct sc_pkcs15_object *obj = vs->pin_objs[i];
-		const struct sc_pkcs15_auth_info *auth_info = (const struct sc_pkcs15_auth_info *) (obj->data);
-		const struct sc_pkcs15_pin_attributes *pin_attrs = &auth_info->attrs.pin;
-		const size_t pf_count = sizeof(pin_flags)/sizeof(pin_flags[0]);
-		size_t j;
-
-		logprintf(pCardData, 2, "PIN [%s]\n", obj->label);
-		
-		logprintf(pCardData, 2, "\tCom. Flags: 0x%X\n", obj->flags);
-		
-		logprintf(pCardData, 2, "\tID        : %s\n", sc_pkcs15_print_id(&auth_info->auth_id));
-		
-		logprintf(pCardData, 2, "\tFlags     : [0x%02X]", pin_attrs->flags);
-		for (j = 0; j < pf_count; j++)
-			if (pin_attrs->flags & (1 << j))
-				logprintf(pCardData, 2, ", %s", pin_flags[j]);
-		logprintf(pCardData, 2, "\n");
-		
-		logprintf(pCardData, 2, "\tLength    : min_len:%lu, max_len:%lu, stored_len:%lu\n",
-			(unsigned long)pin_attrs->min_length, (unsigned long)pin_attrs->max_length,
-			(unsigned long)pin_attrs->stored_length);
-
-		logprintf(pCardData, 2, "\tPad char  : 0x%02X\n", pin_attrs->pad_char);
-		
-		logprintf(pCardData, 2, "\tReference : %d\n", pin_attrs->reference);
-
-		if (pin_attrs->type < sizeof(pin_types)/sizeof(pin_types[0]))
-			logprintf(pCardData, 2, "\tType      : %s\n", pin_types[pin_attrs->type]);
-		else
-			logprintf(pCardData, 2, "\tType      : [encoding %d]\n", pin_attrs->type);
-
-		logprintf(pCardData, 2, "\tPath      : %s\n", sc_print_path(&auth_info->path));
-
-		if (auth_info->tries_left >= 0)
-			logprintf(pCardData, 2, "\tTries left: %d\n", auth_info->tries_left);
-	}
-}
 
 /* 'Write' mode can be enabled from the OpenSC configuration file*/
 static BOOL 
@@ -3893,6 +3827,7 @@ DWORD WINAPI CardAcquireContext(IN PCARD_DATA pCardData, __in DWORD dwFlags)
 static int associate_card(PCARD_DATA pCardData)
 {
 	VENDOR_SPECIFIC *vs;
+	DWORD dw;
 	int  r;
 
 	logprintf(pCardData, 1, "associate_card\n");
@@ -3942,18 +3877,15 @@ static int associate_card(PCARD_DATA pCardData)
 		return SCARD_E_UNKNOWN_CARD;
 	}
 
-	r = sc_pkcs15_get_objects(vs->p15card, SC_PKCS15_TYPE_AUTH_PIN, vs->pin_objs, 8);
-	if (r < 0)   {
-		logprintf(pCardData, 2, "Pin object enumeration failed: %s\n", sc_strerror(r));
-		return SCARD_F_UNKNOWN_ERROR;
+	dw = md_get_pin_by_role(pCardData, ROLE_USER, &vs->obj_user_pin);
+	if (dw != SCARD_S_SUCCESS)   {
+		logprintf(pCardData, 2, "Cannot get User PIN object");
+		return dw;
 	}
 
-	vs->pin_count = r;
-	logprintf(pCardData, 2, "Found %d pin(s) in the card.\n", vs->pin_count);
-
-#if 1
-	dump_objects(pCardData);
-#endif
+	dw = md_get_pin_by_role(pCardData, ROLE_USER, &vs->obj_sopin);
+	if (dw != SCARD_S_SUCCESS)
+		logprintf(pCardData, 2, "Cannot get ADMIN PIN object -- ignored");
 
 	return SCARD_S_SUCCESS;
 
@@ -3962,7 +3894,6 @@ static int associate_card(PCARD_DATA pCardData)
 static int disassociate_card(PCARD_DATA pCardData)
 {
 	VENDOR_SPECIFIC *vs;
-	int i;
 
 	logprintf(pCardData, 1, "disassociate_card\n");
 	if (!pCardData)
@@ -3970,9 +3901,8 @@ static int disassociate_card(PCARD_DATA pCardData)
 
 	vs = (VENDOR_SPECIFIC*)(pCardData->pvVendorSpecific);
 
-	for (i = 0; i < vs->pin_count; i++)
-		vs->pin_objs[i] = NULL;
-	vs->pin_count = 0;
+	vs->obj_user_pin = NULL;
+	vs->obj_sopin = NULL;
 
 	if(vs->p15card)   {
 		logprintf(pCardData, 6, "sc_pkcs15_unbind\n");
