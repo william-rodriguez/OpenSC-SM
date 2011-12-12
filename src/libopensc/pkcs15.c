@@ -2135,8 +2135,8 @@ int sc_pkcs15_read_file(struct sc_pkcs15_card *p15card,
 
 	assert(p15card != NULL && in_path != NULL && buf != NULL);
 
-	sc_log(ctx, "called; path=%s, index=%u, count=%d", sc_print_path(in_path), 
-			in_path->index, in_path->count);
+	LOG_FUNC_CALLED(ctx);
+	sc_log(ctx, "path=%s, index=%u, count=%d", sc_print_path(in_path), in_path->index, in_path->count);
 
 	r = -1; /* file state: not in cache */
 	if (p15card->opts.use_file_cache) {
