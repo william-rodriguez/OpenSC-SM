@@ -1282,7 +1282,7 @@ iasecc_pkcs15_delete_sdo (struct sc_profile *profile, struct sc_pkcs15_card *p15
 		int size = *(sdo->docp.size.value + 0) * 0x100 + *(sdo->docp.size.value + 1);
 
 		sc_log(ctx, "iasecc_pkcs15_delete_sdo() SDO size %i bytes", size);
-		memset(zeros, 0xAA, sizeof(zeros));
+		memset(zeros, 0xA5, sizeof(zeros));
 		memset(&rsa, 0, sizeof(rsa));
 
 		rsa.modulus.data = rsa.exponent.data = zeros;

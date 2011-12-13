@@ -1761,6 +1761,9 @@ void sc_pkcs15_free_object(struct sc_pkcs15_object *obj)
 		free(obj->data);
 	}
 
+	if (obj->guid != NULL)
+		free(obj->guid);
+
 	sc_pkcs15_free_object_content(obj);
 
 	free(obj);
@@ -2478,6 +2481,13 @@ sc_pkcs15_get_guid(struct sc_pkcs15_card *p15card, const struct sc_pkcs15_object
 
 	if (p15card->ops.get_guid)
 		return p15card->ops.get_guid(p15card, obj, out, out_size);
+
+	if (obj->guid)   {
+		if (out_size < strlen(obj->guid) + 1)
+			return SC_ERROR_BUFFER_TOO_SMALL;
+		strcpy(out, obj->guid);
+		return SC_SUCCESS;
+	}
 
 	rv = sc_pkcs15_get_object_id(obj, &id);
 	if (rv)

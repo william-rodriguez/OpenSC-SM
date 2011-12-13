@@ -1384,6 +1384,12 @@ sc_pkcs15init_store_private_key(struct sc_pkcs15_card *p15card,
 	r = sc_pkcs15init_add_object(p15card, profile, SC_PKCS15_PRKDF, object);
 	LOG_TEST_RET(ctx, r, "Failed to add new private key PKCS#15 object");
 
+	if (keyargs->guid)   {
+		object->guid = strdup(keyargs->guid);
+		if (!object->guid)
+			LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "Cannot allocate guid");
+	}
+
 	if (!r && profile->ops->emu_store_data)   {
 		r = profile->ops->emu_store_data(p15card, profile, object, NULL, NULL);
 		if (r == SC_ERROR_NOT_IMPLEMENTED)

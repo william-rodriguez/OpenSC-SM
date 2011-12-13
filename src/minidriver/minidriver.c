@@ -1993,6 +1993,7 @@ md_pkcs15_generate_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, DWORD ke
 
 	sc_pkcs15init_set_p15card(profile, vs->p15card);
 	cont = &(vs->p15_containers[idx]);
+	keygen_args.prkey_args.guid = cont->guid;
 
 	rv = sc_pkcs15init_generate_key(vs->p15card, profile, &keygen_args, key_size, &cont->prkey_obj);
 	if (rv < 0) {
@@ -2003,11 +2004,6 @@ md_pkcs15_generate_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, DWORD ke
 	cont->id = ((struct sc_pkcs15_prkey_info *)cont->prkey_obj->data)->id;
 	cont->index = idx;
 	cont->flags = CONTAINER_MAP_VALID_CONTAINER;
-	rv = sc_pkcs15_get_guid(vs->p15card, cont->prkey_obj, 0, cont->guid, sizeof(cont->guid));
-	if (rv)   {
-		logprintf(pCardData, 2, "sc_pkcs15_get_guid() error %d\n", rv);
-		return SCARD_F_INTERNAL_ERROR;
-	}
 
 	logprintf(pCardData, 3, "MdGenerateKey(): generated key(idx:%i,id:%s,guid:%s)\n", 
 			idx, sc_pkcs15_print_id(&cont->id),cont->guid);
@@ -2105,6 +2101,7 @@ md_pkcs15_store_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, BYTE *blob,
 
 	sc_pkcs15init_set_p15card(profile, vs->p15card);
 	cont = &(vs->p15_containers[idx]);
+	prkey_args.guid = cont->guid;
 
 	rv = sc_pkcs15init_store_private_key(vs->p15card, profile, &prkey_args, &cont->prkey_obj);
 	if (rv < 0) {
@@ -2121,11 +2118,6 @@ md_pkcs15_store_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, BYTE *blob,
 	cont->id = ((struct sc_pkcs15_prkey_info *)cont->prkey_obj->data)->id;
 	cont->index = idx;
 	cont->flags = CONTAINER_MAP_VALID_CONTAINER;
-	rv = sc_pkcs15_get_guid(vs->p15card, cont->prkey_obj, 0, cont->guid, sizeof(cont->guid));
-	if (rv)   {
-		logprintf(pCardData, 2, "MdStoreKey(): get key's GUID error %i\n", rv);
-		return SCARD_F_INTERNAL_ERROR;
-	}
 
 	logprintf(pCardData, 3, "MdStoreKey(): stored key(idx:%i,id:%s,guid:%s)\n", idx, sc_pkcs15_print_id(&cont->id),cont->guid);
 	dwret = SCARD_S_SUCCESS;

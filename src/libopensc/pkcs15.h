@@ -495,11 +495,13 @@ struct sc_pkcs15_object {
 	/* emulated object pointer */
 	void *emulated;
 
-
 	struct sc_pkcs15_df *df; /* can be NULL, if object is 'floating' */
 	struct sc_pkcs15_object *next, *prev; /* used only internally */
 	
 	struct sc_pkcs15_der content;
+
+	/* Used by minidriver and its on-card support */
+	char *guid;
 };
 typedef struct sc_pkcs15_object sc_pkcs15_object_t;
 
