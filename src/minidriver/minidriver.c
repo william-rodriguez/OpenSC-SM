@@ -69,6 +69,7 @@
 #define MD_CARDCF_LENGTH	(sizeof(CARD_CACHE_FILE_FORMAT))
 
 #define MD_DATA_APPLICAITON_NAME "CSP"
+#define MD_DATA_DEFAULT_CONT_LABEL "Default Key Container"
 
 #define MD_KEY_USAGE_KEYEXCHANGE		\
 	SC_PKCS15INIT_X509_KEY_ENCIPHERMENT	| \
@@ -338,8 +339,6 @@ md_get_pin_by_role(PCARD_DATA pCardData, PIN_ID role, struct sc_pkcs15_object **
 	if (!pCardData)
 		return SCARD_E_INVALID_PARAMETER;
 
-	logprintf(pCardData, 2, "get PIN with role %i\n", role);
-
 	vs = (VENDOR_SPECIFIC*)(pCardData->pvVendorSpecific);
 	if (!ret_obj)
 		return SCARD_E_INVALID_PARAMETER;
@@ -378,7 +377,7 @@ md_get_pin_by_role(PCARD_DATA pCardData, PIN_ID role, struct sc_pkcs15_object **
 		return SCARD_E_UNSUPPORTED_FEATURE;
 	}
 
-	return (rv == SC_SUCCESS) ? SCARD_E_UNSUPPORTED_FEATURE : SCARD_S_SUCCESS;
+	return (rv == SC_SUCCESS) ? SCARD_S_SUCCESS : SCARD_E_UNSUPPORTED_FEATURE;
 }
 
 
@@ -2390,10 +2389,10 @@ DWORD WINAPI CardGetContainerInfo(__in PCARD_DATA pCardData, __in BYTE bContaine
 	pubkey_der.len = 0;
 
 	ret = SCARD_S_SUCCESS;
-	if ((cont->prkey_obj->content.value != NULL) && (cont->prkey_obj->content.len > 0))   {
+	if ((cont->prkey_obj->content.value != NULL) && (cont->prkey_obj->content.len > 0))
 		sc_der_copy(&pubkey_der, &cont->prkey_obj->content);
-	}
-	else if (cont->pubkey_obj)   {
+
+	if (!pubkey_der.value && cont->pubkey_obj)   {
 		struct sc_pkcs15_pubkey *pubkey = NULL;
 
 		logprintf(pCardData, 1, "now read public key '%s'\n", cont->pubkey_obj->label);
@@ -2410,7 +2409,8 @@ DWORD WINAPI CardGetContainerInfo(__in PCARD_DATA pCardData, __in BYTE bContaine
 			ret = SCARD_E_FILE_NOT_FOUND;
 		}
 	}
-	else if (cont->cert_obj)   {
+
+	if (!pubkey_der.value && cont->cert_obj)   {
 		struct sc_pkcs15_cert *cert = NULL;
 
 		logprintf(pCardData, 1, "now read certificate '%s'\n", cont->cert_obj->label);
@@ -2427,7 +2427,8 @@ DWORD WINAPI CardGetContainerInfo(__in PCARD_DATA pCardData, __in BYTE bContaine
 			ret = SCARD_E_FILE_NOT_FOUND;
 		}
 	}
-	else  if (cont->size_sign || cont->size_key_exchange) {
+
+	if (!pubkey_der.value && (cont->size_sign || cont->size_key_exchange)) {
 		logprintf(pCardData, 2, "cannot find public key\n");
 		return SCARD_F_INTERNAL_ERROR;
 	}
@@ -3321,15 +3322,17 @@ DWORD WINAPI CardAuthenticateEx(__in PCARD_DATA pCardData,
 
 	check_reader_status(pCardData);
 
-	if (dwFlags == CARD_AUTHENTICATE_GENERATE_SESSION_PIN ||
-		dwFlags == CARD_AUTHENTICATE_SESSION_PIN)
-			return SCARD_E_UNSUPPORTED_FEATURE;
+	if (dwFlags == CARD_AUTHENTICATE_GENERATE_SESSION_PIN || dwFlags == CARD_AUTHENTICATE_SESSION_PIN)
+		return SCARD_E_UNSUPPORTED_FEATURE;
+
 	if (dwFlags && dwFlags != CARD_PIN_SILENT_CONTEXT)
 		return SCARD_E_INVALID_PARAMETER;
 
-	if (NULL == pbPinData) return SCARD_E_INVALID_PARAMETER;
+	if (NULL == pbPinData) 
+		return SCARD_E_INVALID_PARAMETER;
 
-	if (PinId != ROLE_USER) return SCARD_E_INVALID_PARAMETER;
+	if (PinId != ROLE_USER) 
+		return SCARD_E_INVALID_PARAMETER;
 
 	r = md_get_pin_by_role(pCardData, PinId, &pin_obj);
 	if (r != SCARD_S_SUCCESS)   {
@@ -3862,14 +3865,23 @@ static int associate_card(PCARD_DATA pCardData)
 
 	vs->reader = sc_ctx_get_reader(vs->ctx, 0);
 	if(vs->reader)   {
-		logprintf(pCardData, 3, "%s\n", NULLSTR(vs->reader->name));
+		struct sc_app_info *app_generic = NULL;
+		struct sc_aid *aid = NULL;
 
-		r = sc_connect_card(vs->reader, &(vs->card)); 
-		logprintf(pCardData, 2, "sc_connect_card result = %d, %s\n", r, sc_strerror(r));
-		if(!r)   {
-			r = sc_pkcs15_bind(vs->card, NULL, &(vs->p15card));
-			logprintf(pCardData, 2, "PKCS#15 initialization result: %d, %s\n", r, sc_strerror(r));
-		}
+		r = sc_connect_card(vs->reader, &(vs->card));
+		if(r)   {
+			logprintf(pCardData, 0, "Cannot connect card in reader '%s'\n", NULLSTR(vs->reader->name));
+			return SCARD_E_UNKNOWN_CARD;
+                }
+		logprintf(pCardData, 3, "Connected card in '%s'\n", NULLSTR(vs->reader->name));
+
+		app_generic = sc_pkcs15_get_application_by_type(vs->card, "generic");
+		if (app_generic)
+			logprintf(pCardData, 3, "Use generic application '%s'\n", app_generic->label);
+		aid = app_generic ? &app_generic->aid : NULL;
+
+		r = sc_pkcs15_bind(vs->card, aid, &(vs->p15card));
+		logprintf(pCardData, 2, "PKCS#15 initialization result: %d, %s\n", r, sc_strerror(r));
 	}
 
 	if(vs->card == NULL || vs->p15card == NULL)   {
