@@ -1463,15 +1463,17 @@ iasecc_md_gemalto_new_prvkey(struct sc_pkcs15_card *p15card, struct sc_profile *
 	struct sc_context *ctx = p15card->card->ctx;
 	struct sc_pkcs15_prkey_info *prkey_info = (struct sc_pkcs15_prkey_info *)key_obj->data;
 	struct sc_pkcs15init_dataargs data_args;
-	char guid[39];
+	char guid[40];
 	unsigned char data[SC_PKCS15_MAX_ID_SIZE + 6];
 	size_t offs;
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
 
-	rv = sc_pkcs15_get_guid(p15card, key_obj, 1, guid, sizeof(guid));
+	memset(guid, 0, sizeof(guid));
+	rv = sc_pkcs15_get_guid(p15card, key_obj, 1, guid, sizeof(guid) - 1);
 	LOG_TEST_RET(ctx, rv, "Cannot get private key GUID");
+	sc_log(ctx, "New key GUID: '%s'", guid);
 
 	offs = 0;
 	data[offs++] = 0x01;

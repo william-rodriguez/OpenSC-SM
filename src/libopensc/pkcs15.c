@@ -540,9 +540,9 @@ sc_pkcs15_get_lastupdate(struct sc_pkcs15_card *p15card)
 	int r, content_len;
 
 	if (p15card->tokeninfo->last_update.gtime)
-		return p15card->tokeninfo->last_update.gtime;
+		goto done; 
 
-	if (!p15card->tokeninfo->last_update.path.len) 
+	if (!p15card->tokeninfo->last_update.path.len)
 		return NULL;
 
         r = sc_select_file(p15card->card, &p15card->tokeninfo->last_update.path, &file);
@@ -571,7 +571,8 @@ sc_pkcs15_get_lastupdate(struct sc_pkcs15_card *p15card)
 	p15card->tokeninfo->last_update.gtime = strdup((char *)last_update);
 	if (!p15card->tokeninfo->last_update.gtime)
 		return NULL;
-
+done:
+	sc_log(ctx, "lastUpdate.gtime '%s'", p15card->tokeninfo->last_update.gtime);
 	return p15card->tokeninfo->last_update.gtime;
 }
 
@@ -2483,9 +2484,14 @@ sc_pkcs15_get_guid(struct sc_pkcs15_card *p15card, const struct sc_pkcs15_object
 		return p15card->ops.get_guid(p15card, obj, out, out_size);
 
 	if (obj->guid)   {
-		if (out_size < strlen(obj->guid) + 1)
+		if (out_size < strlen(obj->guid))
 			return SC_ERROR_BUFFER_TOO_SMALL;
-		strcpy(out, obj->guid);
+		memset(out, 0, out_size);
+
+		if (out_size > strlen(obj->guid))
+			out_size = strlen(obj->guid);
+		memcpy(out, obj->guid, out_size);
+
 		return SC_SUCCESS;
 	}
 
