@@ -220,10 +220,10 @@ static int load_parameters(sc_context_t *ctx, scconf_block *block,
 	const scconf_list *list;
 	const char *val, *s_internal = "internal";
 	const char *debug = NULL;
-	int reopen = 0;
+	int reopen;
 
 	ctx->debug = scconf_get_int(block, "debug", ctx->debug);
-	reopen = scconf_get_bool(block, "reopen_debug_file", 0);
+	reopen = scconf_get_bool(block, "reopen_debug_file", 1);
 
 	debug = getenv("OPENSC_DEBUG");
 	if (debug)
