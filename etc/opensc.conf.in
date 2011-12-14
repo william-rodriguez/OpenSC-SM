@@ -279,12 +279,16 @@ app default {
                 driver = "iasecc";
                 name = "Gemalto MultiApp IAS/ECC v1.0.1";
                 secure_messaging = local_gemalto_iam;
+		md_read_only = false;
+		md_supports_X509_enrollment = true;
         }
 	card_atr 3B:7F:96:00:00:00:31:B8:64:40:70:14:10:73:94:01:80:82:90:00 {
                 type = 25001;
                 driver = "iasecc";
                 name = "Gemalto MultiApp IAS/ECC v1.0.1";
                 secure_messaging = local_gemalto_iam;
+		md_read_only = false;
+		md_supports_X509_enrollment = true;
         }
         #card_atr 3B:DD:18:00:81:31:FE:45:80:F9:A0:00:00:00:77:01:08:00:07:90:00:FE {
         #        type = 25002;
