@@ -123,7 +123,7 @@ struct md_file {
 struct md_pkcs15_container {
 	int index;
 	struct sc_pkcs15_id id;
-	char guid[40];
+	char guid[MAX_CONTAINER_NAME_LEN + 1];
 	unsigned flags;
 	unsigned size_key_exchange, size_sign;
 
@@ -133,11 +133,6 @@ struct md_pkcs15_container {
 typedef struct _VENDOR_SPECIFIC
 {
 	struct sc_pkcs15_object *obj_user_pin, *obj_sopin;
-
-	struct sc_pkcs15_object *p15obj_cardcf;
-
-	struct sc_pkcs15_object *p15obj_cmapfile;
-	int p15obj_cmapfile_dirty;
 
 	struct sc_context *ctx;
 	struct sc_reader *reader;
@@ -766,129 +761,6 @@ md_pkcs15_encode_cardcf(PCARD_DATA pCardData, unsigned char *in, size_t in_size,
 
 
 static DWORD
-md_pkcs15_create_cardcf(PCARD_DATA pCardData, unsigned char *blob, size_t size)
-{
-	VENDOR_SPECIFIC *vs;
-	struct sc_profile *profile = NULL;
-	struct sc_pkcs15init_dataargs args;
-	DWORD dwret = SCARD_F_INTERNAL_ERROR;
-	unsigned char data[MD_CARDCF_LENGTH + MD_UTC_TIME_LENGTH_MAX];
-	size_t data_size;
-	int rv;
-
-	if (!pCardData || !blob || size < MD_CARDCF_LENGTH)
-		return SCARD_E_INVALID_PARAMETER;
-
-	vs = pCardData->pvVendorSpecific;
-	if (vs->p15obj_cardcf)
-		return SCARD_S_SUCCESS;
-
-	data_size = sizeof(data);
-	dwret = md_pkcs15_encode_cardcf(pCardData, blob, size, data, &data_size);
-	if (dwret != SCARD_S_SUCCESS)
-		return dwret;
-
-	memset(&args, 0, sizeof(args));
-	args.app_oid.value[0] = -1;
-
-	args.label = "cardcf";
-	args.app_label = MD_DATA_APPLICAITON_NAME;
-	args.der_encoded.value = data;
-	args.der_encoded.len = data_size;
-
-	rv = sc_lock(vs->p15card->card);
-	if (rv)   {
-		logprintf(pCardData, 3, "MdCreateCardcf(): cannot lock card\n");
-		return SCARD_F_INTERNAL_ERROR;
-	}
-	rv = sc_pkcs15init_bind(vs->p15card->card, "pkcs15", NULL, NULL, &profile);
-	if (rv) {
-		logprintf(pCardData, 3, "MdCreateCardcf(): PKCS#15 bind failed\n");
-		sc_unlock(vs->p15card->card);
-		return SCARD_F_INTERNAL_ERROR;
-	}
-
-	rv = sc_pkcs15init_finalize_profile(vs->p15card->card, profile, NULL);
-	if (rv) {
-		logprintf(pCardData, 3, "MdCreateCardcf(): cannot finalize profile\n");
-		goto done;
-	}
-
-	sc_pkcs15init_set_p15card(profile, vs->p15card);
-
-	rv = sc_pkcs15init_store_data_object(vs->p15card, profile, &args, &vs->p15obj_cardcf);
-	if (rv)   {
-		logprintf(pCardData, 2, "MdCreateCardcf(): store cardcf DATA object failed %d\n", rv);
-		goto done;
-	}
-
-	dwret = SCARD_S_SUCCESS;
-done:
-	sc_pkcs15init_unbind(profile);
-	sc_unlock(vs->p15card->card);
-	return dwret;
-}
-
-
-static DWORD
-md_pkcs15_update_cardcf(PCARD_DATA pCardData, unsigned char *blob, size_t size)
-{
-	VENDOR_SPECIFIC *vs;
-	struct sc_pkcs15_data_info *cinfo = NULL;
-	unsigned char data[MD_CARDCF_LENGTH + MD_UTC_TIME_LENGTH_MAX];
-	size_t data_size;
-	DWORD dwret = SCARD_F_INTERNAL_ERROR;
-	int locked = 0, rv;
-
-	if (!pCardData || !blob || size < MD_CARDCF_LENGTH)
-		return SCARD_E_INVALID_PARAMETER;
-	logprintf(pCardData, 2, "Now update 'cardcf' DATA object\n");
-
-	if (md_is_read_only(pCardData))   {
-		logprintf(pCardData, 2, "no update of 'cardcf' DATA object in 'read-only' mode\n");
-		return SCARD_S_SUCCESS;
-	}
-
-	vs = pCardData->pvVendorSpecific;
-	if (!vs->p15obj_cardcf)
-		return md_pkcs15_create_cardcf(pCardData, blob, size);
-
-	data_size = sizeof(data);
-	dwret = md_pkcs15_encode_cardcf(pCardData, blob, size, data, &data_size);
-	if (dwret != SCARD_S_SUCCESS)
-		return dwret;
-
-	cinfo = (struct sc_pkcs15_data_info *)vs->p15obj_cardcf->data;
-
-	rv = sc_lock(vs->p15card->card);
-	if (rv)   {
-		logprintf(pCardData, 3, "cannot lock 'cardcf'\n");
-		goto done;
-	}
-	locked = 1;
-
-	rv = sc_select_file(vs->p15card->card, &cinfo->path, NULL);
-	if (rv)   {
-		logprintf(pCardData, 2, "cannot select 'cardcf' path %s: error %d\n", sc_print_path(&cinfo->path), rv);
-		goto done;
-	}
-
-	rv = sc_update_binary(vs->p15card->card, 0, data, data_size, 0);
-	if (rv < 0)   {
-		logprintf(pCardData, 2, "cannot update 'cardcf': error %d\n", rv);
-		goto done;
-	}
-
-	dwret = SCARD_S_SUCCESS;
-done:
-	if (locked)
-		sc_unlock(vs->p15card->card);
-	logprintf(pCardData, 2, "Update 'cardcf' DATA object returns %i\n", dwret);
-	return dwret;
-}
-
-
-static DWORD
 md_pkcs15_encode_cmapfile(PCARD_DATA pCardData, unsigned char **out, size_t *out_len)
 {
 	VENDOR_SPECIFIC *vs;
@@ -953,93 +825,6 @@ md_pkcs15_encode_cmapfile(PCARD_DATA pCardData, unsigned char **out, size_t *out
 
 
 /* 
- * Create PKCS#15 'Data' object:
- * application: 'CSP';
- * label: 'cmapfile'
- */
-static DWORD
-md_pkcs15_create_cmapfile(PCARD_DATA pCardData)
-{
-	VENDOR_SPECIFIC *vs;
-	struct sc_profile *profile = NULL;
-	struct sc_pkcs15init_dataargs args;
-	unsigned char *encoded = NULL, *file_data = NULL;
-	size_t encoded_len;
-
-	DWORD dwret = SCARD_F_INTERNAL_ERROR;
-	int rv;
-
-	if (!pCardData)
-		return SCARD_E_INVALID_PARAMETER;
-
-	vs = pCardData->pvVendorSpecific;
-
-	logprintf(pCardData, 2, "Now create P15 'cmapfile' DATA object\n");
-	memset(&args, 0, sizeof(args));
-	args.app_oid.value[0] = -1;
-	args.label = "cmapfile";
-	args.app_label = MD_DATA_APPLICAITON_NAME;
-
-	dwret = md_pkcs15_encode_cmapfile(pCardData, &encoded, &encoded_len);
-	if (dwret != SCARD_S_SUCCESS)
-		return dwret;
-
-	if (encoded_len > MD_MAX_KEY_CONTAINERS * 80)   {
-		logprintf(pCardData, 3, "MdCreateCMapFile(): encoded length exceeds the limit\n");
-		goto done;
-	}
-
-	file_data = calloc(MD_MAX_KEY_CONTAINERS, 80);
-	if (!file_data)   {
-		logprintf(pCardData, 3, "MdCreateCMapFile(): calloc error\n");
-		goto done;
-	}
-
-	if (encoded && encoded_len)
-		memcpy(file_data, encoded, encoded_len);
-
-	args.der_encoded.value = file_data;
-	args.der_encoded.len = MD_MAX_KEY_CONTAINERS * 80;
-
-	rv = sc_lock(vs->p15card->card);
-	if (rv)   {
-		logprintf(pCardData, 3, "MdCreateCMapFile(): cannot lock card\n");
-		return SCARD_F_INTERNAL_ERROR;
-	}
-	rv = sc_pkcs15init_bind(vs->p15card->card, "pkcs15", NULL, NULL, &profile);
-	if (rv) {
-		logprintf(pCardData, 3, "MdCreateCMapFile(): PKCS#15 bind failed\n");
-		sc_unlock(vs->p15card->card);
-		return SCARD_F_INTERNAL_ERROR;
-	}
-
-	rv = sc_pkcs15init_finalize_profile(vs->p15card->card, profile, NULL);
-	if (rv) {
-		logprintf(pCardData, 3, "MdCreateCMapFile(): cannot finalize profile\n");
-		goto done;
-	}
-
-	sc_pkcs15init_set_p15card(profile, vs->p15card);
-
-	rv = sc_pkcs15init_store_data_object(vs->p15card, profile, &args, &vs->p15obj_cmapfile);
-	if (rv)   {
-		logprintf(pCardData, 2, "MdCreateCMapFile(): store cardcf DATA object failed %d\n", rv);
-		goto done;
-	}
-
-	dwret = SCARD_S_SUCCESS;
-done:
-	sc_pkcs15init_unbind(profile);
-	sc_unlock(vs->p15card->card);
-	if (encoded)
-		free(encoded);
-	if (file_data)
-		free(file_data);
-	logprintf(pCardData, 2, "Create P15 'cmapfile' DATA object returns %i\n", dwret);
-	return dwret;
-}
-
-/* 
  * Update 'soft' containers.
  * Called each time when 'WriteFile' is called for 'cmapfile'.
  */
@@ -1075,180 +860,143 @@ md_pkcs15_update_containers(PCARD_DATA pCardData, unsigned char *blob, size_t si
 			cont->size_key_exchange = pp->wKeyExchangeKeySizeBits;
 			logprintf(pCardData, 3, "update P15 containers: touch container (idx:%i,id:%s,guid:%s,flags:%X)\n", 
 				idx, sc_pkcs15_print_id(&cont->id),cont->guid,cont->flags);
-
-			if (cont->id.len)		
-				vs->p15obj_cmapfile_dirty = 1;
 		}
 	}
 
-	logprintf(pCardData, 2, "update P15 containers: cmapfile dirty %i\n", vs->p15obj_cmapfile_dirty);
 	return SCARD_S_SUCCESS;
 }
 
-/*
- * Store 'soft' containers into the dedicated PKCS#15 'DATA' object.
- * Called by 'Deauthenticate' procedure.
- */
 static DWORD
-md_pkcs15_update_cmapfile(PCARD_DATA pCardData)
+md_pkcs15_update_container_from_do(PCARD_DATA pCardData, struct sc_pkcs15_object *dobj)
 {
 	VENDOR_SPECIFIC *vs;
-	struct sc_pkcs15_data_info *dinfo = NULL;
-	struct sc_file  *file = NULL;
-	unsigned char *encoded = NULL, *file_data = NULL;
-	size_t encoded_len;
 	DWORD dwret = SCARD_F_INTERNAL_ERROR;
-	int locked = 0, rv;
+	struct sc_pkcs15_data *ddata = NULL;
+	struct sc_pkcs15_id id;
+	int rv, offs, idx;
+	unsigned flags;
 
-	if (!pCardData)
-		return SCARD_E_INVALID_PARAMETER;
-
-	vs = pCardData->pvVendorSpecific;
-	logprintf(pCardData, 2, "Now update P15 'cmapfile' DATA object\n");
-
-	if (md_is_read_only(pCardData))   {
-		logprintf(pCardData, 2, "no update of 'cmapfile' DATA object in 'read-only' mode\n");
-		return SCARD_S_SUCCESS;
-	}
-
-	if (!vs->p15obj_cmapfile)   {
-		logprintf(pCardData, 2, "no 'cmapfile' DATA object to update\n");
-		return SCARD_S_SUCCESS;
-	}
-
-	if (!vs->p15obj_cmapfile_dirty)   {
-		logprintf(pCardData, 2, "no need to update the 'cmapfile' DATA object \n");
-		return SCARD_S_SUCCESS;
-	}
-
-	dwret = md_pkcs15_encode_cmapfile(pCardData, &encoded, &encoded_len);
-	if (dwret != SCARD_S_SUCCESS)
-		return dwret;
-
-	dinfo = (struct sc_pkcs15_data_info *)vs->p15obj_cmapfile->data;
-
-	rv = sc_lock(vs->p15card->card);
-	if (rv)   {
-		logprintf(pCardData, 3, "MdUpdateCMapFile(): cannot lock P15 'cmapfile'\n");
-		goto done;
-	}
-	locked = 1;
-
-	rv = sc_select_file(vs->p15card->card, &dinfo->path, &file);
-	if (rv)   {
-		logprintf(pCardData, 2, "MdUpdateCMapFile(): cannot select P15 'cmapfile' '%s': error %d\n", sc_print_path(&dinfo->path), rv);
-		goto done;
-	}
-
-	if (file->size < encoded_len)   {
-		logprintf(pCardData, 3, "MdUpdateCMapFile(): encoded length exceeds the file length\n");
-		goto done;
-	}
-
-	file_data = calloc(file->size, 1);
-	if (!file_data)   {
-		logprintf(pCardData, 3, "MdUpdateCMapFile(): calloc error\n");
-		goto done;
-	}
-
-	memcpy(file_data, encoded, encoded_len);
-	rv = sc_update_binary(vs->p15card->card, 0, file_data, file->size, 0);
-	if (rv < 0)   {
-		logprintf(pCardData, 2, "MdUpdateCMapFile(): cannot update P15 'cmapfile': error %d\n", rv);
-		goto done;
-	}
-
-	dwret = SCARD_S_SUCCESS;
-done:
-	if (file)
-		sc_file_free(file);
-	if (file_data)
-		free(file_data);
-	if (locked)
-		sc_unlock(vs->p15card->card);
-	logprintf(pCardData, 2, "Update P15 'cmapfile' DATA object returns %i\n", dwret);
-	return dwret;
-}
-
-/* 
- * Parse container record from the dedicated PKCS#15 'DATA' object data
- */
-static DWORD
-md_pkcs15_parse_container(PCARD_DATA pCardData, unsigned char *data, size_t len, 
-		struct md_pkcs15_container *out, 
-		unsigned char **tail, size_t *tail_len)
-{
-	VENDOR_SPECIFIC *vs;
-	struct md_pkcs15_container cont;
-	struct sc_asn1_entry asn1_md_container_attrs[C_ASN1_MD_CONTAINER_ATTRS_SIZE];
-	struct sc_asn1_entry asn1_md_container[C_ASN1_MD_CONTAINER_SIZE];
-	size_t guid_len, flags_len;
-	int rv;
-
-	logprintf(pCardData, 2, "Parse PKCS#15 container record(data:%p,len:%i)\n", data, len);
-	if (!pCardData || !data || !out) 
+	if (!pCardData || !dobj)
 		return SCARD_E_INVALID_PARAMETER;
 	vs = pCardData->pvVendorSpecific;
 
-	sc_copy_asn1_entry(c_asn1_md_container_attrs, asn1_md_container_attrs);
-	sc_copy_asn1_entry(c_asn1_md_container, asn1_md_container);
-
-	guid_len = sizeof(cont.guid);
-	flags_len = sizeof(cont.flags);
-	sc_format_asn1_entry(asn1_md_container_attrs + 0, &cont.index, NULL, 0);
-	sc_format_asn1_entry(asn1_md_container_attrs + 1, &cont.id, NULL, 0);
-	sc_format_asn1_entry(asn1_md_container_attrs + 2, cont.guid, &guid_len, 0);
-	sc_format_asn1_entry(asn1_md_container_attrs + 3, &cont.flags, &flags_len, 0);
-	sc_format_asn1_entry(asn1_md_container_attrs + 4, &cont.size_key_exchange, NULL, 0);
-	sc_format_asn1_entry(asn1_md_container_attrs + 5, &cont.size_sign, NULL, 0);
-
-	sc_format_asn1_entry(asn1_md_container + 0, asn1_md_container_attrs, NULL, 0);
-
-	rv = sc_asn1_decode(vs->ctx, asn1_md_container, data, len, tail, tail_len);
-	if (rv == SC_ERROR_ASN1_END_OF_CONTENTS)   {
-		logprintf(pCardData, 3, "ParseP15containerRecord(): asn1 'end-of-content' error\n");
-		return SCARD_E_BAD_SEEK;
-	}
-	else if (rv)   {
-		logprintf(pCardData, 3, "ParseP15containerRecord(): sc-error %i\n", rv);
+	rv = sc_pkcs15_read_data_object(vs->p15card, (struct sc_pkcs15_data_info *)dobj->data, &ddata);
+	if (rv)   {
+		logprintf(pCardData, 2, "sc_pkcs15_read_data_object('%s') returned %i\n", dobj->label, rv);
 		return SCARD_F_INTERNAL_ERROR;
 	}
 
-	logprintf(pCardData, 3, "Parsed from P15 'cmapfile' container(id:%s,guid:%s)\n", sc_pkcs15_print_id(&cont.id), cont.guid);
-	*out = cont;
+	offs = 0;
+	if (*(ddata->data + offs++) != 0x01)   {
+		sc_pkcs15_free_data_object(ddata);
+		return SCARD_E_INVALID_VALUE;
+	}
+	id.len = *(ddata->data + offs++);
+	memcpy(id.value, ddata->data + offs, id.len);
+	offs += id.len;
+
+	if (*(ddata->data + offs++) != 0x02)   {
+		sc_pkcs15_free_data_object(ddata);
+		return SCARD_E_INVALID_VALUE;
+	}
+	if (*(ddata->data + offs++) != 0x01)   {
+		sc_pkcs15_free_data_object(ddata);
+		return SCARD_E_INVALID_VALUE;
+	}
+
+	flags = *(ddata->data + offs);
+
+	for (idx=0; idx<MD_MAX_KEY_CONTAINERS && vs->p15_containers[idx].prkey_obj; idx++)   {
+		if (sc_pkcs15_compare_id(&id, &vs->p15_containers[idx].id))   {
+			snprintf(vs->p15_containers[idx].guid, sizeof(vs->p15_containers[idx].guid),
+					"%s", dobj->label);
+			vs->p15_containers[idx].flags = flags;
+			logprintf(pCardData, 2, "Set container's guid to '%s' and flags to 0x%X\n", 
+					vs->p15_containers[idx].guid, flags);
+			break;
+		}
+	}
+
+	sc_pkcs15_free_data_object(ddata);
 	return SCARD_S_SUCCESS;
 }
 
+
+static DWORD
+md_pkcs15_default_container_from_do(PCARD_DATA pCardData, struct sc_pkcs15_object *dobj)
+{
+	VENDOR_SPECIFIC *vs;
+	struct sc_pkcs15_data *ddata = NULL;
+	DWORD dwret = SCARD_F_INTERNAL_ERROR;
+	int rv, idx;
+	char guid[MAX_CONTAINER_NAME_LEN + 1];
+
+	if (!pCardData || !dobj)
+		return SCARD_E_INVALID_PARAMETER;
+
+	vs = pCardData->pvVendorSpecific;
+
+	rv = sc_pkcs15_read_data_object(vs->p15card, (struct sc_pkcs15_data_info *)dobj->data, &ddata);
+	if (rv)   {
+		logprintf(pCardData, 2, "sc_pkcs15_read_data_object('%s') returned %i\n", dobj->label, rv);
+		return SCARD_F_INTERNAL_ERROR;
+	}
+
+	if (ddata->data_len > MAX_CONTAINER_NAME_LEN || ddata->data_len < 32)   {
+		logprintf(pCardData, 2, "Invalid container name length %i\n", ddata->data_len);
+		return SCARD_E_INVALID_VALUE;
+	}
+
+	memset(guid, 0, sizeof(guid));
+	memcpy(&guid[0] , ddata->data, ddata->data_len);
+
+	logprintf(pCardData, 2, "Search container '%s' to set it as default\n", guid);
+	for (idx=0; idx<MD_MAX_KEY_CONTAINERS && vs->p15_containers[idx].prkey_obj; idx++)   {
+		if (strstr(vs->p15_containers[idx].guid, guid))   {
+			vs->p15_containers[idx].flags |= CONTAINER_MAP_DEFAULT_CONTAINER;
+			logprintf(pCardData, 2, "Default container is '%s'\n", vs->p15_containers[idx].guid);
+			break;
+		}
+	}
+
+	sc_pkcs15_free_data_object(ddata);
+	return SCARD_S_SUCCESS;
+}
 
 static DWORD
 md_pkcs15_delete_object(PCARD_DATA pCardData, struct sc_pkcs15_object *obj)
 {
 	VENDOR_SPECIFIC *vs;
 	struct sc_profile *profile = NULL;
+	struct sc_card *card = NULL;
+	struct sc_app_info *app_info = NULL;
 	DWORD dwret = SCARD_F_INTERNAL_ERROR;
 	int rv;
 
 	if (!pCardData)
 		return SCARD_E_INVALID_PARAMETER;
 	vs = pCardData->pvVendorSpecific;
+	card = vs->p15card->card;
 
 	if (!obj)
 		return SCARD_S_SUCCESS;
 	logprintf(pCardData, 3, "MdDeleteObject('%s',type:0x%X) called\n", obj->label, obj->type);
 
-	rv = sc_lock(vs->p15card->card);
+	rv = sc_lock(card);
 	if (rv)   {
 		logprintf(pCardData, 3, "MdDeleteObject(): cannot lock card\n");
 		return SCARD_F_INTERNAL_ERROR;
 	}
-	rv = sc_pkcs15init_bind(vs->p15card->card, "pkcs15", NULL, NULL, &profile);
+	
+	app_info = vs->p15card->app;
+	rv = sc_pkcs15init_bind(card, "pkcs15", NULL, app_info, &profile);
 	if (rv) {
 		logprintf(pCardData, 3, "MdDeleteObject(): PKCS#15 bind failed\n");
-		sc_unlock(vs->p15card->card);
+		sc_unlock(card);
 		return SCARD_F_INTERNAL_ERROR;
 	}
 
-	rv = sc_pkcs15init_finalize_profile(vs->p15card->card, profile, NULL);
+	rv = sc_pkcs15init_finalize_profile(card, profile, app_info ? &app_info->aid : NULL);
 	if (rv) {
 		logprintf(pCardData, 3, "MdDeleteObject(): cannot finalize profile\n");
 		goto done;
@@ -1266,7 +1014,7 @@ md_pkcs15_delete_object(PCARD_DATA pCardData, struct sc_pkcs15_object *obj)
 	logprintf(pCardData, 3, "MdDeleteObject() returns OK\n");
 done:
 	sc_pkcs15init_unbind(profile);
-	sc_unlock(vs->p15card->card);
+	sc_unlock(card);
 	return dwret;
 }
 
@@ -1289,9 +1037,7 @@ md_fs_set_content(PCARD_DATA pCardData, struct md_file *file, unsigned char *blo
 	CopyMemory(file->blob, blob, size);
 	file->size = size;
 
-	if (!strcmp(file->name, "cardcf"))
-		return md_pkcs15_update_cardcf(pCardData, blob, size); 
-	else if (!strcmp(file->name, "cmapfile"))
+	if (!strcmp(file->name, "cmapfile"))
 		return md_pkcs15_update_containers(pCardData, blob, size);
 
 	return SCARD_S_SUCCESS;
@@ -1395,8 +1141,6 @@ md_fs_read_content(PCARD_DATA pCardData, char *parent, struct md_file *file)
 	else   {
 		return;
 	}
-
-
 }
 
 /* 
@@ -1407,15 +1151,13 @@ md_fs_read_content(PCARD_DATA pCardData, char *parent, struct md_file *file)
  * - random data.
  */
 static DWORD
-md_set_cardcf(PCARD_DATA pCardData, struct md_file *file, CARD_CACHE_FILE_FORMAT *data)
+md_set_cardcf(PCARD_DATA pCardData, struct md_file *file)
 {
-	DWORD dwret;
-	CARD_CACHE_FILE_FORMAT empty;
 	VENDOR_SPECIFIC *vs;
-	char *last_update;
-	struct sc_pkcs15_object *obj = NULL;
+	char *last_update = NULL;
+	CARD_CACHE_FILE_FORMAT empty;
 	size_t empty_len = sizeof(empty);
-	int rv;
+	DWORD dwret;
 	
 	if (!pCardData || !file) 
 		return SCARD_E_INVALID_PARAMETER;
@@ -1424,61 +1166,26 @@ md_set_cardcf(PCARD_DATA pCardData, struct md_file *file, CARD_CACHE_FILE_FORMAT
 	memset(&empty, 0, sizeof(empty));
 	empty.bVersion = CARD_CACHE_FILE_CURRENT_VERSION; 
 
-	logprintf(pCardData, 3, "Now set cardcf\n");
-	if (!data)   {
-		do   {
-			struct sc_pkcs15_data *data_object;
-
-			rv = sc_pkcs15_find_data_object_by_name(vs->p15card, MD_DATA_APPLICAITON_NAME, "cardcf", &obj);
-			if (rv)   {
-				logprintf(pCardData, 2, "sc_pkcs15_find_data_object_by_name(CSP,cardcf) returned %i\n", rv);
-				break;
-			}
-
-			rv = sc_pkcs15_read_data_object(vs->p15card, (struct sc_pkcs15_data_info *)obj->data, &data_object);
-			if (rv)   {
-				logprintf(pCardData, 2, "sc_pkcs15_read_data_object(cardcf) returned %i\n", rv);
-				break;
-			}
-
-			if (data_object->data_len >= MD_CARDCF_LENGTH)   {
-				memcpy(&empty, data_object->data, sizeof(empty));
-				vs->p15obj_cardcf = obj;
-				logprintf(pCardData, 2, "set cardcf from the PKCS#15 DATA object\n");
-				data = &empty;
-				
-				if (data->bPinsFreshness)
-					logprintf(pCardData, 2, "!!!! Stored PinsFreshness is not null\n");
-				data->bPinsFreshness = PIN_SET_NONE;
-			}
-
-			sc_pkcs15_free_data_object(data_object);
-		} while(0);
-	}
-
 	last_update = sc_pkcs15_get_lastupdate(vs->p15card);
-	if (!data && last_update)   {
+	if (last_update)   {
 		unsigned crc32 = sc_crc32(last_update, strlen(last_update));
+		logprintf(pCardData, 2, "Set 'cardcf' using lastUpdate '%s'; CRC32 %X\n", last_update, crc32);
 
 		empty.wContainersFreshness = crc32;
 		empty.wFilesFreshness = crc32;
-		logprintf(pCardData, 2, "set cardcf from 'lastUpdate' attribut\n");
-		data = &empty;
 	}
-
-	if (!data)   {
+	else   {
+		logprintf(pCardData, 2, "Set 'cardcf' using random value\n");
 		srand((unsigned)time(NULL));
 		empty.wContainersFreshness = rand()%30000;
 		empty.wFilesFreshness = rand()%30000;
-		logprintf(pCardData, 2, "set random cardcf\n");
-		data = &empty;
 	}
 
-	dwret = md_fs_set_content(pCardData, file, (unsigned char *)data, MD_CARDCF_LENGTH);
+	dwret = md_fs_set_content(pCardData, file, (unsigned char *)(&empty), MD_CARDCF_LENGTH);
 	if (dwret != SCARD_S_SUCCESS)
 		return dwret;
 
-	logprintf(pCardData, 3, "cardcf(%i)\n", file->size);
+	logprintf(pCardData, 3, "'cardcf' content(%i)\n", file->size);
 	loghex(pCardData, 3, file->blob, file->size);
 	return SCARD_S_SUCCESS;
 }
@@ -1547,12 +1254,13 @@ md_set_cmapfile(PCARD_DATA pCardData, struct md_file *file)
 	size_t cmap_len;
 	DWORD dwret;
 	int ii, rv, conts_num, found_default = 0;
-	struct sc_pkcs15_data *data_object;
+	/* struct sc_pkcs15_data *data_object; */
 	struct sc_pkcs15_object *prkey_objs[MD_MAX_KEY_CONTAINERS];
 
 	if (!pCardData || !file) 
 		return SCARD_E_INVALID_PARAMETER;
 
+	logprintf(pCardData, 0, "set 'cmapfile'\n");
 	vs = pCardData->pvVendorSpecific;
 	cmap_len = MD_MAX_KEY_CONTAINERS*sizeof(CONTAINER_MAP_RECORD);
 	cmap_buf = pCardData->pfnCspAlloc(cmap_len);
@@ -1588,17 +1296,22 @@ md_set_cmapfile(PCARD_DATA pCardData, struct md_file *file)
 
 		logprintf(pCardData, 7, "Container[%i]'s guid=%s\n", ii, cont->guid);
 		cont->flags = CONTAINER_MAP_VALID_CONTAINER;
-		/* Use the 'AT_KEYEXCHANGE' container type for keys which support
-		 * decrypt (TODO: Do we need Encrypt options too?) */
-		if (prkey_info->usage & (SC_PKCS15_PRKEY_USAGE_DECRYPT|SC_PKCS15_PRKEY_USAGE_UNWRAP)) {
-			cont->size_key_exchange = prkey_info->modulus_length;
-			cont->size_sign = 0;
-		}
-		/* Otherwise use 'AT_SIGNATURE' container type */
-		else {
+
+		/* AT_KEYEXCHANGE is more general key usage, 
+		 * 	it allows 'decryption' as well as 'signature' key usage.
+		 * AT_SIGNATURE allows only 'signature' usage,
+		 * 	for a while use AT_SIGNATURE only for 'signature' with 'non-repudiation'.
+		 * FIXME: Should it be changed?
+		 */
+		if (prkey_info->usage == (SC_PKCS15_PRKEY_USAGE_SIGN|SC_PKCS15_PRKEY_USAGE_NONREPUDIATION)) {
 			cont->size_key_exchange = 0;
 			cont->size_sign = prkey_info->modulus_length;
 		}
+		else   {
+			cont->size_key_exchange = prkey_info->modulus_length;
+			cont->size_sign = 0;
+		}
+
 		cont->id = prkey_info->id;
 		cont->prkey_obj = prkey_objs[ii];
 
@@ -1612,71 +1325,44 @@ md_set_cmapfile(PCARD_DATA pCardData, struct md_file *file)
 
 	if (conts_num)   {
 		/* Read 'CMAPFILE' and update the attributes of P15 containers */
-		do   {
-			unsigned char *ptr;
-			size_t sz;
+		struct sc_pkcs15_object *dobjs[MD_MAX_KEY_CONTAINERS + 1], *default_cont = NULL;
+		int num_dobjs = MD_MAX_KEY_CONTAINERS + 1;
 
-			rv = sc_pkcs15_find_data_object_by_name(vs->p15card, MD_DATA_APPLICAITON_NAME, "cmapfile", &vs->p15obj_cmapfile);
-			if (rv)   {
-				logprintf(pCardData, 2, "sc_pkcs15_find_data_object_by_name(CSP,cmap) returned %i\n", rv);
-				break;
-			}
-			rv = sc_pkcs15_read_data_object(vs->p15card, (struct sc_pkcs15_data_info *)vs->p15obj_cmapfile->data, &data_object);
-			if (rv)   {
-				logprintf(pCardData, 2, "sc_pkcs15_read_data_object(cardcf) returned %i\n", rv);
-				break;
-			}
+		rv = sc_pkcs15_get_objects(vs->p15card, SC_PKCS15_TYPE_DATA_OBJECT, dobjs, num_dobjs);
+		if (rv < 0)   {
+			logprintf(pCardData, 0, "'DATA' object enumeration failed: %s\n", sc_strerror(rv));
+			return SCARD_F_UNKNOWN_ERROR;
+		}
 
-			ptr = data_object->data;
-			sz = data_object->data_len;
+		num_dobjs = rv;
+		logprintf(pCardData, 2, "Found %d 'DATA' objects.\n", num_dobjs);
 
-			while (ptr && sz)   {
-				struct md_pkcs15_container cont;
-				int ii;
+		for (ii=0;ii<num_dobjs;ii++)   {
+			struct sc_pkcs15_data_info *dinfo = (struct sc_pkcs15_data_info *)dobjs[ii]->data;
 
-				rv = md_pkcs15_parse_container(pCardData, ptr, sz, &cont, &ptr, &sz);
-				if (rv != SCARD_S_SUCCESS)   {
-					if (rv != SCARD_E_BAD_SEEK)
-						logprintf(pCardData, 2, "cannot parse PKCS#15 container record: %i\n", rv);
-					break;
-				}
+			if (strcmp(dinfo->app_label, MD_DATA_APPLICAITON_NAME))
+				continue;
 
-				for (ii=0; ii<conts_num; ii++)
-					if (sc_pkcs15_compare_id(&vs->p15_containers[ii].id, &cont.id))
-						break;
-
-				if (ii<conts_num)   {
-					logprintf(pCardData, 2, "found pkcs15 key corresponding to container '%s'\n", cont.guid);
-					memcpy(&vs->p15_containers[ii].guid[0], &cont.guid[0], sizeof(cont.guid));
-					vs->p15_containers[ii].size_key_exchange = cont.size_key_exchange;
-					vs->p15_containers[ii].size_sign = cont.size_sign;
-					vs->p15_containers[ii].flags = cont.flags;
-					if (cont.flags & CONTAINER_MAP_DEFAULT_CONTAINER)
-						found_default = 1;
-
-					/* Move the p15-container to the place in array indicated by 'index' attribute */
-					if (ii != cont.index)   {
-						struct md_pkcs15_container tmp = vs->p15_containers[ii];
-						vs->p15_containers[ii] = vs->p15_containers[cont.index];
-						vs->p15_containers[cont.index] = tmp;
-					}
-				}
-				else if ((strlen(cont.guid)>0) && (cont.flags!=0))   {
-					logprintf(pCardData, 2, "found container '%s' without pkcs#15 ID attribute\n", cont.guid);
-					ii = cont.index;
-					memset(&vs->p15_containers[ii], 0, sizeof(vs->p15_containers[ii]));
-					memcpy(&vs->p15_containers[ii].guid[0], &cont.guid[0], sizeof(cont.guid));
-					vs->p15_containers[ii].size_key_exchange = cont.size_key_exchange;
-					vs->p15_containers[ii].size_sign = cont.size_sign;
-					vs->p15_containers[ii].flags = cont.flags;
-				}
-				else   {
-					logprintf(pCardData, 2, "ignored container record '%s'\n", cont.guid);
-				}
+			logprintf(pCardData, 2, "Found 'DATA' object '%s'\n", dobjs[ii]->label);
+			if (!strcmp(dobjs[ii]->label, MD_DATA_DEFAULT_CONT_LABEL))   {
+				default_cont = dobjs[ii];
+				continue;
 			}
 
-			sc_pkcs15_free_data_object(data_object);
-		} while (0);
+			dwret = md_pkcs15_update_container_from_do(pCardData, dobjs[ii]);
+			if (dwret != SCARD_S_SUCCESS)   {
+				logprintf(pCardData, 2, "Cannot update container from DO: %li", dwret);
+				return dwret;
+			}
+		}
+
+		if (default_cont)   {
+			dwret = md_pkcs15_default_container_from_do(pCardData, default_cont);
+			if (dwret != SCARD_S_SUCCESS)   {
+				logprintf(pCardData, 2, "Cannot set default container from DO: %li", dwret);
+				return dwret;
+			}
+		}
 
 		/* Initialize 'CMAPFILE' content from the P15 containers */
 		p = (PCONTAINER_MAP_RECORD)cmap_buf;
@@ -1724,8 +1410,6 @@ md_set_cmapfile(PCARD_DATA pCardData, struct md_file *file)
 	if (dwret != SCARD_S_SUCCESS)
 		return dwret;
 
-	vs->p15obj_cmapfile_dirty = 0;
-
 	logprintf(pCardData, 3, "cmap(%i)\n", file->size);
 	loghex(pCardData, 3, file->blob, file->size);
 	return SCARD_S_SUCCESS;
@@ -1757,7 +1441,7 @@ md_fs_init(PCARD_DATA pCardData)
 	dwret = md_fs_add_file(pCardData, &(vs->root.files), "cardcf", EveryoneReadUserWriteAc, NULL, 0, &cardcf);
 	if (dwret != SCARD_S_SUCCESS)
 		return dwret;
-	dwret = md_set_cardcf(pCardData, cardcf, NULL);
+	dwret = md_set_cardcf(pCardData, cardcf);
 	if (dwret != SCARD_S_SUCCESS)
 		return dwret;
 
@@ -1929,8 +1613,9 @@ md_pkcs15_generate_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, DWORD ke
 	VENDOR_SPECIFIC *vs;
 	struct sc_card *card = NULL;
 	struct sc_profile *profile = NULL;
-	struct sc_pkcs15_object *pin_obj;
-	struct sc_pkcs15_auth_info *auth_info;
+	struct sc_pkcs15_object *pin_obj = NULL;
+	struct sc_pkcs15_auth_info *auth_info = NULL;
+	struct sc_app_info *app_info = NULL;
 	struct sc_pkcs15init_keygen_args keygen_args;
 	struct sc_pkcs15init_pubkeyargs pub_args;
 	struct md_pkcs15_container *cont = NULL;
@@ -1978,14 +1663,16 @@ md_pkcs15_generate_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, DWORD ke
 		logprintf(pCardData, 3, "MdGenerateKey(): cannot lock card\n");
 		return SCARD_F_INTERNAL_ERROR;
 	}
-	rv = sc_pkcs15init_bind(card, "pkcs15", NULL, NULL, &profile);
+
+	app_info = vs->p15card->app;
+	rv = sc_pkcs15init_bind(card, "pkcs15", NULL, app_info, &profile);
 	if (rv) {
 		logprintf(pCardData, 3, "MdGenerateKey(): PKCS#15 bind failed\n");
 		sc_unlock(card);
 		return SCARD_F_INTERNAL_ERROR;
 	}
 
-	rv = sc_pkcs15init_finalize_profile(card, profile, NULL);
+	rv = sc_pkcs15init_finalize_profile(card, profile, app_info ? &app_info->aid : NULL);
 	if (rv) {
 		logprintf(pCardData, 3, "MdGenerateKey(): cannot finalize profile\n");
 		goto done;
@@ -1993,7 +1680,8 @@ md_pkcs15_generate_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, DWORD ke
 
 	sc_pkcs15init_set_p15card(profile, vs->p15card);
 	cont = &(vs->p15_containers[idx]);
-	keygen_args.prkey_args.guid = cont->guid;
+	if (strlen(cont->guid))
+		keygen_args.prkey_args.guid = cont->guid;
 
 	rv = sc_pkcs15init_generate_key(vs->p15card, profile, &keygen_args, key_size, &cont->prkey_obj);
 	if (rv < 0) {
@@ -2024,6 +1712,7 @@ md_pkcs15_store_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, BYTE *blob,
 	struct sc_card *card = NULL;
 	struct sc_profile *profile = NULL;
 	struct sc_pkcs15_object *pin_obj = NULL;
+	struct sc_app_info *app_info = NULL;
 	struct md_pkcs15_container *cont = NULL;
 	struct sc_pkcs15init_prkeyargs prkey_args;
 	struct sc_pkcs15init_pubkeyargs pubkey_args;
@@ -2086,14 +1775,16 @@ md_pkcs15_store_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, BYTE *blob,
 		logprintf(pCardData, 3, "MdStoreKey(): cannot lock card\n");
 		return SCARD_F_INTERNAL_ERROR;
 	}
-	rv = sc_pkcs15init_bind(card, "pkcs15", NULL, NULL, &profile);
+
+	app_info = vs->p15card->app;
+	rv = sc_pkcs15init_bind(card, "pkcs15", NULL, app_info, &profile);
 	if (rv) {
 		logprintf(pCardData, 3, "MdStoreKey(): PKCS#15 bind failed\n");
 		sc_unlock(card);
 		return SCARD_F_INTERNAL_ERROR;
 	}
 
-	rv = sc_pkcs15init_finalize_profile(card, profile, NULL);
+	rv = sc_pkcs15init_finalize_profile(card, profile, app_info ? &app_info->aid : NULL);
 	if (rv) {
 		logprintf(pCardData, 3, "MdStoreKey(): cannot finalize profile\n");
 		goto done;
@@ -2101,7 +1792,8 @@ md_pkcs15_store_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, BYTE *blob,
 
 	sc_pkcs15init_set_p15card(profile, vs->p15card);
 	cont = &(vs->p15_containers[idx]);
-	prkey_args.guid = cont->guid;
+	if (strlen(cont->guid))
+		prkey_args.guid = cont->guid;
 
 	rv = sc_pkcs15init_store_private_key(vs->p15card, profile, &prkey_args, &cont->prkey_obj);
 	if (rv < 0) {
@@ -2117,7 +1809,7 @@ md_pkcs15_store_key(PCARD_DATA pCardData, DWORD idx, DWORD key_type, BYTE *blob,
 
 	cont->id = ((struct sc_pkcs15_prkey_info *)cont->prkey_obj->data)->id;
 	cont->index = idx;
-	cont->flags = CONTAINER_MAP_VALID_CONTAINER;
+	cont->flags |= CONTAINER_MAP_VALID_CONTAINER;
 
 	logprintf(pCardData, 3, "MdStoreKey(): stored key(idx:%i,id:%s,guid:%s)\n", idx, sc_pkcs15_print_id(&cont->id),cont->guid);
 	dwret = SCARD_S_SUCCESS;
@@ -2139,6 +1831,7 @@ md_pkcs15_store_certificate(PCARD_DATA pCardData, char *file_name, unsigned char
 	VENDOR_SPECIFIC *vs;
 	struct sc_card *card = NULL;
 	struct sc_profile *profile = NULL;
+	struct sc_app_info *app_info = NULL;
 	struct sc_pkcs15_object *cert_obj;
 	struct sc_pkcs15init_certargs args;
 	int rv;
@@ -2159,14 +1852,16 @@ md_pkcs15_store_certificate(PCARD_DATA pCardData, char *file_name, unsigned char
 		logprintf(pCardData, 3, "MdStoreCert(): cannot lock card\n");
 		return SCARD_F_INTERNAL_ERROR;
 	}
-	rv = sc_pkcs15init_bind(card, "pkcs15", NULL, NULL, &profile);
+
+	app_info = vs->p15card->app;
+	rv = sc_pkcs15init_bind(card, "pkcs15", NULL, app_info, &profile);
 	if (rv) {
 		logprintf(pCardData, 3, "MdStoreCert(): PKCS#15 bind failed\n");
 		sc_unlock(card);
 		return SCARD_F_INTERNAL_ERROR;
 	}
 
-	rv = sc_pkcs15init_finalize_profile(card, profile, NULL);
+	rv = sc_pkcs15init_finalize_profile(card, profile, app_info ? &app_info->aid : NULL);
 	if (rv) {
 		logprintf(pCardData, 3, "MdStoreCert(): cannot finalize profile\n");
 		goto done;
@@ -2215,9 +1910,8 @@ DWORD WINAPI CardDeleteContext(__inout PCARD_DATA  pCardData)
 	if(!pCardData)
 		return SCARD_E_INVALID_PARAMETER;
 
-	logprintf(pCardData, 1, "\nP:%d T:%d pCardData:%p hScard=0x%08X hSCardCtx=0x%08X",
+	logprintf(pCardData, 1, "\nP:%d T:%d pCardData:%p hScard=0x%08X hSCardCtx=0x%08X CardDeleteContext\n",
 			GetCurrentProcessId(), GetCurrentThreadId(), pCardData, pCardData->hScard, pCardData->hSCardCtx);
-	logprintf(pCardData, 1, "CardDeleteContext\n");
 
 	vs = (VENDOR_SPECIFIC*)(pCardData->pvVendorSpecific);
 	if(!vs)
@@ -2299,14 +1993,6 @@ DWORD WINAPI CardCreateContainer(__in PCARD_DATA pCardData,
 	if (dwret != SCARD_S_SUCCESS)   {
 		logprintf(pCardData, 1, "check key compatibility failed");
 		return dwret;
-	}
-
-	if (!vs->p15obj_cmapfile)   {
-		dwret = md_pkcs15_create_cmapfile(pCardData);
-		if (dwret != SCARD_S_SUCCESS)   {
-			logprintf(pCardData, 1, "cannot create 'cmapfile' PKCS#15 DATA object");
-			return dwret;
-		}
 	}
 
 	if (dwFlags & CARD_CREATE_CONTAINER_KEY_GEN)   {
@@ -2616,20 +2302,7 @@ DWORD WINAPI CardDeauthenticate(__in PCARD_DATA pCardData,
 	dwret = md_get_cardcf(pCardData, &cardcf);
 	if (dwret != SCARD_S_SUCCESS)
 		return dwret;
-	logprintf(pCardData, 1, "CardDeauthenticate bPinsFreshness:%d; CMapFile dirty %i\n", 
-			cardcf->bPinsFreshness, vs->p15obj_cmapfile_dirty);
-
-	if (vs->p15obj_cmapfile_dirty)   {
-		md_fs_find_file(pCardData, "mscp", "cmapfile", &cmapfile);
-		if (!cmapfile)   {
-			logprintf(pCardData, 2, "file 'cmapfile' not found\n");
-		}
-		else   {
-			dwret = md_pkcs15_update_cmapfile(pCardData);
-			if (dwret != SCARD_S_SUCCESS)
-				logprintf(pCardData, 2, "update P15 'CMapFile' failed\n");
-		}
-	}
+	logprintf(pCardData, 1, "CardDeauthenticate bPinsFreshness:%d\n", cardcf->bPinsFreshness);
 
 	if (!wcscmp(pwszUserId, wszCARD_USER_USER))
 		CLEAR_PIN(cardcf->bPinsFreshness, ROLE_USER);
@@ -2638,12 +2311,6 @@ DWORD WINAPI CardDeauthenticate(__in PCARD_DATA pCardData,
 	else 
 		return SCARD_E_INVALID_PARAMETER; 
 	logprintf(pCardData, 5, "PinsFreshness = %d\n",  cardcf->bPinsFreshness);
-
-	dwret = md_pkcs15_update_cardcf(pCardData, (unsigned char *)(cardcf), MD_CARDCF_LENGTH);
-	if (dwret != SCARD_S_SUCCESS)   {
-		logprintf(pCardData, 2, "update P15 'cardcf' failed\n");
-		return dwret;
-	}
 
 	/* TODO Reset PKCS#15 PIN object 'validated' flag */
 	return SCARD_S_SUCCESS;
@@ -2709,6 +2376,8 @@ DWORD WINAPI CardReadFile(__in PCARD_DATA pCardData,
 
 	if(!pCardData) 
 		return SCARD_E_INVALID_PARAMETER;
+	if (!ppbData || !pcbData) 
+		return SCARD_E_INVALID_PARAMETER;
 
 	vs = (VENDOR_SPECIFIC*)(pCardData->pvVendorSpecific);
 
@@ -2716,8 +2385,6 @@ DWORD WINAPI CardReadFile(__in PCARD_DATA pCardData,
 		NULLSTR(pszDirectoryName), NULLSTR(pszFileName), dwFlags, *pcbData, *ppbData);
 
 	if (!pszFileName || !strlen(pszFileName)) 
-		return SCARD_E_INVALID_PARAMETER;
-	if (!ppbData || !pcbData) 
 		return SCARD_E_INVALID_PARAMETER;
 	if (dwFlags) 
 		return SCARD_E_INVALID_PARAMETER;
@@ -3394,26 +3061,7 @@ DWORD WINAPI CardDeauthenticateEx(__in PCARD_DATA pCardData,
 		return dwret;
 
 	CLEAR_PIN(cardcf->bPinsFreshness, PinId);
-	logprintf(pCardData, 1, "CardDeauthenticateEx bPinsFreshness:%d; CMapFile dirty %i\n", 
-			cardcf->bPinsFreshness, vs->p15obj_cmapfile_dirty);
-
-	if (vs->p15obj_cmapfile_dirty)   {
-		md_fs_find_file(pCardData, "mscp", "cmapfile", &cmapfile);
-		if (!cmapfile)   {
-			logprintf(pCardData, 2, "file 'cmapfile' not found\n");
-		}
-		else   {
-			dwret = md_pkcs15_update_cmapfile(pCardData);
-			if (dwret != SCARD_S_SUCCESS)
-				logprintf(pCardData, 2, "update P15 'CMapFile' failed\n");
-		}
-	}
-
-	dwret = md_pkcs15_update_cardcf(pCardData, (unsigned char *)(cardcf), MD_CARDCF_LENGTH);
-	if (dwret != SCARD_S_SUCCESS)   {
-		logprintf(pCardData, 2, "update P15 'cardcf' failed\n");
-		return dwret;
-	}
+	logprintf(pCardData, 1, "CardDeauthenticateEx bPinsFreshness:%d\n", cardcf->bPinsFreshness);
 
 	/* TODO Reset PKCS#15 PIN object 'validated' flag */
 	return SCARD_S_SUCCESS;
