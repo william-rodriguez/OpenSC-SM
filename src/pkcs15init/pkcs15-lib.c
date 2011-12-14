@@ -1258,10 +1258,16 @@ sc_pkcs15init_generate_key(struct sc_pkcs15_card *p15card, struct sc_profile *pr
 
 	/* Set up the PrKDF object */
 	r = sc_pkcs15init_init_prkdf(p15card, profile, &keygen_args->prkey_args,
-		&keygen_args->prkey_args.key, keybits, &object);
+			&keygen_args->prkey_args.key, keybits, &object);
 	LOG_TEST_RET(ctx, r, "Set up private key object error");
 
 	key_info = (struct sc_pkcs15_prkey_info *) object->data;
+	if (keygen_args->prkey_args.guid)   {
+		object->guid = strdup(keygen_args->prkey_args.guid);
+		if (!object->guid)
+			LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "Cannot allocate guid");
+		sc_log(ctx, "new key GUID: '%s'", object->guid);
+	}
 
 	/* Set up the PuKDF info. The public key will be filled in
 	 * by the card driver's generate_key function called below.
@@ -1300,6 +1306,13 @@ sc_pkcs15init_generate_key(struct sc_pkcs15_card *p15card, struct sc_profile *pr
 
 	r = sc_pkcs15init_add_object(p15card, profile, SC_PKCS15_PRKDF, object);
 	LOG_TEST_RET(ctx, r, "Failed to add generated private key object");
+
+	if (!r && profile->ops->emu_store_data)   {
+		r = profile->ops->emu_store_data(p15card, profile, object, NULL, NULL);
+		if (r == SC_ERROR_NOT_IMPLEMENTED)
+			r = SC_SUCCESS;
+		LOG_TEST_RET(ctx, r, "Card specific 'store data' failed");
+	}
 
 	r = sc_pkcs15init_store_public_key(p15card, profile, &pubkey_args, NULL);
 	LOG_TEST_RET(ctx, r, "Failed to store public key");
@@ -1388,6 +1401,7 @@ sc_pkcs15init_store_private_key(struct sc_pkcs15_card *p15card,
 		object->guid = strdup(keyargs->guid);
 		if (!object->guid)
 			LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "Cannot allocate guid");
+		sc_log(ctx, "new key GUID: '%s'", object->guid);
 	}
 
 	if (!r && profile->ops->emu_store_data)   {
