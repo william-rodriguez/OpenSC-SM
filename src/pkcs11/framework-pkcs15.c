@@ -836,7 +836,7 @@ pkcs15_add_object(struct sc_pkcs11_slot *slot, struct pkcs15_any_object *obj,
 	unsigned int i;
 	struct pkcs15_fw_data *card_fw_data;
 
-	if (obj == NULL)
+	if (obj == NULL || slot == NULL)
 		return;
 	if (obj->base.flags & (SC_PKCS11_OBJECT_HIDDEN | SC_PKCS11_OBJECT_RECURS))
 		return;
@@ -1165,6 +1165,9 @@ _add_public_objects(struct sc_pkcs11_slot *slot, struct pkcs15_fw_data *fw_data,
 {
 	unsigned i;
 
+	if (slot == NULL || fw_data == NULL)
+		return;
+
 	sc_log(context, "%i public objects to process", fw_data->num_objects);
 	for (i=0; i < fw_data->num_objects; i++) {
 		struct pkcs15_any_object *obj = fw_data->objects[i];
@@ -1228,7 +1231,9 @@ pkcs15_create_tokens(struct sc_pkcs11_card *p11card, struct sc_app_info *app_inf
 		return sc_to_cryptoki_error(rv, NULL);
 	sc_log(context, "Found %d FW objects objects", fw_data->num_objects);
 
-	if (sc_pkcs11_conf.create_slots_flags & SC_PKCS11_SLOT_CREATE_ALL)   {
+	/* For some cards (VT: with incomplete PIN flags) the UserPIN cannot be identified.
+	 * Let us be indulgent. */
+	if (!auth_user_pin || sc_pkcs11_conf.create_slots_flags & SC_PKCS11_SLOT_CREATE_ALL)   {
 		struct sc_pkcs15_object *auths[MAX_OBJECTS];
 		int auth_count;
 
@@ -1302,10 +1307,11 @@ pkcs15_create_tokens(struct sc_pkcs11_card *p11card, struct sc_app_info *app_inf
 	if (first_slot && *first_slot==NULL)
 		*first_slot = slot;
 
-	_add_public_objects(slot, fw_data, ffda);
+	if (slot)
+		_add_public_objects(slot, fw_data, ffda);
+
 	if (ffda)
 		sc_log(context, "Finaly there are %i objects in first slot", ffda->num_objects);
-
 	sc_log(context, "All tokens created");
 	return CKR_OK;
 }
