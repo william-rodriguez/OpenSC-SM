@@ -281,7 +281,7 @@ pkcs15_init_token_info(struct sc_pkcs15_card *p15card, CK_TOKEN_INFO_PTR pToken)
 	strcpy_bp(pToken->manufacturerID, p15card->tokeninfo->manufacturer_id, 32);
 
 	p11_conf_block = sc_get_conf_block(p15card->card->ctx, "pkcs11", NULL, 1);
-	if (p11_conf_block)   {
+	if (p11_conf_block && p15card->file_app)   {
 		scconf_block **blocks = NULL;
 		char str_path[SC_MAX_AID_STRING_SIZE];
 

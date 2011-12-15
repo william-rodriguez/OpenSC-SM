@@ -247,7 +247,8 @@ CK_RV card_detect(sc_reader_t *reader)
 
 		/* Initialize framework */
 		sc_log(context, "%s: Detected framework %d. Creating tokens.", reader->name, i);
-		if (app_generic)   {
+		/* Bind firstly 'generic' application or (emulated?) card without applications */
+		if (app_generic || !p11card->card->app_count)   {
 			rv = frameworks[i]->bind(p11card, app_generic);
 			sc_log(context, "%s: generic bind result %i", reader->name, rv);
 			if (rv != CKR_OK)
