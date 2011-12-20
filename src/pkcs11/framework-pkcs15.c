@@ -275,19 +275,19 @@ static CK_RV pkcs15_unbind(struct sc_pkcs11_card *p11card)
 static void 
 pkcs15_init_token_info(struct sc_pkcs15_card *p15card, CK_TOKEN_INFO_PTR pToken)
 {
-	scconf_block *p11_conf_block = NULL, *conf_block = NULL;
+	scconf_block *conf_block = NULL;
 	char *model = NULL;
 
 	strcpy_bp(pToken->manufacturerID, p15card->tokeninfo->manufacturer_id, 32);
 
-	p11_conf_block = sc_get_conf_block(p15card->card->ctx, "pkcs11", NULL, 1);
-	if (p11_conf_block && p15card->file_app)   {
+	conf_block = sc_get_conf_block(p15card->card->ctx, "framework", "pkcs15", 1);
+	if (conf_block && p15card->file_app)   {
 		scconf_block **blocks = NULL;
 		char str_path[SC_MAX_AID_STRING_SIZE];
 
 		memset(str_path, 0, sizeof(str_path));
 		sc_bin_to_hex(p15card->file_app->path.value, p15card->file_app->path.len, str_path, sizeof(str_path), 0);
-		blocks = scconf_find_blocks(p15card->card->ctx->conf, p11_conf_block, "application", str_path);
+		blocks = scconf_find_blocks(p15card->card->ctx->conf, conf_block, "application", str_path);
 		if (blocks)   {
 			if (blocks[0])
 				model = (char *)scconf_get_str(blocks[0], "model", NULL);
