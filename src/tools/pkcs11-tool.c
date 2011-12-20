@@ -87,8 +87,8 @@ enum {
 	OPT_NEW_PIN,
 	OPT_LOGIN_TYPE,
 	OPT_TEST_EC,
-	OPT_TEST_SM_GENERATE_KEY,
-	OPT_TEST_SM_STORE_OBJECT,
+	OPT_TEST_RESTRICTED_USAGE_KEY,
+	OPT_TEST_RESTRICTED_USAGE_OBJECT,
 	OPT_DERIVE
 };
 
@@ -143,8 +143,8 @@ static const struct option options[] = {
 	{ "verbose",		0, NULL,		'v' },
 	{ "private",		0, NULL,		OPT_PRIVATE },
 	{ "test-ec",		0, NULL,		OPT_TEST_EC },
-	{ "test-sm-generate-key",	0, NULL,		OPT_TEST_SM_GENERATE_KEY },
-	{ "test-sm-store-object",	1, NULL,		OPT_TEST_SM_STORE_OBJECT },
+	{ "test-restricted-usage-key",0, NULL,		OPT_TEST_RESTRICTED_USAGE_KEY },
+	{ "test-restricted-usage-object",1, NULL,	OPT_TEST_RESTRICTED_USAGE_OBJECT },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -199,8 +199,8 @@ static const char *option_help[] = {
 	"Verbose operation. (Set OPENSC_DEBUG to enable OpenSC specific debugging)",
 	"Set the CKA_PRIVATE attribute (object is only viewable after a login)",
 	"Test EC (best used with the --login or --pin option)",
-	"Test SM: generate key (use multi-application OpenSC-PKCS#11 configuration )",
-	"Test SM: store object (use multi-application OpenSC-PKCS#11 configuration )"
+	"Test generation of restricted usage key",
+	"Test store object (key) with restricted usage"
 };
 
 static const char *	app_name = "pkcs11-tool"; /* for utils.c */
@@ -332,8 +332,8 @@ static int test_card_detection(int);
 static int		hex_to_bin(const char *in, CK_BYTE *out, size_t *outlen);
 static void		test_kpgen_certwrite(CK_SLOT_ID slot, CK_SESSION_HANDLE session);
 static void		test_ec(CK_SLOT_ID slot, CK_SESSION_HANDLE session);
-static void		test_sm_generate_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session, int, int, int);
-static void		test_sm_store_object(CK_SESSION_HANDLE session, int, int, int);
+static void		test_restricted_usage_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session, int, int, int);
+static void		test_restricted_usage_object(CK_SESSION_HANDLE session, int, int, int);
 static CK_RV find_object_with_attributes(
 		CK_SESSION_HANDLE session, CK_OBJECT_HANDLE *out,
 		CK_ATTRIBUTE *attrs, CK_ULONG attrsLen,
@@ -366,8 +366,8 @@ int main(int argc, char * argv[])
 	int do_test = 0;
 	int do_test_kpgen_certwrite = 0;
 	int do_test_ec = 0;
-	int do_test_sm_generate_key = 0;
-	int do_test_sm_store_object = 0;
+	int do_test_restricted_usage_key = 0;
+	int do_test_restricted_usage_object = 0;
 	int need_session = 0;
 	int opt_login = 0;
 	int do_init_token = 0;
@@ -612,14 +612,14 @@ int main(int argc, char * argv[])
 			do_test_ec = 1;
 			action_count++;
 			break;
-		case OPT_TEST_SM_GENERATE_KEY:
+		case OPT_TEST_RESTRICTED_USAGE_KEY:
 			need_session |= NEED_SESSION_RW;
-			do_test_sm_generate_key = 1;
+			do_test_restricted_usage_key = 1;
 			action_count++;
 			break;
-		case OPT_TEST_SM_STORE_OBJECT:
+		case OPT_TEST_RESTRICTED_USAGE_OBJECT:
 			need_session |= NEED_SESSION_RW;
-			do_test_sm_store_object = 1;
+			do_test_restricted_usage_object = 1;
 			opt_file_to_write = optarg;
 			action_count++;
 			break;
@@ -842,12 +842,12 @@ int main(int argc, char * argv[])
 	if (do_test_ec) 
 		test_ec(opt_slot, session);
 
-	if (do_test_sm_generate_key) 
-		test_sm_generate_key(opt_slot, session, 
+	if (do_test_restricted_usage_key) 
+		test_restricted_usage_key(opt_slot, session, 
 			opt_key_usage_sign, opt_key_usage_decrypt, opt_key_usage_nonrepudiation);
 
-	if (do_test_sm_store_object) 
-		test_sm_store_object(session, 
+	if (do_test_restricted_usage_object) 
+		test_restricted_usage_object(session, 
 			opt_key_usage_sign, opt_key_usage_decrypt, opt_key_usage_nonrepudiation);
 end:
 	if (session != CK_INVALID_HANDLE) {
@@ -4307,7 +4307,7 @@ static void test_ec(CK_SLOT_ID slot, CK_SESSION_HANDLE session)
 }
 
 
-static int sm_gen_keypair(CK_SESSION_HANDLE session,
+static int gen_restricted_usage_keypair(CK_SESSION_HANDLE session,
 	CK_OBJECT_HANDLE *hPublicKey, CK_OBJECT_HANDLE *hPrivateKey, const char *type,
 	int usage_sign, int usage_decrypt, int non_repudiation)
 {
@@ -4381,31 +4381,25 @@ static int sm_gen_keypair(CK_SESSION_HANDLE session,
 	}
 
 	if (opt_object_label != NULL) {
-		FILL_ATTR(publicKeyTemplate[n_pubkey_attr], CKA_LABEL,
-			opt_object_label, strlen(opt_object_label));
-		FILL_ATTR(privateKeyTemplate[n_privkey_attr], CKA_LABEL,
-			opt_object_label, strlen(opt_object_label));
+		FILL_ATTR(publicKeyTemplate[n_pubkey_attr], CKA_LABEL, opt_object_label, strlen(opt_object_label));
+		FILL_ATTR(privateKeyTemplate[n_privkey_attr], CKA_LABEL, opt_object_label, strlen(opt_object_label));
 		n_pubkey_attr++;
 		n_privkey_attr++;
 		
 	}
 	if (opt_object_id_len != 0) {
-		FILL_ATTR(publicKeyTemplate[n_pubkey_attr], CKA_ID,
-			opt_object_id, opt_object_id_len);
-		FILL_ATTR(privateKeyTemplate[n_privkey_attr], CKA_ID,
-			opt_object_id, opt_object_id_len);
+		FILL_ATTR(publicKeyTemplate[n_pubkey_attr], CKA_ID, opt_object_id, opt_object_id_len);
+		FILL_ATTR(privateKeyTemplate[n_privkey_attr], CKA_ID, opt_object_id, opt_object_id_len);
 		n_pubkey_attr++;
 		n_privkey_attr++;
 	}
 
-	rv = p11->C_GenerateKeyPair(session, &mechanism,
-		publicKeyTemplate, n_pubkey_attr,
-		privateKeyTemplate, n_privkey_attr,
-		hPublicKey, hPrivateKey);
+	rv = p11->C_GenerateKeyPair(session, &mechanism, publicKeyTemplate, n_pubkey_attr, 
+			privateKeyTemplate, n_privkey_attr, hPublicKey, hPrivateKey);
 	if (rv != CKR_OK)
 		p11_fatal("C_GenerateKeyPair", rv);
 
-	printf("SM key pair generated:\n");
+	printf("Key pair with restricted usage generated:\n");
 	show_object(session, *hPrivateKey);
 	show_object(session, *hPublicKey);
 
@@ -4414,7 +4408,7 @@ static int sm_gen_keypair(CK_SESSION_HANDLE session,
 
 
 static void 
-test_sm_generate_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session, 
+test_restricted_usage_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session, 
 		int usage_sign, int usage_decrypt, int usage_nonrepudiation)
 {
 	CK_MECHANISM		mech_sign = {CKM_RSA_PKCS, NULL_PTR, 0};
@@ -4449,7 +4443,7 @@ test_sm_generate_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session,
 		opt_key_type = "RSA:2048";
 	printf("*** SM generating RSA key pair: sign:%i, decrypt:%i, nonrepudiation:%i ***\n",
 			usage_sign, usage_decrypt, usage_nonrepudiation);
-	if (!sm_gen_keypair(session, &pub_key, &priv_key, opt_key_type, 
+	if (!gen_restricted_usage_keypair(session, &pub_key, &priv_key, opt_key_type, 
 				usage_sign, usage_decrypt, usage_nonrepudiation))
 		return;
 
@@ -4504,7 +4498,7 @@ test_sm_generate_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session,
 
 
 static void 
-test_sm_store_object(CK_SESSION_HANDLE session, 
+test_restricted_usage_object(CK_SESSION_HANDLE session, 
 		int usage_sign, int usage_decrypt, int usage_nonrepudiation)
 {
 	CK_BBOOL _true = TRUE;
