@@ -1299,18 +1299,16 @@ md_set_cmapfile(PCARD_DATA pCardData, struct md_file *file)
 
 		/* AT_KEYEXCHANGE is more general key usage, 
 		 * 	it allows 'decryption' as well as 'signature' key usage.
-		 * AT_SIGNATURE allows only 'signature' usage,
-		 * 	for a while use AT_SIGNATURE only for 'signature' with 'non-repudiation'.
-		 * FIXME: Should it be changed?
+		 * AT_SIGNATURE allows only 'signature' usage.
+		 *
+		 * Allow double key usage.
+		 * FIXME: Still in process
 		 */
-		if (prkey_info->usage == (SC_PKCS15_PRKEY_USAGE_SIGN|SC_PKCS15_PRKEY_USAGE_NONREPUDIATION)) {
-			cont->size_key_exchange = 0;
+		cont->size_key_exchange = cont->size_sign = 0;
+		if (prkey_info->usage & SC_PKCS15_PRKEY_USAGE_SIGN)
 			cont->size_sign = prkey_info->modulus_length;
-		}
-		else   {
+		if (prkey_info->usage & SC_PKCS15_PRKEY_USAGE_DECRYPT)
 			cont->size_key_exchange = prkey_info->modulus_length;
-			cont->size_sign = 0;
-		}
 
 		cont->id = prkey_info->id;
 		cont->prkey_obj = prkey_objs[ii];
