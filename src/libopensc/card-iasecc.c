@@ -3397,18 +3397,17 @@ iasecc_get_free_reference(struct sc_card *card, struct iasecc_ctl_get_free_refer
 				continue;
 			}
 		}
-		else   {
-			if (ctl_data->usage & (SC_PKCS15_PRKEY_USAGE_DECRYPT | SC_PKCS15_PRKEY_USAGE_UNWRAP))   {
-				if (sdo->docp.scbs[IASECC_ACLS_RSAKEY_PSO_DECIPHER] == IASECC_SCB_NEVER)   {
-					sc_log(ctx, "key index %i ignored: PSO DECIPHER not allowed", idx);
-					continue;
-				}
+		else if (ctl_data->usage & SC_PKCS15_PRKEY_USAGE_SIGN)   {
+			if (sdo->docp.scbs[IASECC_ACLS_RSAKEY_INTERNAL_AUTH] == IASECC_SCB_NEVER)   {
+				sc_log(ctx, "key index %i ignored: INTERNAL AUTHENTICATE not allowed", idx);
+				continue;
 			}
-			if (ctl_data->usage & SC_PKCS15_PRKEY_USAGE_SIGN)   {
-				if (sdo->docp.scbs[IASECC_ACLS_RSAKEY_INTERNAL_AUTH] == IASECC_SCB_NEVER)   {
-					sc_log(ctx, "key index %i ignored: INTERNAL AUTHENTICATE not allowed", idx);
-					continue;
-				}
+		}
+
+		if (ctl_data->usage & (SC_PKCS15_PRKEY_USAGE_DECRYPT | SC_PKCS15_PRKEY_USAGE_UNWRAP))   {
+			if (sdo->docp.scbs[IASECC_ACLS_RSAKEY_PSO_DECIPHER] == IASECC_SCB_NEVER)   {
+				sc_log(ctx, "key index %i ignored: PSO DECIPHER not allowed", idx);
+				continue;
 			}
 		}
 
