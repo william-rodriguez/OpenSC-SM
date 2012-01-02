@@ -35,6 +35,8 @@ struct sc_to_cryptoki_error_conversion  {
 
 static struct sc_to_cryptoki_error_conversion sc_to_cryptoki_error_map[]  = {
 	{ "C_GenerateKeyPair", SC_ERROR_INVALID_PIN_LENGTH, CKR_GENERAL_ERROR },
+	{ "C_Sign", SC_ERROR_NOT_ALLOWED, CKR_FUNCTION_FAILED},
+	{ "C_Decrypt", SC_ERROR_NOT_ALLOWED, CKR_FUNCTION_FAILED},
 	{NULL, 0, 0}
 };
 

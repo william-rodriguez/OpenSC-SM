@@ -708,8 +708,8 @@ __pkcs15_prkey_bind_related(struct pkcs15_fw_data *fw_data, struct pkcs15_prkey_
 					;
 				*pp = (struct pkcs15_prkey_object *) obj;
 			}
-		} else
-		if (is_pubkey(obj) && !pk->prv_pubkey) {
+		} 
+		else if (is_pubkey(obj) && !pk->prv_pubkey) {
 			struct pkcs15_pubkey_object *pubkey;
 			
 			pubkey = (struct pkcs15_pubkey_object *) obj;
@@ -3034,30 +3034,46 @@ pkcs15_prkey_get_attribute(struct sc_pkcs11_session *session,
 	 *       applications assume they can get that from the private
 	 *       key, something PKCS#11 doesn't guarantee.
 	 */
+	sc_log(context, "Get private key attribute CKA_0x%lX", attr->type);
 	if ((attr->type == CKA_MODULUS) || (attr->type == CKA_PUBLIC_EXPONENT) ||
 		((attr->type == CKA_MODULUS_BITS) && (prkey->prv_p15obj->type == SC_PKCS15_TYPE_PRKEY_EC)) || 
 		(attr->type == CKA_ECDSA_PARAMS)) {
 		/* First see if we have a associated public key */
-		if (prkey->prv_pubkey && prkey->prv_pubkey->pub_data)
+		sc_log(context, "private key's 'public' friend %p", prkey->prv_pubkey);
+		if (prkey->prv_pubkey && prkey->prv_pubkey->pub_data)   {
 			key = prkey->prv_pubkey->pub_data;
+			sc_log(context, "use friend public key data %p", key);
+		}
 		else {
-			/* Try to find a certificate with the public key */
+			/* Try to find public key or certificate with the public key */
 			unsigned int i;
 
 			for (i = 0; i < fw_data->num_objects; i++) {
 				struct pkcs15_any_object *obj = fw_data->objects[i];
-				struct pkcs15_cert_object *cert;
 
-				if (!is_cert(obj))
-					continue;
+				if (is_cert(obj))   {
+					struct pkcs15_cert_object *cert = (struct pkcs15_cert_object*) obj;
 
-				cert = (struct pkcs15_cert_object*) obj;
+					if (cert->cert_prvkey != prkey)
+						continue;
 
-				if (cert->cert_prvkey != prkey)
-					continue;
+					if (check_cert_data_read(fw_data, cert) == 0)   {
+						key = cert->cert_pubkey->pub_data;
+						sc_log(context, "found friend certificate's public key %p", key);
+					}
+				}
+				else if (is_pubkey(obj)) {
+					struct pkcs15_pubkey_object *pubkey = (struct pkcs15_pubkey_object *) obj;
 
-				if (check_cert_data_read(fw_data, cert) == 0)
-					key = cert->cert_pubkey->pub_data;
+					if (!pubkey->pub_data)
+						continue;
+
+					if (sc_pkcs15_compare_id(&pubkey->pub_info->id, &prkey->prv_info->id))   {
+						prkey->prv_pubkey = pubkey;
+						key = pubkey->pub_data;
+						sc_log(context, "found friend public key %p", key);
+					}
+				}
 			}
 		}
 	}
@@ -3134,9 +3150,6 @@ pkcs15_prkey_get_attribute(struct sc_pkcs11_session *session,
 		return get_usage_bit(usage, attr);
 	case CKA_MODULUS:
 		return get_modulus(key, attr);
-	/* XXX: this should be removed sometimes as a private key has no
-	 * CKA_MODULUS_BITS attribute, but unfortunately other parts depend
-	 * on this -- Nils */
 	case CKA_MODULUS_BITS:
 		check_attribute_buffer(attr, sizeof(CK_ULONG));
 		switch (prkey->prv_p15obj->type) {
@@ -3475,6 +3488,7 @@ static CK_RV pkcs15_pubkey_get_attribute(struct sc_pkcs11_session *session,
 	size_t len;
 
 	fw_data = (struct pkcs15_fw_data *) p11card->fws_data[session->slot->fw_data_idx];
+	sc_log(context, "Get public key attribute CKA_0x%lX", attr->type);
 	/* We may need to get these from cert */
 	switch (attr->type) {
 		case CKA_MODULUS:
