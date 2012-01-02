@@ -118,11 +118,14 @@ struct sc_pkcs11_object_ops {
 			CK_MECHANISM_PTR,
 			CK_BYTE_PTR pEncryptedData, CK_ULONG ulEncryptedDataLen,
 			CK_BYTE_PTR pData, CK_ULONG_PTR pulDataLen);
-
 	CK_RV (*derive)(struct sc_pkcs11_session *, void *,
 			CK_MECHANISM_PTR,
 			CK_BYTE_PTR pSeedData, CK_ULONG ulSeedDataLen,
 			CK_BYTE_PTR pDerived, CK_ULONG_PTR pulDerivedLen);
+
+	/* Check compatibility of PKCS#15 object usage and an asked PKCS#11 mechanism. */
+	CK_RV (*can_do)(struct sc_pkcs11_session *, void *, 
+			CK_MECHANISM_TYPE, unsigned int);
 
 	/* Others to be added when implemented */
 };

@@ -2986,11 +2986,12 @@ struct sc_pkcs11_object_ops pkcs15_cert_ops = {
 	pkcs15_cert_get_attribute,
 	pkcs15_cert_cmp_attribute,
 	pkcs15_any_destroy,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL
+	NULL,	/* get_size */
+	NULL,	/* sign */
+	NULL,	/* unwrap_key */
+	NULL,	/* decrypt */
+	NULL,	/* derive */
+	NULL	/* can_do */
 };
 
 /*
@@ -3442,17 +3443,67 @@ pkcs15_prkey_derive(struct sc_pkcs11_session *session, void *obj,
 	return CKR_OK;
 }
 
+static CK_RV
+pkcs15_prkey_can_do(struct sc_pkcs11_session *session, void *obj,
+		CK_MECHANISM_TYPE mech_type, unsigned int flags)
+{
+	struct sc_pkcs11_card *p11card = session->slot->card;
+	struct pkcs15_fw_data *fw_data = NULL;
+	struct pkcs15_prkey_object *prkey = (struct pkcs15_prkey_object *) obj;
+	struct sc_pkcs15_prkey_info *pkinfo = NULL;
+	struct sc_supported_algo_info *token_algos = NULL;
+	int ii, jj;
+
+	if (!prkey || !prkey->prv_info)
+		return CKR_KEY_FUNCTION_NOT_PERMITTED;
+
+	pkinfo = prkey->prv_info;
+	/* Return in there are no usage algorithms specified for this key. */
+	if (!pkinfo->algo_refs[0])
+		return CKR_FUNCTION_NOT_SUPPORTED;
+
+	fw_data = (struct pkcs15_fw_data *) p11card->fws_data[session->slot->fw_data_idx];
+	token_algos = &fw_data->p15_card->tokeninfo->supported_algos[0];
+
+	for (ii=0;ii<SC_MAX_SUPPORTED_ALGORITHMS && pkinfo->algo_refs[ii];ii++)   {
+		/* Look for algorithm supported by token referenced in the list of key's algorithms */
+		for (jj=0;jj<SC_MAX_SUPPORTED_ALGORITHMS && (token_algos + jj)->reference; jj++)
+			if (pkinfo->algo_refs[ii] == (token_algos + jj)->reference)
+				break;
+		if ((jj == SC_MAX_SUPPORTED_ALGORITHMS) || !(token_algos + jj)->reference)
+			return CKR_GENERAL_ERROR;
+
+		if ((token_algos + jj)->mechanism != mech_type)
+			continue;
+
+		if (flags == CKF_SIGN)
+			if ((token_algos + jj)->operations & SC_PKCS15_ALGO_OP_COMPUTE_SIGNATURE)
+				break;
+
+		if (flags == CKF_DECRYPT)
+			if ((token_algos + jj)->operations & SC_PKCS15_ALGO_OP_DECIPHER)
+				break;
+	}
+
+	if (ii == SC_MAX_SUPPORTED_ALGORITHMS || !pkinfo->algo_refs[ii])
+		return CKR_MECHANISM_INVALID;
+
+	return CKR_OK;
+}
+
+
 struct sc_pkcs11_object_ops pkcs15_prkey_ops = {
 	pkcs15_prkey_release,
 	pkcs15_prkey_set_attribute,
 	pkcs15_prkey_get_attribute,
 	sc_pkcs11_any_cmp_attribute,
 	pkcs15_any_destroy,
-	NULL,
+	NULL,	/* get_size */
 	pkcs15_prkey_sign,
-	NULL, /* unwrap */
+	NULL, 	/* unwrap */
 	pkcs15_prkey_decrypt,
-	pkcs15_prkey_derive
+	pkcs15_prkey_derive,
+	pkcs15_prkey_can_do
 };
 
 /*
@@ -3633,11 +3684,12 @@ struct sc_pkcs11_object_ops pkcs15_pubkey_ops = {
 	pkcs15_pubkey_get_attribute,
 	sc_pkcs11_any_cmp_attribute,
 	pkcs15_any_destroy,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL
+	NULL,	/* get_size */
+	NULL,	/* sign */
+	NULL,	/* unwrap_key */
+	NULL,	/* decrypt */
+	NULL,	/* derive */
+	NULL	/* can_do */
 };
 
 
@@ -3773,11 +3825,12 @@ struct sc_pkcs11_object_ops pkcs15_dobj_ops = {
 	pkcs15_dobj_get_attribute,
 	sc_pkcs11_any_cmp_attribute,
 	pkcs15_any_destroy,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL
+	NULL,	/* get_size */
+	NULL,	/* sign */
+	NULL,	/* unwrap_key */
+	NULL,	/* decrypt */
+	NULL,	/* derive */
+	NULL	/* can_do */
 };
 
 /* PKCS#15 Secret Key Objects */
@@ -3940,11 +3993,12 @@ struct sc_pkcs11_object_ops pkcs15_skey_ops = {
 	pkcs15_skey_get_attribute,
 	sc_pkcs11_any_cmp_attribute,
 	pkcs15_skey_destroy,
-	NULL,
-	NULL, 
-	NULL, /* unwrap */
-	NULL,
-	NULL
+	NULL,	/* get_size */
+	NULL,	/* sign */
+	NULL,	/* unwrap_key */
+	NULL,	/* decrypt */
+	NULL,	/* derive */
+	NULL	/* can_do */
 };
 
 /*

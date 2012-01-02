@@ -339,25 +339,44 @@ done:
  */
 static CK_RV
 sc_pkcs11_signature_init(sc_pkcs11_operation_t *operation,
-		    struct sc_pkcs11_object *key)
+		struct sc_pkcs11_object *key)
 {
 	struct hash_signature_info *info;
 	struct signature_data *data;
-	int rv;
+	CK_RV rv;
+	int can_do_it = 0;
 
+	LOG_FUNC_CALLED(context);
 	if (!(data = calloc(1, sizeof(*data))))
-		return CKR_HOST_MEMORY;
-
+		LOG_FUNC_RETURN(context, CKR_HOST_MEMORY);
 	data->info = NULL;
 	data->key = key;
 
-	/* If this is a signature with hash operation, set up the
-	 * hash operation */
+	if (key->ops->can_do)   {
+		rv = key->ops->can_do(operation->session, key, operation->type->mech, CKF_SIGN);
+		if (rv == CKR_OK)   {
+			/* Mechanism recognised and can be performed by pkcs#15 card */
+			can_do_it = 1;
+		}
+		else if (rv == CKR_FUNCTION_NOT_SUPPORTED)   {
+			/* Mechanism not recognised by pkcs#15 card */
+			can_do_it = 0;
+		}
+		else  {
+			/* Mechanism recognised but cannot be performed by pkcs#15 card, or some general error. */
+			free(data);
+			LOG_FUNC_RETURN(context, rv);
+		}
+	}
+
+	/* If this is a signature with hash operation, 
+	 * and card cannot perform itself signature with hash operation,
+	 * set up the hash operation */
 	info = (struct hash_signature_info *) operation->type->mech_data;
-	if (info != NULL) {
+	if (info != NULL && !can_do_it) {
 		/* Initialize hash operation */
-		data->md = sc_pkcs11_new_operation(operation->session,
-						   info->hash_type);
+
+		data->md = sc_pkcs11_new_operation(operation->session, info->hash_type);
 		if (data->md == NULL)
 			rv = CKR_HOST_MEMORY;
 		else
