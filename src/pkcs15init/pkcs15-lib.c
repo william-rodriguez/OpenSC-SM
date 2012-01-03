@@ -537,7 +537,7 @@ sc_pkcs15init_delete_by_path(struct sc_profile *profile,
 	struct sc_context *ctx = p15card->card->ctx;
 	struct sc_file *parent = NULL, *file = NULL;
 	struct sc_path path;
-	int rv;
+	int rv, file_type = SC_FILE_TYPE_DF;
 
 	LOG_FUNC_CALLED(ctx);
 	sc_log(ctx, "trying to delete '%s'", sc_print_path(file_path));
@@ -546,8 +546,9 @@ sc_pkcs15init_delete_by_path(struct sc_profile *profile,
 	 * for the others the 'DELETE' ACL of parent.
 	 * Let's start from the file's 'DELETE' ACL.
 	 *
-	 * FIXME: will it be better to introduce the ACLs 'DELETE-CHILD' and 'DELETE-ITSELF',
-	 *        or dedicated card flag ?
+	 * TODO: 'DELETE_SELF' exists. Proper solution would be to use this acl by every 
+	 * card (driver and profile) that uses self delete ACL. 
+	 * A lot of work, a lot of tests ... 
 	 */
 
 	/* Select the file itself */
@@ -555,10 +556,19 @@ sc_pkcs15init_delete_by_path(struct sc_profile *profile,
         rv = sc_select_file(p15card->card, &path, &file);
         LOG_TEST_RET(ctx, rv, "cannot select file to delete");
 
-        rv = sc_pkcs15init_authenticate(profile, p15card, file, SC_AC_OP_DELETE);
-        sc_file_free(file);
-
-	if (rv == SC_ERROR_SECURITY_STATUS_NOT_SATISFIED)   {
+	if (sc_file_get_acl_entry(file, SC_AC_OP_DELETE_SELF))   {
+		sc_log(ctx, "Found 'DELETE-SELF' acl");
+		rv = sc_pkcs15init_authenticate(profile, p15card, file, SC_AC_OP_DELETE_SELF);
+		sc_file_free(file); 
+	} 
+	else if (sc_file_get_acl_entry(file, SC_AC_OP_DELETE))   {
+		sc_log(ctx, "Found 'DELETE' acl");
+		rv = sc_pkcs15init_authenticate(profile, p15card, file, SC_AC_OP_DELETE); 
+		sc_file_free(file); 
+	} 
+	else   { 
+		sc_log(ctx, "Try to get the parent's 'DELETE' access");
+		file_type = file->type;
 		if (file_path->len >= 2) {
 			/* Select the parent DF */
 			path.len -= 2;
@@ -569,6 +579,7 @@ sc_pkcs15init_delete_by_path(struct sc_profile *profile,
 			sc_file_free(parent);
 			LOG_TEST_RET(ctx, rv, "parent 'DELETE' authentication failed");
 		}
+
 	}
 	LOG_TEST_RET(ctx, rv, "'DELETE' authentication failed");
 
@@ -578,6 +589,13 @@ sc_pkcs15init_delete_by_path(struct sc_profile *profile,
 	path.value[1] = file_path->value[file_path->len - 1];
 	path.len = 2;
 
+	/* Reselect file to delete if the parent DF was selected and it's not DF. */
+	if (file_type != SC_FILE_TYPE_DF)   {
+		rv = sc_select_file(p15card->card, &path, &file);
+		LOG_TEST_RET(ctx, rv, "cannot select file to delete");
+	}
+
+	sc_log(ctx, "Now really delete file");
 	rv = sc_delete_file(p15card->card, &path);
 	LOG_FUNC_RETURN(ctx, rv);
 }
