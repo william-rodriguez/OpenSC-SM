@@ -79,7 +79,7 @@ static const struct sc_asn1_entry c_asn1_com_prkey_attr[C_ASN1_COM_PRKEY_ATTR_SI
 
 #define C_ASN1_RSAKEY_ATTR_SIZE 4
 static const struct sc_asn1_entry c_asn1_rsakey_attr[] = {
-	{ "value",	   SC_ASN1_PATH, SC_ASN1_TAG_SEQUENCE | SC_ASN1_CONS, SC_ASN1_EMPTY_ALLOWED, NULL, NULL },
+	{ "value",         SC_ASN1_PATH, SC_ASN1_TAG_SEQUENCE | SC_ASN1_CONS, SC_ASN1_EMPTY_ALLOWED, NULL, NULL },
 	{ "modulusLength", SC_ASN1_INTEGER, SC_ASN1_TAG_INTEGER, 0, NULL, NULL },
 	{ "keyInfo",	   SC_ASN1_INTEGER, SC_ASN1_TAG_INTEGER, SC_ASN1_OPTIONAL, NULL, NULL },
 	{ NULL, 0, 0, 0, NULL, NULL }
@@ -143,8 +143,8 @@ int sc_pkcs15_decode_prkdf_entry(struct sc_pkcs15_card *p15card,
 				 struct sc_pkcs15_object *obj,
 				 const u8 ** buf, size_t *buflen)
 {
-        sc_context_t *ctx = p15card->card->ctx;
-        struct sc_pkcs15_prkey_info info;
+	sc_context_t *ctx = p15card->card->ctx;
+	struct sc_pkcs15_prkey_info info;
 	int r, i, gostr3410_params[3];
 	struct sc_pkcs15_keyinfo_gostparams *keyinfo_gostparams;
 	size_t usage_len = sizeof(info.usage);
@@ -213,8 +213,8 @@ int sc_pkcs15_decode_prkdf_entry(struct sc_pkcs15_card *p15card,
 
 	sc_format_asn1_entry(asn1_com_prkey_attr + 0, &info.subject.value, &info.subject.len, 0);
 
-        /* Fill in defaults */
-        memset(&info, 0, sizeof(info));
+	/* Fill in defaults */
+	memset(&info, 0, sizeof(info));
 	info.key_reference = -1;
 	info.native = 1;
 	memset(gostr3410_params, 0, sizeof(gostr3410_params));
@@ -261,11 +261,39 @@ int sc_pkcs15_decode_prkdf_entry(struct sc_pkcs15_card *p15card,
 	}
 	sc_debug(ctx, SC_LOG_DEBUG_ASN1, "PrivKey path '%s'", sc_print_path(&info.path));
 
-        /* OpenSC 0.11.4 and older encoded "keyReference" as a negative
-           value. Fixed in 0.11.5 we need to add a hack, so old cards
-           continue to work. */
-      	if (info.key_reference < -1)
+	/* OpenSC 0.11.4 and older encoded "keyReference" as a negative
+	   value. Fixed in 0.11.5 we need to add a hack, so old cards
+	   continue to work. */
+	if (info.key_reference < -1)
 		info.key_reference += 256;
+
+	/* Check the auth_id - if not present, try and find it in access rules */
+	if ((obj->flags & SC_PKCS15_CO_FLAG_PRIVATE) && (obj->auth_id.len == 0)) {
+		sc_debug(ctx, SC_LOG_DEBUG_ASN1, "Private key %s has no auth ID - checking AccessControlRules",
+				sc_pkcs15_print_id(&info.id));
+
+		/* Search in the access_rules for an appropriate auth ID */
+		for (i = 0; i < SC_PKCS15_MAX_ACCESS_RULES; i++) {
+			/* If access_mode is one of the private key usage modes */
+			if (obj->access_rules[i].access_mode &
+					(SC_PKCS15_ACCESS_RULE_MODE_EXECUTE |
+					 SC_PKCS15_ACCESS_RULE_MODE_PSO_CDS |
+					 SC_PKCS15_ACCESS_RULE_MODE_PSO_DECRYPT |
+					 SC_PKCS15_ACCESS_RULE_MODE_INT_AUTH)) {
+				if (obj->access_rules[i].auth_id.len != 0) {
+					/* Found an auth ID to use for private key access */
+					obj->auth_id = obj->access_rules[i].auth_id;
+					sc_debug(ctx, SC_LOG_DEBUG_ASN1, "Auth ID found - %s",
+						 sc_pkcs15_print_id(&obj->auth_id));
+					break;
+				}
+			}
+		}
+
+		/* No auth ID found */
+		if (i == SC_PKCS15_MAX_ACCESS_RULES)
+			sc_debug(ctx, SC_LOG_DEBUG_ASN1, "Warning: No auth ID found");
+	}
 
 	obj->data = malloc(sizeof(info));
 	if (obj->data == NULL) {
@@ -348,7 +376,7 @@ int sc_pkcs15_encode_prkdf_entry(sc_context_t *ctx, const struct sc_pkcs15_objec
 			sc_format_asn1_entry(asn1_dsakey_i_p_attr + 0,
 					&prkey->path, NULL, 1);
 		}
-                break;
+		break;
 	case SC_PKCS15_TYPE_PRKEY_GOSTR3410:
 		sc_format_asn1_entry(asn1_prkey + 2, &gostr3410_prkey_obj, NULL, 1);
 		sc_format_asn1_entry(asn1_prk_gostr3410_attr + 0, asn1_gostr3410key_attr, NULL, 1);
