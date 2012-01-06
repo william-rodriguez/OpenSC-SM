@@ -84,6 +84,10 @@
 	SC_PKCS15_PRKEY_ACCESS_ALWAYSSENSITIVE	| \
 	SC_PKCS15_PRKEY_ACCESS_NEVEREXTRACTABLE	| \
 	SC_PKCS15_PRKEY_ACCESS_LOCAL
+
+/* copied from pkcs15-cardos.c */
+#define USAGE_ANY_SIGN		(SC_PKCS15_PRKEY_USAGE_SIGN | SC_PKCS15_PRKEY_USAGE_NONREPUDIATION)
+#define USAGE_ANY_DECIPHER	(SC_PKCS15_PRKEY_USAGE_DECRYPT | SC_PKCS15_PRKEY_USAGE_UNWRAP)
 		
 /* if use of internal-winscard.h */
 #ifndef SCARD_E_INVALID_PARAMETER
@@ -1300,15 +1304,15 @@ md_set_cmapfile(PCARD_DATA pCardData, struct md_file *file)
 		/* AT_KEYEXCHANGE is more general key usage, 
 		 * 	it allows 'decryption' as well as 'signature' key usage.
 		 * AT_SIGNATURE allows only 'signature' usage.
-		 *
-		 * Allow double key usage.
-		 * FIXME: Still in process
 		 */
 		cont->size_key_exchange = cont->size_sign = 0;
-		if (prkey_info->usage & SC_PKCS15_PRKEY_USAGE_SIGN)
-			cont->size_sign = prkey_info->modulus_length;
-		if (prkey_info->usage & SC_PKCS15_PRKEY_USAGE_DECRYPT)
+		if (prkey_info->usage & USAGE_ANY_DECIPHER)
 			cont->size_key_exchange = prkey_info->modulus_length;
+		else if (prkey_info->usage & USAGE_ANY_SIGN)
+			cont->size_sign = prkey_info->modulus_length;
+		else   
+			cont->size_key_exchange = prkey_info->modulus_length;
+		logprintf(pCardData, 7, "Container[%i]'s key-exchange:%i, sign:%i\n", ii, cont->size_key_exchange, cont->size_sign);
 
 		cont->id = prkey_info->id;
 		cont->prkey_obj = prkey_objs[ii];
