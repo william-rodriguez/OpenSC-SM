@@ -458,42 +458,32 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 	struct sc_context *ctx  = card->ctx;
 	size_t       olen  = apdu->resplen;
 	int          r;
-#ifdef ENABLE_SM
-	unsigned char *sm_data = NULL;
-	const unsigned char *data_save = NULL;
+	struct sc_apdu *sm_apdu = NULL, *plain_apdu = NULL;
 
-	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SM_MODE:%X", card->sm_ctx.sm_mode);
-	if (card->sm_ctx.sm_mode == SM_MODE_TRANSMIT) {
-		if (!card->sm_ctx.ops.encode_apdu)
-			return SC_ERROR_NOT_SUPPORTED;
-
-		/* Data of the SM encoded APDU needs larger buffer */
-		sm_data = malloc(apdu->datalen + 24);
-		if (!sm_data)
-			return SC_ERROR_MEMORY_FAILURE;
-		
-		memcpy(sm_data, apdu->data, apdu->datalen);
-		data_save = apdu->data;
-		apdu->data = sm_data;
-
-		/* Encode APDU using the card specific procedure */
-		r = card->sm_ctx.ops.encode_apdu(card, apdu);
-		if (r < 0)   {
-			sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "cannot do SM encoding of APDU");
-			goto done;
-		}
-	
-		/* Validate encoded APDU */
-		r = sc_check_apdu(card, apdu);
-		if (r < 0)   {
-			sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "cannot validate SM encoded APDU");
-			goto done;
-		}
-	}
-#endif
 	if (card->reader->ops->transmit == NULL)
 		return SC_ERROR_NOT_SUPPORTED;
 
+#ifdef ENABLE_SM
+	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SM_MODE:%X", card->sm_ctx.sm_mode);
+	if (card->sm_ctx.sm_mode == SM_MODE_TRANSMIT) {
+		if (!card->sm_ctx.ops.get_sm_apdu || !card->sm_ctx.ops.free_sm_apdu)
+			return SC_ERROR_NOT_SUPPORTED;
+		r = card->sm_ctx.ops.get_sm_apdu(card, apdu, &sm_apdu);
+		if (r)
+			return r;
+		
+		if (sm_apdu)   {
+			r = sc_check_apdu(card, sm_apdu);
+			if (r < 0)   {
+				sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "cannot validate SM encoded APDU");
+				card->sm_ctx.ops.free_sm_apdu(card, apdu, &sm_apdu);
+				return r;
+			}
+			plain_apdu = apdu;
+			apdu = sm_apdu;
+		}
+	}
+#endif
 	/* send APDU to the reader driver */
 	r = card->reader->ops->transmit(card->reader, apdu);
 	if (r != 0) {
@@ -593,8 +583,8 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 				if (r < 0)   {
 					sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "GET RESPONSE error %i", r);
 #ifdef ENABLE_SM                               
-					if (resp_len)   {
-						sc_log(ctx, "sm_data:%p, resp %s", sm_data, sc_dump_hex(resp, resp_len));
+					if (sm_apdu && resp_len)   {
+						sc_log(ctx, "'ve got response data %s", sc_dump_hex(resp, resp_len));
 						sc_sm_update_apdu_response(card, resp, resp_len, r, apdu);
 					}
 #endif
@@ -623,12 +613,6 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 					 * we still expect data ask for more 
 					 * until we have read enough bytes */
 					le = minlen;
-#ifdef ENABLE_SM                               
-				if (sm_data)   {
-					/* TODO: SM decrypt response */
-				}
-#endif
-
 			} while (r != 0 || minlen != 0);
 			/* we've read all data, let's return 0x9000 */
 			apdu->resplen = buf - apdu->resp;
@@ -640,11 +624,8 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 	r = SC_SUCCESS;
 done:
 #ifdef ENABLE_SM
-	/* restore initial APDU data */
-	if (sm_data)   {
-		apdu->data = data_save;
-		free(sm_data);
-	}
+	if (sm_apdu)
+                r = card->sm_ctx.ops.free_sm_apdu(card, plain_apdu, &sm_apdu);
 #endif
 	return r;
 }
