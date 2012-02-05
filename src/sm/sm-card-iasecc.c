@@ -342,7 +342,7 @@ sm_iasecc_get_apdu_sdo_update(struct sc_context *ctx, struct sm_info *sm_info, s
 	        	LOG_TEST_RET(ctx, rv, "SM get 'SDO UPDATE' APDUs: cannot allocate remote APDU");
 
 			rapdu->apdu.cse = SC_APDU_CASE_3_SHORT;
-			rapdu->apdu.cla = len + offs < encoded_len ? 0x10 : 0x00;
+			rapdu->apdu.cla = len + offs < encoded_len ? SC_APDU_FLAGS_CHAINING : 0x00;
 			rapdu->apdu.ins = 0xDB;
 			rapdu->apdu.p1 = 0x3F;
 			rapdu->apdu.p2 = 0xFF;
