@@ -40,10 +40,14 @@ extern "C" {
 #include "scconf/scconf.h"
 #include "libopensc/errors.h"
 #include "libopensc/types.h"
+#ifdef ENABLE_SM
+#include "libopensc/sm.h"
+#endif
 
 #define SC_SEC_OPERATION_DECIPHER	0x0001
 #define SC_SEC_OPERATION_SIGN		0x0002
 #define SC_SEC_OPERATION_AUTHENTICATE	0x0003
+#define SC_SEC_OPERATION_DERIVE		0x0004
 
 /* sc_security_env flags */
 #define SC_SEC_ENV_ALG_REF_PRESENT	0x0001
@@ -114,6 +118,7 @@ extern "C" {
 /* Not clear if these need their own bits or not */
 /* The PIV card does not support and hashes */
 #define SC_ALGORITHM_ECDSA_RAW				0x00010000
+#define SC_ALGORITHM_ECDH_CDH_RAW           0x00020000
 #define SC_ALGORITHM_ECDSA_HASH_NONE		SC_ALGORITHM_RSA_HASH_NONE
 #define SC_ALGORITHM_ECDSA_HASH_SHA1		SC_ALGORITHM_RSA_HASH_SHA1
 #define SC_ALGORITHM_ECDSA_HASH_SHA224		SC_ALGORITHM_RSA_HASH_SHA224
@@ -448,6 +453,9 @@ typedef struct sc_card {
 	sc_serial_number_t serialnr;
 
 	void *mutex;
+#ifdef ENABLE_SM
+	struct sm_context sm_ctx;
+#endif
 
 	unsigned int magic;
 } sc_card_t;
@@ -606,6 +614,7 @@ typedef struct sc_context {
 	int paranoid_memory;
 
 	FILE *debug_file;
+	char *debug_filename;
 	char *preferred_language;
 
 	list_t readers;
@@ -680,6 +689,16 @@ typedef struct {
 	/** mutex functions to use (optional) */
 	sc_thread_context_t *thread_ctx;
 } sc_context_param_t;
+
+/**
+ * Repairs an already existing sc_context_t object. This may occur if
+ * multithreaded issues mean that another context in the same heap is deleted.
+ * @param  ctx   pointer to a sc_context_t pointer containing the (partial)
+ *               context.
+ * @return SC_SUCCESS or an error value if an error occurred.
+ */
+int sc_context_repair(sc_context_t **ctx);
+
 /**
  * Creates a new sc_context_t object.
  * @param  ctx   pointer to a sc_context_t pointer for the newly
@@ -1176,6 +1195,13 @@ struct sc_algorithm_info * sc_card_find_gostr3410_alg(sc_card_t *card,
  * to manipulate the list. 
  */
 void sc_remote_data_init(struct sc_remote_data *rdata);
+
+/**
+ * Get CRC-32 digest
+ * @param value pointer to data used for CRC calculation
+ * @param len length of data used for CRC calculation
+ */
+unsigned sc_crc32(unsigned char *value, size_t len);
 
 struct sc_card_error {
 	unsigned int SWs;

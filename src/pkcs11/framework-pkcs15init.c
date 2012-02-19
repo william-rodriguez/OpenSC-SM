@@ -30,15 +30,15 @@
 /*
  * Deal with uninitialized cards
  */
-static CK_RV pkcs15init_bind(struct sc_pkcs11_card *p11card)
+static CK_RV pkcs15init_bind(struct sc_pkcs11_card *p11card, struct sc_app_info *app_info)
 {
 	struct sc_card	*card = p11card->card;
 	struct sc_profile *profile;
 	int		rc;
 
-	rc = sc_pkcs15init_bind(card, "pkcs15", NULL, &profile);
+	rc = sc_pkcs15init_bind(card, "pkcs15", NULL, NULL, &profile);
 	if (rc == 0)
-		p11card->fw_data = profile;
+		p11card->fws_data[0] = profile;
 	return sc_to_cryptoki_error(rc, NULL);
 }
 
@@ -46,18 +46,18 @@ static CK_RV pkcs15init_unbind(struct sc_pkcs11_card *p11card)
 {
 	struct sc_profile *profile;
 
-	profile = (struct sc_profile *) p11card->fw_data;
+	profile = (struct sc_profile *)p11card->fws_data[0];
 	sc_pkcs15init_unbind(profile);
 	return CKR_OK;
 }
 
-static CK_RV pkcs15init_create_tokens(struct sc_pkcs11_card *p11card)
+static CK_RV pkcs15init_create_tokens(struct sc_pkcs11_card *p11card, struct sc_app_info *app_info)
 {
 	struct sc_profile	*profile;
 	struct sc_pkcs11_slot	*slot;
 	int rc;
 
-	profile = (struct sc_profile *) p11card->fw_data;
+	profile = (struct sc_profile *)p11card->fws_data[0];
 
 	rc = slot_allocate(&slot, p11card);
 	if (rc == CKR_OK) {
@@ -124,10 +124,12 @@ pkcs15init_initialize(struct sc_pkcs11_card *p11card, void *ptr,
 		CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen,
 		CK_UTF8CHAR_PTR pLabel)
 {
-	struct sc_profile *profile = (struct sc_profile *) p11card->fw_data;
+	struct sc_profile *profile = NULL;
 	struct sc_pkcs15init_initargs args;
 	struct sc_pkcs11_slot *slot;
 	int		rc, rv, id;
+
+	profile = (struct sc_profile *)p11card->fws_data[0];
 
 	memset(&args, 0, sizeof(args));
 	args.so_pin = pPin;
@@ -142,9 +144,9 @@ pkcs15init_initialize(struct sc_pkcs11_card *p11card, void *ptr,
 	/* Change the binding from the pkcs15init framework
 	 * to the pkcs15 framework on the fly.
 	 * First, try to bind pkcs15 framework */
-	if ((rv = framework_pkcs15.bind(p11card)) != CKR_OK) {
+	if ((rv = framework_pkcs15.bind(p11card, NULL)) != CKR_OK) {
 		/* whoops, bad */
-		p11card->fw_data = profile;
+		p11card->fws_data[0] = profile;
 		return rv;
 	}
 

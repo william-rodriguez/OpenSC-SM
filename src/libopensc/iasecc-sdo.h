@@ -55,6 +55,11 @@
 #define IASECC_ACLS_RSAKEY_PUT_DATA		5
 #define IASECC_ACLS_RSAKEY_GET_DATA		6
 
+#define IASECC_ACLS_KEYSET_EXTERNAL_AUTH	1
+#define IASECC_ACLS_KEYSET_MUTUAL_AUTH		3
+#define IASECC_ACLS_KEYSET_PUT_DATA		5
+#define IASECC_ACLS_KEYSET_GET_DATA		6
+
 #define IASECC_SDO_CHV_TAG		0x7F41
 #define IASECC_SDO_CHV_TAG_SIZE_MAX	0x80
 #define IASECC_SDO_CHV_TAG_SIZE_MIN	0x81
@@ -239,8 +244,6 @@ struct iasecc_sdo_update  {
 
 	struct iasecc_extended_tlv fields[IASECC_SDO_TAGS_UPDATE_MAX];
 
-	unsigned char acl_method, acl_ref;
-
 	unsigned magic;
 };
 
@@ -289,6 +292,16 @@ enum IASECC_KEY_TYPE {
 	IASECC_SDO_CLASS_RSA_PUB = 0x20
 };
 
+struct iasecc_sm_cmd_update_binary {
+	const unsigned char *data;
+	size_t offs, count;
+};
+
+struct iasecc_sm_cmd_create_file {
+	const unsigned char *data;
+	size_t size;
+};
+
 struct sc_card;
 int iasecc_sdo_convert_acl(struct sc_card *, struct iasecc_sdo *, unsigned char, unsigned *, unsigned *);
 void iasecc_sdo_free_fields(struct sc_card *, struct iasecc_sdo *);
@@ -306,4 +319,16 @@ int iasecc_se_get_crt_by_usage(struct sc_card *, struct iasecc_se_info *,
 int iasecc_sdo_encode_rsa_update(struct sc_context *, struct iasecc_sdo *, struct sc_pkcs15_prkey_rsa *, struct iasecc_sdo_update *);
 int iasecc_sdo_parse_card_answer(struct sc_context *, unsigned char *, size_t, struct iasecc_sm_card_answer *);
 int iasecc_docp_copy(struct sc_context *, struct iasecc_sdo_docp *, struct iasecc_sdo_docp *);
+int iasecc_se_get_info(struct sc_card *card, struct iasecc_se_info *se);
+
+int iasecc_sm_external_authentication(struct sc_card *card, unsigned skey_ref, int *tries_left);
+int iasecc_sm_pin_verify(struct sc_card *card, unsigned se_num, struct sc_pin_cmd_data *data, int *tries_left);
+int iasecc_sm_pin_reset(struct sc_card *card, unsigned se_num, struct sc_pin_cmd_data *data);
+int iasecc_sm_update_binary(struct sc_card *card, unsigned se_num, size_t offs, const unsigned char *buff, size_t count);
+int iasecc_sm_read_binary(struct sc_card *card, unsigned se_num, size_t offs, unsigned char *buff, size_t count);
+int iasecc_sm_create_file(struct sc_card *card, unsigned se_num, unsigned char *fcp, size_t fcp_len);
+int iasecc_sm_delete_file(struct sc_card *card, unsigned se_num, unsigned int file_id);
+int iasecc_sm_rsa_generate(struct sc_card *card, unsigned se_num, struct iasecc_sdo *sdo);
+int iasecc_sm_rsa_update(struct sc_card *card, unsigned se_num, struct iasecc_sdo_rsa_update *udata);
+int iasecc_sm_sdo_update(struct sc_card *card, unsigned se_num, struct iasecc_sdo_update *update);
 #endif

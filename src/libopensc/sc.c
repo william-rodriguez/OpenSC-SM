@@ -813,6 +813,40 @@ void sc_remote_data_init(struct sc_remote_data *rdata)
 	rdata->free = sc_remote_apdu_free;
 }
 
+
+static unsigned long  sc_CRC_tab32[256];
+static int sc_CRC_tab32_initialized = 0;
+
+unsigned sc_crc32(unsigned char *value, size_t len)
+{
+#define  P_32        0xEDB88320L
+	size_t ii, jj;
+	unsigned long crc;
+	unsigned long index, long_c;
+
+	if (!sc_CRC_tab32_initialized)   {
+		for (ii=0; ii<256; ii++) {
+			crc = (unsigned long) ii;
+			for (jj=0; jj<8; jj++) {
+				if ( crc & 0x00000001L ) crc = ( crc >> 1 ) ^ P_32;
+				else                     crc =   crc >> 1;
+			}
+			sc_CRC_tab32[ii] = crc;
+		}
+		sc_CRC_tab32_initialized = 1;
+	}
+
+	crc = 0xffffffffL;
+	for (ii=0; ii<len; ii++)   {
+		long_c = 0x000000ffL & (unsigned long) (*(value + ii));
+		index = crc ^ long_c;
+		crc = (crc >> 8) ^ sc_CRC_tab32[ index & 0xff ];
+	}
+
+	crc ^= 0xffffffff;
+	return  crc%0xFFFF;
+}
+
 /**************************** mutex functions ************************/
 
 int sc_mutex_create(const sc_context_t *ctx, void **mutex)

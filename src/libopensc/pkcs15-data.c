@@ -65,7 +65,7 @@ int sc_pkcs15_read_data_object(struct sc_pkcs15_card *p15card,
 	data_object->data = data;
 	data_object->data_len = len;
 	*data_object_out = data_object;
-	return 0;
+	return SC_SUCCESS;
 }
 
 static const struct sc_asn1_entry c_asn1_data[] = {

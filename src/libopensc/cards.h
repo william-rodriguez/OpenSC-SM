@@ -21,8 +21,6 @@
 #ifndef _OPENSC_CARDS_H
 #define _OPENSC_CARDS_H
 
-#include "libopensc/types.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -32,9 +30,6 @@ enum {
 	SC_CARD_TYPE_UNKNOWN = -1,
 	SC_CARD_TYPE_GENERIC_BASE = 0,
 	SC_CARD_TYPE_GENERIC,
-
-	/* Cards without registered type, yet */
-	SC_CARD_TYPE_TEST_BASE = 500,
 
 	/* cardos driver */
 	SC_CARD_TYPE_CARDOS_BASE = 1000,
@@ -156,6 +151,7 @@ enum {
 	SC_CARD_TYPE_ENTERSAFE_BASE = 19000,
 	SC_CARD_TYPE_ENTERSAFE_3K,
 	SC_CARD_TYPE_ENTERSAFE_FTCOS_PK_01C,
+	SC_CARD_TYPE_ENTERSAFE_FTCOS_EPASS2003,
 
 	/* MyEID cards */
 	SC_CARD_TYPE_MYEID_BASE = 20000,
@@ -186,6 +182,7 @@ enum {
 	SC_CARD_TYPE_IASECC_GEMALTO,
 	SC_CARD_TYPE_IASECC_OBERTHUR,
 	SC_CARD_TYPE_IASECC_SAGEM,
+	SC_CARD_TYPE_IASECC_AMOS
 };
 
 extern sc_card_driver_t *sc_get_default_driver(void);
@@ -211,6 +208,7 @@ extern sc_card_driver_t *sc_get_acos5_driver(void);
 extern sc_card_driver_t *sc_get_asepcos_driver(void);
 extern sc_card_driver_t *sc_get_akis_driver(void);
 extern sc_card_driver_t *sc_get_entersafe_driver(void);
+extern sc_card_driver_t *sc_get_epass2003_driver(void);
 extern sc_card_driver_t *sc_get_rutoken_driver(void);
 extern sc_card_driver_t *sc_get_rtecp_driver(void);
 extern sc_card_driver_t *sc_get_westcos_driver(void);

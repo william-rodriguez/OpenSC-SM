@@ -51,7 +51,7 @@ int _sc_delete_reader(sc_context_t *ctx, sc_reader_t *reader)
 {
 	assert(reader != NULL);
 	if (reader->ops->release)
-			reader->ops->release(reader);
+		reader->ops->release(reader);
 	if (reader->name)
 		free(reader->name);
 	list_delete(&ctx->readers, reader);
@@ -91,6 +91,7 @@ static const struct _sc_driver_entry internal_card_drivers[] = {
 	{ "akis",	(void *(*)(void)) sc_get_akis_driver },
 #ifdef ENABLE_OPENSSL
 	{ "entersafe",(void *(*)(void)) sc_get_entersafe_driver },
+	{ "epass2003",(void *(*)(void)) sc_get_epass2003_driver },
 #endif
 	{ "rutoken",	(void *(*)(void)) sc_get_rutoken_driver },
 	{ "rutoken_ecp",(void *(*)(void)) sc_get_rtecp_driver },
@@ -220,16 +221,22 @@ static int load_parameters(sc_context_t *ctx, scconf_block *block,
 	int err = 0;
 	const scconf_list *list;
 	const char *val, *s_internal = "internal";
-    const char *debug = NULL;
+	const char *debug = NULL;
+	int reopen;
 
 	ctx->debug = scconf_get_int(block, "debug", ctx->debug);
+	reopen = scconf_get_bool(block, "reopen_debug_file", 1);
+
 	debug = getenv("OPENSC_DEBUG");
 	if (debug)
 		ctx->debug = atoi(debug);
 
 	val = scconf_get_str(block, "debug_file", NULL);
-	if (val)
+	if (val)   {
+		if (reopen)
+			ctx->debug_filename = strdup(val);
 		sc_ctx_log_to_file(ctx, val);
+	}
 
 	ctx->paranoid_memory = scconf_get_bool (block, "paranoid-memory",
 		ctx->paranoid_memory);
@@ -623,6 +630,23 @@ int sc_establish_context(sc_context_t **ctx_out, const char *app_name)
 	return sc_context_create(ctx_out, &ctx_param);
 }
 
+// For multithreaded issues
+int sc_context_repair(sc_context_t **ctx_out)
+{
+	// Must already exist
+	if ((ctx_out == NULL) || (*ctx_out == NULL) ||
+	    ((*ctx_out)->app_name == NULL))
+		return SC_ERROR_INVALID_ARGUMENTS;
+
+	// The only thing that should be shared across different contexts are the
+	// card drivers - so rebuild the ATR's
+	load_card_atrs(*ctx_out);
+
+	// TODO: May need to re-open any card driver DLL's
+
+	return SC_SUCCESS;
+}
+
 int sc_context_create(sc_context_t **ctx_out, const sc_context_param_t *parm)
 {
 	sc_context_t		*ctx;
@@ -768,9 +792,11 @@ int sc_release_context(sc_context_t *ctx)
 		scconf_free(ctx->conf);
 	if (ctx->debug_file && (ctx->debug_file != stdout && ctx->debug_file != stderr))
 		fclose(ctx->debug_file);
+	if (ctx->debug_filename != NULL)
+		free(ctx->debug_filename);
 	if (ctx->app_name != NULL)
 		free(ctx->app_name);
-		list_destroy(&ctx->readers);
+	list_destroy(&ctx->readers);
 	sc_mem_clear(ctx, sizeof(*ctx));
 	free(ctx);
 	return SC_SUCCESS;

@@ -1100,6 +1100,7 @@ static int pcsc_wait_for_event(sc_context_t *ctx, unsigned int event_mask, sc_re
 	}
 
 	rv = gpriv->SCardGetStatusChange(gpriv->pcsc_wait_ctx, 0, rgReaderStates, num_watch);
+	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SCardGetStatusChange() rv 0x%X on %i readers to watch", rv, num_watch);
 	if (rv != SCARD_S_SUCCESS) {
 		if (rv != (LONG)SCARD_E_TIMEOUT) {
 			PCSC_LOG(ctx, "SCardGetStatusChange(1) failed", rv);
@@ -1180,7 +1181,7 @@ static int pcsc_wait_for_event(sc_context_t *ctx, unsigned int event_mask, sc_re
 			dwtimeout = timeout;
 
 		rv = gpriv->SCardGetStatusChange(gpriv->pcsc_wait_ctx, dwtimeout, rgReaderStates, num_watch);
-
+		sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SCardGetStatusChange() rv 0x%X on %i readers to watch", rv, num_watch);
 		if (rv == (LONG) SCARD_E_CANCELLED) {
 			/* C_Finalize was called, events don't matter */
 			r = SC_ERROR_EVENT_TIMEOUT;
@@ -1675,6 +1676,8 @@ static int cardmod_disconnect(sc_reader_t * reader)
 {
 	struct pcsc_private_data *priv = GET_PRIV_DATA(reader);
 
+	SC_FUNC_CALLED(reader->ctx, SC_LOG_DEBUG_NORMAL);
+
 	reader->flags = 0;
 	return SC_SUCCESS;
 }
@@ -1702,14 +1705,18 @@ static int cardmod_init(sc_context_t *ctx)
 
 	/* Defaults */
 	gpriv->enable_pinpad = 1;
+	gpriv->provider_library = DEFAULT_PCSC_PROVIDER;
 	
 	conf_block = sc_get_conf_block(ctx, "reader_driver", "cardmod", 1);
 	if (conf_block) {
-		    scconf_get_bool(conf_block, "enable_pinpad", gpriv->enable_pinpad);
+		scconf_get_bool(conf_block, "enable_pinpad", gpriv->enable_pinpad);
+		gpriv->provider_library =
+		    scconf_get_str(conf_block, "provider_library", gpriv->provider_library);
 	}
-	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "PC/SC options: enable_pinpad=%d", gpriv->enable_pinpad);
+	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "PC/SC options: enable_pinpad=%d", 
+	         gpriv->enable_pinpad);
 
-	gpriv->dlhandle = sc_dlopen("winscard.dll");
+	gpriv->dlhandle = sc_dlopen(gpriv->provider_library);
 	if (gpriv->dlhandle == NULL) {
 		ret = SC_ERROR_CANNOT_LOAD_MODULE;
 		goto out;

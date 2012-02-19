@@ -22,6 +22,15 @@ app default {
 	# debug_file = /tmp/opensc-debug.log;
 	# debug_file = "C:\Documents and Settings\All Users\Documents\opensc-debug.log";
 
+	# Re-open debug file  (used in WIN32)
+	#
+	# In Windows, file handles can not be shared between DLL-s, 
+	#  each DLL has a separate file handle table.
+	# For that reason reopen debug file before every debug message.
+	#
+	# Default: true
+	# reopen_debug_file = false;
+
 	# PKCS#15 initialization / personalization
 	# profiles directory for pkcs15-init.
 	# Default: @pkgdatadir@
@@ -262,15 +271,34 @@ app default {
 	card_atr 3b:ff:11:00:ff:80:b1:fe:45:1f:03:00:68:d2:76:00:00:28:ff:05:1e:31:80:00:90:00:a6 {
 		force_protocol = t0;
 	}
+
+	# Oberthur's AuthentIC v3.2.2
+	card_atr 3B:DD:18:00:81:31:FE:45:80:F9:A0:00:00:00:77:01:00:70:0A:90:00:8B {
+		type = 11100;
+		driver = "authentic";
+		name = "AuthentIC v3.1";
+
+		# Name of SM configuration sub-section
+		# secure_messaging = local_authentic;
+	}
 	
 	# IAS/ECC cards
-	#card_atr 3B:7F:96:00:00:00:31:B9:64:40:70:14:10:73:94:01:80:82:90:00 {
-        #        type = 25001;
-        #        driver = "iasecc";
-        #        name = "Gemalto MultiApp IAS/ECC v1.0.1";
-        #        # secure_messaging = local_gemalto_iam;
-        #        # secure_messaging = local_adele;
-        #}
+	card_atr 3B:7F:96:00:00:00:31:B9:64:40:70:14:10:73:94:01:80:82:90:00 {
+                type = 25001;
+                driver = "iasecc";
+                name = "Gemalto MultiApp IAS/ECC v1.0.1";
+                secure_messaging = local_gemalto_iam;
+		md_read_only = false;
+		md_supports_X509_enrollment = true;
+        }
+	card_atr 3B:7F:96:00:00:00:31:B8:64:40:70:14:10:73:94:01:80:82:90:00 {
+                type = 25001;
+                driver = "iasecc";
+                name = "Gemalto MultiApp IAS/ECC v1.0.1";
+                secure_messaging = local_gemalto_iam;
+		md_read_only = false;
+		md_supports_X509_enrollment = true;
+        }
         #card_atr 3B:DD:18:00:81:31:FE:45:80:F9:A0:00:00:00:77:01:08:00:07:90:00:FE {
         #        type = 25002;
         #        driver = "iasecc";
@@ -283,6 +311,88 @@ app default {
         #        name = "Morpho YpsID S3 IAS/ECC";
         #        # secure_messaging = local_morpho_YpsID_S3;
         #}
+	card_atr 3B:DF:18:FF:81:91:FE:1F:C3:00:31:B8:64:0C:01:EC:C1:73:94:01:80:82:90:00:B3 {
+		type = 25004;
+		driver = "iasecc";
+		name = "Amos IAS/ECC v1.0.1";
+		md_read_only = false;
+		md_supports_X509_enrollment = true;
+	#        secure_messaging = local_amos;
+	}
+
+	secure_messaging local_authentic  {
+		#path to external SM module
+		#module = /usr/local/lib/opensc/libsmm-local.so;
+		
+		# specific data to tune the module initialization
+		#module_data = "Here can be your SM module init data";
+
+		# SM mode: 
+		# 'transmit' -- in this mode the procedure to securize an APDU is called by the OpenSC general 
+                #               APDU transmit procedure.
+		# 		In this mode all APDUs, except the ones filtered by the card specific procedure,
+                #               are securized.
+                # 'acl' -- in this mode APDU are securized only if needed by the ACLs of the command to be executed.
+                #
+		#mode = transmit;
+
+		# SM type specific flags
+		# flags = 0x78;           # 0x78 -- level 3, channel 0
+
+		# Default KMC of the GP Card Manager for the Oberthur's Java cards
+		# kmc = "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00";
+	}
+
+        secure_messaging local_gemalto_iam  {
+                module = /home/vtarasov/projects/sc/github/OpenSC/build/lib/libsmm-local.so;
+                module_data = "Here can be your SM module init data";
+                type = acl;             # transmit, acl
+
+                ifd_serial = "11:22:33:44:55:66:77:88";
+
+                # Keyset values from IAM profiles of the Gemalto IAS/ECC cards
+                keyset_02_enc = "RW_PRIV_ENC_TEST";
+                keyset_02_mac = "RW_PRIV_MAC_TEST";
+
+                keyset_E828BD080FD2504543432D654944_01_enc = "RO_ENC_TEST_KEY_";
+                keyset_E828BD080FD2504543432D654944_01_mac = "RO_MAC_TEST_KEY_";
+
+                keyset_E828BD080FD2504543432D654944_03_enc = "RW_PUBL_ENC_TEST";
+                keyset_E828BD080FD2504543432D654944_03_mac = "RW_PUBL_MAC_TEST";
+        }
+
+	secure_messaging local_amos  {
+		module = /home/vtarasov/projects/sc/github/OpenSC/build/lib/libsmm-local.so;
+		mode = acl;
+		ifd_serial = "11:22:33:44:55:66:77:88";
+		keyset_02_enc = "ENCROECHANTILLON";
+		keyset_02_mac = "MACROECHANTILLON";
+	}
+
+        secure_messaging local_adele  {
+                module = /home/vtarasov/projects/sc/git/opensc-sm.trunk/build/lib/libsmm-local.so;
+                module_data = "Here can be your SM module init data";
+                type = acl;             # transmit, acl
+
+		ifd_serial = "11:22:33:44:55:66:77:88";
+
+                # Keyset values from 'Adele' profiles of the IAS/ECC cards
+                keyset_01_enc = "EMENCECHANTILLON";
+                keyset_01_mac = "EMMACECHANTILLON";
+
+                keyset_02_enc = "AAENCECHANTILLON";
+                keyset_02_mac = "AAMACECHANTILLON";
+
+                keyset_E828BD080FD2500000040301_02_enc = "E2ENCECHANTILLON";
+                keyset_E828BD080FD2500000040301_02_mac = "E2MACECHANTILLON";
+
+                keyset_D2500000044164E86C650101_02_enc = "E1ENCECHANTILLON";
+                keyset_D2500000044164E86C650101_02_mac = "E1MACECHANTILLON";
+
+                keyset_D2500000044164E86C650101_03_enc = "SIENCECHANTILLON";
+                keyset_D2500000044164E86C650101_03_mac = "SIMACECHANTILLON";
+
+        }
 
 	# Below are the framework specific configuration blocks.
 
@@ -337,6 +447,27 @@ app default {
 			# The location of the driver library
 			# module = /usr/lib/opensc/drivers/p15emu_custom.so;
 		# }
+
+                application E828BD080FD25047656E65726963 {
+                        type = generic;
+                        model = "ECC Generic PKI";
+                }
+
+                application E828BD080FD2500000040301 {
+                        type = generic;
+                        model = "Adèle Générique";
+                }
+
+                application E828BD080FD2504543432D654944 {
+                        type = protected;
+                        model = "ECC eID";
+                }
+
+                application E828BD080FD2500000040201 {
+                        type = protected;
+                        model = "Adèle Admin-2";
+                }
+
 	}
 }
 
@@ -437,6 +568,27 @@ app opensc-pkcs11 {
 		#
 		# Default: empty
 		# ignored_readers = "CardMan 1021", "SPR 532";
+
+                # Symbolic names of PINs for which slots are created
+                # Card can contain more then one PINs or more then one on-card application with 
+                #   its own PINs. Normally, to access all of them with the PKCS#11 API a slot has to be 
+                #   created for all of them. Many slots could be ennoying for some of widely used application,
+                #   like FireFox. This configuration parameter allows to select the PINs or on-card application 
+                #   for which PKCS#11 slot will be created.
+                # Actually recognised following symbolic names:
+                #  'user', 'sign', 'application', all
+                # Only PINs initialised, non-SoPIN, non-unblocking are associated with symbolic name.
+                # 'user' is identified as first global or first local PIN. 
+                # 'sign' is identified as second PIN: first local, second global or second local.
+                # 'application' slot created for each on-card application, 
+                #   even if they use a common global PIN.
+                # 'all' slot created for all non-sopin, non-unblocking PINs, 
+                #   optionally for PUK (see option 'create_puk_slot')
+                # 
+                # Default: all
+                # create_slots_for_pins = "user,sign";
+                # create_slots_for_pins = application;
+                # create_slots_for_pins = "application,sign";
 	}
 }
 

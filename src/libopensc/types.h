@@ -49,6 +49,7 @@ typedef unsigned char u8;
  * 'c_asn1_supported_algorithms' in src/libopensc/pkcs15.c 
  */
 #define SC_MAX_SUPPORTED_ALGORITHMS     8
+#define SC_MAX_SE_NUM			8
 
 struct sc_lv_data {
 	unsigned char *value;
@@ -266,6 +267,8 @@ typedef struct sc_apdu {
 	u8 control;		/* Set if APDU should go to the reader */
 
 	unsigned int sw1, sw2;	/* Status words returned in R-APDU */
+	unsigned char mac[8];
+	size_t mac_len;
 
 	unsigned long flags;
 
@@ -314,10 +317,8 @@ typedef struct sc_serial_number {
  * Structure to supply the linked APDU data used in 
  * communication with the external (SM) modules.
  */
-#define SC_REMOTE_APDU_FLAG_FATAL
-#define SC_REMOTE_APDU_FLAG_LAST
-#define SC_REMOTE_APDU_FLAG_RETURN_ANSWER
-#define SC_REMOTE_APDU_FLAG_GET_RESPONSE
+#define SC_REMOTE_APDU_FLAG_NOT_FATAL		0x01 
+#define SC_REMOTE_APDU_FLAG_RETURN_ANSWER	0x02
 struct sc_remote_apdu {
 	unsigned char sbuf[2*SC_MAX_APDU_BUFFER_SIZE];
 	unsigned char rbuf[2*SC_MAX_APDU_BUFFER_SIZE];

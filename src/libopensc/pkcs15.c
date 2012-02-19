@@ -32,6 +32,10 @@
 #include "pkcs15.h"
 #include "asn1.h"
 
+#ifdef ENABLE_OPENSSL
+#include <openssl/sha.h>
+#endif
+
 static const struct sc_asn1_entry c_asn1_twlabel[] = {
 	{ "twlabel", SC_ASN1_UTF8STRING, SC_ASN1_TAG_UTF8STRING, 0, NULL, NULL },
 	{ NULL, 0, 0, 0, NULL, NULL }
@@ -62,21 +66,37 @@ static const struct sc_asn1_entry c_asn1_supported_algorithms[SC_MAX_SUPPORTED_A
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
 
-static const struct sc_asn1_entry c_asn1_toki[] = {
-	{ "version",        SC_ASN1_INTEGER,      SC_ASN1_TAG_INTEGER, 0, NULL, NULL },
-	{ "serialNumber",   SC_ASN1_OCTET_STRING, SC_ASN1_TAG_OCTET_STRING, SC_ASN1_OPTIONAL, NULL, NULL },
-	{ "manufacturerID", SC_ASN1_UTF8STRING,   SC_ASN1_TAG_UTF8STRING, SC_ASN1_OPTIONAL, NULL, NULL },
-	{ "label",	    SC_ASN1_UTF8STRING,   SC_ASN1_CTX | 0, SC_ASN1_OPTIONAL, NULL, NULL },
+#define C_ASN1_LAST_UPDATE_SIZE 3
+static const struct sc_asn1_entry c_asn1_last_update[C_ASN1_LAST_UPDATE_SIZE] = {
+	{ "generalizedTime",	SC_ASN1_GENERALIZEDTIME, SC_ASN1_TAG_GENERALIZEDTIME,	SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "referencedTime",	SC_ASN1_PATH, SC_ASN1_TAG_SEQUENCE | SC_ASN1_CONS,	SC_ASN1_OPTIONAL, NULL, NULL },
+	{ NULL, 0, 0, 0, NULL, NULL }
+};
+
+#define C_ASN1_PROFILE_INDICATION_SIZE 3
+static const struct sc_asn1_entry c_asn1_profile_indication[C_ASN1_PROFILE_INDICATION_SIZE] = {
+	{ "profileOID",		SC_ASN1_OBJECT,		SC_ASN1_TAG_OBJECT,     SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "profileName",	SC_ASN1_UTF8STRING,	SC_ASN1_TAG_UTF8STRING, SC_ASN1_OPTIONAL, NULL, NULL },
+	{ NULL, 0, 0, 0, NULL, NULL }
+};
+
+#define C_ASN1_TOKI_ATTRS_SIZE 15
+static const struct sc_asn1_entry c_asn1_toki_attrs[C_ASN1_TOKI_ATTRS_SIZE] = {
+	{ "version",        SC_ASN1_INTEGER,		SC_ASN1_TAG_INTEGER, 0, NULL, NULL },
+	{ "serialNumber",   SC_ASN1_OCTET_STRING,	SC_ASN1_TAG_OCTET_STRING, SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "manufacturerID", SC_ASN1_UTF8STRING,		SC_ASN1_TAG_UTF8STRING, SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "label",	    SC_ASN1_UTF8STRING,		SC_ASN1_CTX | 0, SC_ASN1_OPTIONAL, NULL, NULL },
 	/* XXX the Taiwanese ID card erroneously uses explicit tagging */
-	{ "label-tw",       SC_ASN1_STRUCT,       SC_ASN1_CTX | 0 | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL, NULL },
-	{ "tokenflags",	    SC_ASN1_BIT_FIELD,    SC_ASN1_TAG_BIT_STRING, 0, NULL, NULL },
-	{ "seInfo",	    SC_ASN1_SE_INFO,	  SC_ASN1_CONS | SC_ASN1_TAG_SEQUENCE, SC_ASN1_OPTIONAL, NULL, NULL },
-	{ "recordInfo",	    SC_ASN1_STRUCT,       SC_ASN1_CONS | SC_ASN1_CTX | 1, SC_ASN1_OPTIONAL, NULL, NULL },
-	{ "supportedAlgorithms", SC_ASN1_STRUCT,  SC_ASN1_CONS | SC_ASN1_CTX | 2, SC_ASN1_OPTIONAL, NULL, NULL },
-	{ "issuerId",       SC_ASN1_UTF8STRING,   SC_ASN1_CTX | 3, SC_ASN1_OPTIONAL, NULL, NULL },
-	{ "holderId",       SC_ASN1_UTF8STRING,   SC_ASN1_CTX | 4, SC_ASN1_OPTIONAL, NULL, NULL },
-	{ "lastUpdate",     SC_ASN1_GENERALIZEDTIME, SC_ASN1_CTX | 5, SC_ASN1_OPTIONAL, NULL, NULL },
-	{ "preferredLanguage", SC_ASN1_PRINTABLESTRING, SC_ASN1_TAG_PRINTABLESTRING, SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "label-tw",       SC_ASN1_STRUCT,		SC_ASN1_CTX | 0 | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "tokenflags",	    SC_ASN1_BIT_FIELD,		SC_ASN1_TAG_BIT_STRING, 0, NULL, NULL },
+	{ "seInfo",	    SC_ASN1_SE_INFO,		SC_ASN1_CONS | SC_ASN1_TAG_SEQUENCE, SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "recordInfo",	    SC_ASN1_STRUCT,		SC_ASN1_CONS | SC_ASN1_CTX | 1, SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "supportedAlgorithms", SC_ASN1_STRUCT,	SC_ASN1_CONS | SC_ASN1_CTX | 2, SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "issuerId",       SC_ASN1_UTF8STRING,		SC_ASN1_CTX | 3, SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "holderId",       SC_ASN1_UTF8STRING,		SC_ASN1_CTX | 4, SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "lastUpdate",     SC_ASN1_STRUCT,		SC_ASN1_CONS | SC_ASN1_CTX | 5, SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "preferredLanguage", SC_ASN1_PRINTABLESTRING,	SC_ASN1_TAG_PRINTABLESTRING, SC_ASN1_OPTIONAL, NULL, NULL },
+	{ "profileIndication", SC_ASN1_STRUCT,		SC_ASN1_CONS | SC_ASN1_CTX | 6, SC_ASN1_OPTIONAL, NULL, NULL },
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
 
@@ -96,10 +116,9 @@ int sc_pkcs15_parse_tokeninfo(sc_context_t *ctx,
 	size_t mnfid_len  = sizeof(mnfid);
 	u8 label[SC_PKCS15_MAX_LABEL_SIZE];
 	size_t label_len = sizeof(label);
-	u8 last_update[32];
-	size_t lupdate_len = sizeof(last_update) - 1;
+	u8 last_update[32], profile_indication[SC_PKCS15_MAX_LABEL_SIZE];
+	size_t lupdate_len = sizeof(last_update) - 1, pi_len = sizeof(profile_indication) - 1;
 	size_t flags_len   = sizeof(ti->flags);
-	struct sc_asn1_entry asn1_toki[14], asn1_tokeninfo[3], asn1_twlabel[3];
 	u8 preferred_language[3];
 	size_t lang_length = sizeof(preferred_language);
 	struct sc_asn1_entry asn1_supported_algorithms[SC_MAX_SUPPORTED_ALGORITHMS + 1],
@@ -109,11 +128,17 @@ int sc_pkcs15_parse_tokeninfo(sc_context_t *ctx,
 	size_t operations_len = sizeof(ti->supported_algos[0].operations);
 	size_t algo_ref_len = sizeof(ti->supported_algos[0].algo_ref);
 
+	struct sc_asn1_entry asn1_last_update[C_ASN1_LAST_UPDATE_SIZE];
+	struct sc_asn1_entry asn1_profile_indication[C_ASN1_PROFILE_INDICATION_SIZE];
+	struct sc_asn1_entry asn1_toki_attrs[C_ASN1_TOKI_ATTRS_SIZE], asn1_tokeninfo[3], asn1_twlabel[3];
+
 	memset(last_update, 0, sizeof(last_update));
 	sc_copy_asn1_entry(c_asn1_twlabel, asn1_twlabel);
-	sc_copy_asn1_entry(c_asn1_toki, asn1_toki);
+	sc_copy_asn1_entry(c_asn1_toki_attrs, asn1_toki_attrs);
 	sc_copy_asn1_entry(c_asn1_tokeninfo, asn1_tokeninfo);
+	sc_copy_asn1_entry(c_asn1_last_update, asn1_last_update);
 	sc_format_asn1_entry(asn1_twlabel, label, &label_len, 0);
+	sc_copy_asn1_entry(c_asn1_profile_indication, asn1_profile_indication);
 	
 	for (ii=0; ii<SC_MAX_SUPPORTED_ALGORITHMS; ii++)
 		sc_copy_asn1_entry(c_asn1_algorithm_info, asn1_algo_infos[ii]);
@@ -129,25 +154,32 @@ int sc_pkcs15_parse_tokeninfo(sc_context_t *ctx,
 		sc_format_asn1_entry(asn1_supported_algorithms + ii, asn1_algo_infos[ii], NULL, 0);
 	}
 
-	sc_format_asn1_entry(asn1_toki + 0, &ti->version, NULL, 0);
-	sc_format_asn1_entry(asn1_toki + 1, serial, &serial_len, 0);
-	sc_format_asn1_entry(asn1_toki + 2, mnfid, &mnfid_len, 0);
-	sc_format_asn1_entry(asn1_toki + 3, label, &label_len, 0);
-	sc_format_asn1_entry(asn1_toki + 4, asn1_twlabel, NULL, 0);
-	sc_format_asn1_entry(asn1_toki + 5, &ti->flags, &flags_len, 0);
-	sc_format_asn1_entry(asn1_toki + 6, &ti->seInfo, &ti->num_seInfo, 0);
-	sc_format_asn1_entry(asn1_toki + 7, NULL, NULL, 0);
-	sc_format_asn1_entry(asn1_toki + 8, asn1_supported_algorithms, NULL, 0);
-	sc_format_asn1_entry(asn1_toki + 9, NULL, NULL, 0);
-	sc_format_asn1_entry(asn1_toki + 10, NULL, NULL, 0);
-	sc_format_asn1_entry(asn1_toki + 11, last_update, &lupdate_len, 0);
-	sc_format_asn1_entry(asn1_toki + 12, preferred_language, &lang_length, 0);
-	sc_format_asn1_entry(asn1_tokeninfo, asn1_toki, NULL, 0);
+	sc_format_asn1_entry(asn1_last_update + 0, last_update, &lupdate_len, 0);
+	sc_format_asn1_entry(asn1_last_update + 1, &ti->last_update.path, NULL, 0);
+
+	sc_format_asn1_entry(asn1_profile_indication + 0, &ti->profile_indication.oid, NULL, 0);
+	sc_format_asn1_entry(asn1_profile_indication + 1, profile_indication, &pi_len, 0);
+
+	sc_format_asn1_entry(asn1_toki_attrs + 0, &ti->version, NULL, 0);
+	sc_format_asn1_entry(asn1_toki_attrs + 1, serial, &serial_len, 0);
+	sc_format_asn1_entry(asn1_toki_attrs + 2, mnfid, &mnfid_len, 0);
+	sc_format_asn1_entry(asn1_toki_attrs + 3, label, &label_len, 0);
+	sc_format_asn1_entry(asn1_toki_attrs + 4, asn1_twlabel, NULL, 0);
+	sc_format_asn1_entry(asn1_toki_attrs + 5, &ti->flags, &flags_len, 0);
+	sc_format_asn1_entry(asn1_toki_attrs + 6, &ti->seInfo, &ti->num_seInfo, 0);
+	sc_format_asn1_entry(asn1_toki_attrs + 7, NULL, NULL, 0);
+	sc_format_asn1_entry(asn1_toki_attrs + 8, asn1_supported_algorithms, NULL, 0);
+	sc_format_asn1_entry(asn1_toki_attrs + 9, NULL, NULL, 0);
+	sc_format_asn1_entry(asn1_toki_attrs + 10, NULL, NULL, 0);
+	sc_format_asn1_entry(asn1_toki_attrs + 11, asn1_last_update, NULL, 0);
+	sc_format_asn1_entry(asn1_toki_attrs + 12, preferred_language, &lang_length, 0);
+	sc_format_asn1_entry(asn1_toki_attrs + 13, asn1_profile_indication, NULL, 0);
+	sc_format_asn1_entry(asn1_tokeninfo, asn1_toki_attrs, NULL, 0);
 	
 	r = sc_asn1_decode(ctx, asn1_tokeninfo, buf, blen, NULL, NULL);
 	LOG_TEST_RET(ctx, r, "ASN.1 parsing of EF(TokenInfo) failed");
 
-	if (asn1_toki[1].flags & SC_ASN1_PRESENT)   {
+	if (asn1_toki_attrs[1].flags & SC_ASN1_PRESENT)   {
 		ti->serial_number = malloc(serial_len * 2 + 1);
 		if (ti->serial_number == NULL)
 			return SC_ERROR_OUT_OF_MEMORY;
@@ -162,7 +194,7 @@ int sc_pkcs15_parse_tokeninfo(sc_context_t *ctx,
 	}
 
 	if (ti->manufacturer_id == NULL) {
-		if (asn1_toki[2].flags & SC_ASN1_PRESENT)
+		if (asn1_toki_attrs[2].flags & SC_ASN1_PRESENT)
 			ti->manufacturer_id = strdup((char *) mnfid);
 		else
 			ti->manufacturer_id = strdup("(unknown)");
@@ -170,40 +202,87 @@ int sc_pkcs15_parse_tokeninfo(sc_context_t *ctx,
 			return SC_ERROR_OUT_OF_MEMORY;
 	}
 	if (ti->label == NULL) {
-		if (asn1_toki[3].flags & SC_ASN1_PRESENT ||
-		    asn1_toki[4].flags & SC_ASN1_PRESENT)
+		if (asn1_toki_attrs[3].flags & SC_ASN1_PRESENT ||
+		    asn1_toki_attrs[4].flags & SC_ASN1_PRESENT)
 			ti->label = strdup((char *) label);
 		else
 			ti->label = strdup("(unknown)");
 		if (ti->label == NULL)
 			return SC_ERROR_OUT_OF_MEMORY;
 	}
-	if (asn1_toki[11].flags & SC_ASN1_PRESENT) {
-		ti->last_update = strdup((char *)last_update);
-		if (ti->last_update == NULL)
-			return SC_ERROR_OUT_OF_MEMORY;
+	if (asn1_toki_attrs[11].flags & SC_ASN1_PRESENT) {
+		if (asn1_last_update[0].flags & SC_ASN1_PRESENT)   {
+			sc_log(ctx, "LastUpdate.generalizedTime present");
+			ti->last_update.gtime = strdup((char *)last_update);
+			if (ti->last_update.gtime == NULL)
+				return SC_ERROR_OUT_OF_MEMORY;
+		}
+		else if (asn1_last_update[1].flags & SC_ASN1_PRESENT)  {
+			sc_log(ctx, "LastUpdate.referencedTime present");
+		}
 	}
-	if (asn1_toki[12].flags & SC_ASN1_PRESENT) {
+	if (asn1_toki_attrs[12].flags & SC_ASN1_PRESENT) {
 		preferred_language[2] = 0;
 		ti->preferred_language = strdup((char *)preferred_language);
 		if (ti->preferred_language == NULL)
 			return SC_ERROR_OUT_OF_MEMORY;
 	}
+	if (asn1_toki_attrs[13].flags & SC_ASN1_PRESENT) {
+		if (asn1_profile_indication[0].flags & SC_ASN1_PRESENT)   {
+			sc_log(ctx, "ProfileIndication.oid present");
+		}
+		else if (asn1_profile_indication[1].flags & SC_ASN1_PRESENT)  {
+			sc_log(ctx, "ProfileIndication.name present");
+			ti->profile_indication.name = strdup((char *)profile_indication);
+			if (ti->profile_indication.name == NULL)
+				return SC_ERROR_OUT_OF_MEMORY;
+		}
+	}
+
+	sc_log(ctx, "LastUpdate.path '%s'", sc_print_path(&ti->last_update.path));
+	sc_log(ctx, "ProfileIndication.name '%s'",  ti->profile_indication.name);
 	return SC_SUCCESS;
 }
 
-int sc_pkcs15_encode_tokeninfo(sc_context_t *ctx,
-			       sc_pkcs15_tokeninfo_t *ti,
-			       u8 **buf, size_t *buflen)
-{
-	int r;
-	size_t serial_len, mnfid_len, label_len, flags_len, last_upd_len;
-	
-	struct sc_asn1_entry asn1_toki[14], asn1_tokeninfo[2];
 
-	sc_copy_asn1_entry(c_asn1_toki, asn1_toki);
+int 
+sc_pkcs15_encode_tokeninfo(sc_context_t *ctx, sc_pkcs15_tokeninfo_t *ti,
+		u8 **buf, size_t *buflen)
+{
+	int r, ii;
+	size_t serial_len, mnfid_len, label_len, flags_len, last_upd_len, pi_len;
+	
+	struct sc_asn1_entry asn1_toki_attrs[C_ASN1_TOKI_ATTRS_SIZE];
+	struct sc_asn1_entry asn1_tokeninfo[2];
+	struct sc_asn1_entry asn1_supported_algorithms[SC_MAX_SUPPORTED_ALGORITHMS + 1],
+			     asn1_algo_infos[SC_MAX_SUPPORTED_ALGORITHMS][7];
+	size_t reference_len = sizeof(ti->supported_algos[0].reference);
+	size_t mechanism_len = sizeof(ti->supported_algos[0].mechanism);
+	size_t operations_len = sizeof(ti->supported_algos[0].operations);
+	size_t algo_ref_len = sizeof(ti->supported_algos[0].algo_ref);
+	struct sc_asn1_entry asn1_last_update[C_ASN1_LAST_UPDATE_SIZE];
+	struct sc_asn1_entry asn1_profile_indication[C_ASN1_PROFILE_INDICATION_SIZE];
+
+	sc_copy_asn1_entry(c_asn1_toki_attrs, asn1_toki_attrs);
 	sc_copy_asn1_entry(c_asn1_tokeninfo, asn1_tokeninfo);
-	sc_format_asn1_entry(asn1_toki + 0, &ti->version, NULL, 1);
+	sc_copy_asn1_entry(c_asn1_last_update, asn1_last_update);
+	sc_copy_asn1_entry(c_asn1_profile_indication, asn1_profile_indication);
+
+	for (ii=0; ii<SC_MAX_SUPPORTED_ALGORITHMS && ti->supported_algos[ii].reference; ii++)
+		sc_copy_asn1_entry(c_asn1_algorithm_info, asn1_algo_infos[ii]);
+	sc_copy_asn1_entry(c_asn1_supported_algorithms, asn1_supported_algorithms);
+
+	for (ii=0; ii<SC_MAX_SUPPORTED_ALGORITHMS && ti->supported_algos[ii].reference; ii++)   {
+		sc_format_asn1_entry(asn1_algo_infos[ii] + 0, &ti->supported_algos[ii].reference, &reference_len, 1);
+		sc_format_asn1_entry(asn1_algo_infos[ii] + 1, &ti->supported_algos[ii].mechanism, &mechanism_len, 1);
+		sc_format_asn1_entry(asn1_algo_infos[ii] + 2, NULL, NULL, 0);
+		sc_format_asn1_entry(asn1_algo_infos[ii] + 3, &ti->supported_algos[ii].operations, &operations_len, 1);
+		sc_format_asn1_entry(asn1_algo_infos[ii] + 4, &ti->supported_algos[ii].algo_id, NULL, 1);
+		sc_format_asn1_entry(asn1_algo_infos[ii] + 5, &ti->supported_algos[ii].algo_ref, &algo_ref_len, 1);
+		sc_format_asn1_entry(asn1_supported_algorithms + ii, asn1_algo_infos[ii], NULL, 1);
+	}
+
+	sc_format_asn1_entry(asn1_toki_attrs + 0, &ti->version, NULL, 1);
 	if (ti->serial_number != NULL) {
 		u8 serial[128];
 		serial_len = 0;
@@ -212,36 +291,79 @@ int sc_pkcs15_encode_tokeninfo(sc_context_t *ctx,
 		serial_len = sizeof(serial);
 		if (sc_hex_to_bin(ti->serial_number, serial, &serial_len) < 0)
 			return SC_ERROR_INVALID_ARGUMENTS;
-		sc_format_asn1_entry(asn1_toki + 1, serial, &serial_len, 1);
-	} else
-		sc_format_asn1_entry(asn1_toki + 1, NULL, NULL, 0);
+		sc_format_asn1_entry(asn1_toki_attrs + 1, serial, &serial_len, 1);
+	}
+	else   {
+		sc_format_asn1_entry(asn1_toki_attrs + 1, NULL, NULL, 0);
+	}
+
 	if (ti->manufacturer_id != NULL) {
 		mnfid_len = strlen(ti->manufacturer_id);
-		sc_format_asn1_entry(asn1_toki + 2, ti->manufacturer_id, &mnfid_len, 1);
-	} else
-		sc_format_asn1_entry(asn1_toki + 2, NULL, NULL, 0);
+		sc_format_asn1_entry(asn1_toki_attrs + 2, ti->manufacturer_id, &mnfid_len, 1);
+	}
+	else    {
+		sc_format_asn1_entry(asn1_toki_attrs + 2, NULL, NULL, 0);
+	}
+
 	if (ti->label != NULL) {
 		label_len = strlen(ti->label);
-		sc_format_asn1_entry(asn1_toki + 3, ti->label, &label_len, 1);
-	} else
-		sc_format_asn1_entry(asn1_toki + 3, NULL, NULL, 0);
+		sc_format_asn1_entry(asn1_toki_attrs + 3, ti->label, &label_len, 1);
+	}
+	else   {
+		sc_format_asn1_entry(asn1_toki_attrs + 3, NULL, NULL, 0);
+	}
+
 	if (ti->flags) {
 		flags_len = sizeof(ti->flags);
-		sc_format_asn1_entry(asn1_toki + 5, &ti->flags, &flags_len, 1);
-	} else
-		sc_format_asn1_entry(asn1_toki + 5, NULL, NULL, 0);
-	sc_format_asn1_entry(asn1_toki + 6, NULL, NULL, 0);
-	sc_format_asn1_entry(asn1_toki + 7, NULL, NULL, 0);
-	sc_format_asn1_entry(asn1_toki + 8, NULL, NULL, 0);
-	sc_format_asn1_entry(asn1_toki + 9, NULL, NULL, 0);
-	sc_format_asn1_entry(asn1_toki + 10, NULL, NULL, 0);
-	if (ti->last_update != NULL) {
-		last_upd_len = strlen(ti->last_update);
-		sc_format_asn1_entry(asn1_toki + 11, ti->last_update, &last_upd_len, 1);
-	} else
-		sc_format_asn1_entry(asn1_toki + 11, NULL, NULL, 0);
-	sc_format_asn1_entry(asn1_toki + 12, NULL, NULL, 0);
-	sc_format_asn1_entry(asn1_tokeninfo, asn1_toki, NULL, 1);
+		sc_format_asn1_entry(asn1_toki_attrs + 5, &ti->flags, &flags_len, 1);
+	}
+	else   {
+		sc_format_asn1_entry(asn1_toki_attrs + 5, NULL, NULL, 0);
+	}
+
+	if (ti->num_seInfo)
+		sc_format_asn1_entry(asn1_toki_attrs + 6, ti->seInfo, &ti->num_seInfo, 1);
+	else
+		sc_format_asn1_entry(asn1_toki_attrs + 6, NULL, NULL, 0);
+
+	sc_format_asn1_entry(asn1_toki_attrs + 7, NULL, NULL, 0);
+
+	if (ti->supported_algos[0].reference)
+		sc_format_asn1_entry(asn1_toki_attrs + 8, asn1_supported_algorithms, NULL, 1);
+	else
+		sc_format_asn1_entry(asn1_toki_attrs + 8, NULL, NULL, 0);
+
+	sc_format_asn1_entry(asn1_toki_attrs + 9, NULL, NULL, 0);
+	sc_format_asn1_entry(asn1_toki_attrs + 10, NULL, NULL, 0);
+
+	if (ti->last_update.path.len) {
+		sc_format_asn1_entry(asn1_last_update + 0, &ti->last_update.path, NULL, 1);
+		sc_format_asn1_entry(asn1_toki_attrs + 11, asn1_last_update, NULL, 1);
+	}
+	else if (ti->last_update.gtime != NULL) {
+		last_upd_len = strlen(ti->last_update.gtime);
+		sc_format_asn1_entry(asn1_last_update + 0, ti->last_update.gtime, &last_upd_len, 1);
+		sc_format_asn1_entry(asn1_toki_attrs + 11, asn1_last_update, NULL, 1);
+	}
+	else   {
+		sc_format_asn1_entry(asn1_toki_attrs + 11, NULL, NULL, 0);
+	}
+	sc_format_asn1_entry(asn1_toki_attrs + 12, NULL, NULL, 0);
+
+	if (ti->profile_indication.oid.value[0] > 0)   {
+        	sc_format_asn1_entry(asn1_profile_indication + 0, &ti->profile_indication.oid, NULL, 1);
+		sc_format_asn1_entry(asn1_toki_attrs + 13, asn1_profile_indication, NULL, 1);
+	}
+	else if (ti->profile_indication.name)   {
+		pi_len = strlen(ti->profile_indication.name);
+        	sc_format_asn1_entry(asn1_profile_indication + 1, ti->profile_indication.name, &pi_len, 1);
+		sc_format_asn1_entry(asn1_toki_attrs + 13, asn1_profile_indication, NULL, 1);
+	}
+	else    {
+		sc_format_asn1_entry(asn1_toki_attrs + 13, NULL, NULL, 0);
+	}
+
+	sc_format_asn1_entry(asn1_tokeninfo, asn1_toki_attrs, NULL, 1);
 
 	r = sc_asn1_encode(ctx, asn1_tokeninfo, buf, buflen);
 	LOG_TEST_RET(ctx, r, "sc_asn1_encode() failed");
@@ -406,6 +528,55 @@ static int encode_ddo(struct sc_pkcs15_card *p15card, u8 **buf, size_t *buflen)
 }
 #endif
 
+
+char *
+sc_pkcs15_get_lastupdate(struct sc_pkcs15_card *p15card)
+{
+	struct sc_context *ctx  = p15card->card->ctx;
+	struct sc_file *file = NULL;
+	struct sc_asn1_entry asn1_last_update[C_ASN1_LAST_UPDATE_SIZE];
+        unsigned char *content, last_update[32];
+        size_t lupdate_len = sizeof(last_update) - 1;
+	int r, content_len;
+
+	if (p15card->tokeninfo->last_update.gtime)
+		goto done; 
+
+	if (!p15card->tokeninfo->last_update.path.len)
+		return NULL;
+
+        r = sc_select_file(p15card->card, &p15card->tokeninfo->last_update.path, &file);
+	if (r < 0)
+		return NULL;
+
+	content = calloc(file->size, 1);
+	if (!content)
+		return NULL;
+
+	r = sc_read_binary(p15card->card, 0, content, file->size, 0);
+	if (r < 0)
+		return NULL;
+	content_len = r;
+
+	sc_file_free(file);
+
+	sc_copy_asn1_entry(c_asn1_last_update, asn1_last_update);
+	sc_format_asn1_entry(asn1_last_update + 0, last_update, &lupdate_len, 0);
+
+	r = sc_asn1_decode(ctx, asn1_last_update, content, content_len, NULL, NULL);
+	free(content);
+	if (r < 0)
+		return NULL;
+
+	p15card->tokeninfo->last_update.gtime = strdup((char *)last_update);
+	if (!p15card->tokeninfo->last_update.gtime)
+		return NULL;
+done:
+	sc_log(ctx, "lastUpdate.gtime '%s'", p15card->tokeninfo->last_update.gtime);
+	return p15card->tokeninfo->last_update.gtime;
+}
+
+
 static const struct sc_asn1_entry c_asn1_odf[] = {
 	{ "privateKeys",	 SC_ASN1_STRUCT, SC_ASN1_CTX | 0 | SC_ASN1_CONS, 0, NULL, NULL },
 	{ "publicKeys",		 SC_ASN1_STRUCT, SC_ASN1_CTX | 1 | SC_ASN1_CONS, 0, NULL, NULL },
@@ -538,6 +709,8 @@ struct sc_pkcs15_card * sc_pkcs15_card_new(void)
 		return NULL;
 	}
 
+	p15card->tokeninfo->profile_indication.oid.value[0] = -1;
+
 	p15card->magic = SC_PKCS15_CARD_MAGIC;
 	return p15card;
 }
@@ -579,10 +752,12 @@ void sc_pkcs15_card_free(struct sc_pkcs15_card *p15card)
 		free(p15card->tokeninfo->serial_number);
 	if (p15card->tokeninfo->manufacturer_id != NULL)
 		free(p15card->tokeninfo->manufacturer_id);
-	if (p15card->tokeninfo->last_update != NULL)
-		free(p15card->tokeninfo->last_update);
+	if (p15card->tokeninfo->last_update.gtime != NULL)
+		free(p15card->tokeninfo->last_update.gtime);
 	if (p15card->tokeninfo->preferred_language != NULL)
 		free(p15card->tokeninfo->preferred_language);
+	if (p15card->tokeninfo->profile_indication.name != NULL)
+		free(p15card->tokeninfo->profile_indication.name);
 	if (p15card->tokeninfo->seInfo != NULL) {
 		for (i = 0; i < p15card->tokeninfo->num_seInfo; i++)
 			free(p15card->tokeninfo->seInfo[i]);
@@ -648,13 +823,17 @@ void sc_pkcs15_card_clear(sc_pkcs15_card_t *p15card)
 		free(p15card->tokeninfo->manufacturer_id);
 		p15card->tokeninfo->manufacturer_id = NULL;
 	}
-	if (p15card->tokeninfo->last_update != NULL) {
-		free(p15card->tokeninfo->last_update);
-		p15card->tokeninfo->last_update = NULL;
+	if (p15card->tokeninfo->last_update.gtime != NULL) {
+		free(p15card->tokeninfo->last_update.gtime);
+		p15card->tokeninfo->last_update.gtime = NULL;
 	}
 	if (p15card->tokeninfo->preferred_language != NULL) {
 		free(p15card->tokeninfo->preferred_language);
 		p15card->tokeninfo->preferred_language = NULL;
+	}
+	if (p15card->tokeninfo->profile_indication.name != NULL)   {
+		free(p15card->tokeninfo->profile_indication.name);
+		p15card->tokeninfo->profile_indication.name = NULL;
 	}
 	if (p15card->tokeninfo->seInfo != NULL) {
 		size_t i;
@@ -710,6 +889,48 @@ static struct sc_app_info *sc_dup_app_info(const struct sc_app_info *info)
 	return out;
 }
 
+struct sc_app_info *
+sc_pkcs15_get_application_by_type(struct sc_card * card, char *app_type)
+{
+	struct sc_app_info *out = NULL;
+	scconf_block *conf_block = NULL;
+	int i, rv;
+
+	if (!card)
+		return NULL;
+
+	if (card->app_count < 0)   {
+		rv = sc_enum_apps(card);
+        	if (rv < 0 && rv != SC_ERROR_FILE_NOT_FOUND)
+			return NULL;
+	}
+
+	conf_block = sc_get_conf_block(card->ctx, "framework", "pkcs15", 1);
+	if (!conf_block)
+		return NULL;	
+
+	for (i = 0; i < card->app_count; i++)   {
+		struct sc_app_info *app_info = card->app[i];
+		scconf_block **blocks = NULL;
+		char str_path[SC_MAX_AID_STRING_SIZE];
+
+		sc_bin_to_hex(app_info->aid.value, app_info->aid.len, str_path, sizeof(str_path), 0);
+		blocks = scconf_find_blocks(card->ctx->conf, conf_block, "application", str_path);
+		if (blocks)   {
+			if (blocks[0])   {
+				char *type = (char *)scconf_get_str(blocks[0], "type", app_type);
+				if (!strcmp(type, app_type))   {
+					out = app_info;
+					break;
+				}
+			}
+			free(blocks);
+		}
+	}
+
+	return out;
+}
+
 static int sc_pkcs15_bind_internal(sc_pkcs15_card_t *p15card, struct sc_aid *aid)
 {
 	sc_path_t tmppath;
@@ -726,8 +947,8 @@ static int sc_pkcs15_bind_internal(sc_pkcs15_card_t *p15card, struct sc_aid *aid
 	/* Enumerate apps now */
 	if (card->app_count < 0) {
 		err = sc_enum_apps(card);
-		if (err != SC_ERROR_FILE_NOT_FOUND)
-			LOG_TEST_RET(ctx, err, "unable to enumerate apps");
+		if (err != SC_SUCCESS)
+			sc_log(ctx, "unable to enumerate apps: %s", sc_strerror(err));
 	}
 	p15card->file_app = sc_file_new();
 	if (p15card->file_app == NULL) {
@@ -767,7 +988,7 @@ static int sc_pkcs15_bind_internal(sc_pkcs15_card_t *p15card, struct sc_aid *aid
 	/* If the above test failed on cards without EF(DIR),
 	 * try to continue read ODF from 3F005031. -aet
 	 */
-	if ((err == SC_ERROR_FILE_NOT_FOUND) && (card->app_count < 1)) {
+	if ((err != SC_SUCCESS) && (card->app_count < 1)) {
 		sc_format_path("3F00", &p15card->file_app->path);
 		err = SC_SUCCESS;
 	}
@@ -994,6 +1215,7 @@ __sc_pkcs15_search_objects(sc_pkcs15_card_t *p15card,
 	if (class_mask == 0
 	 || (class_mask & ~(SC_PKCS15_SEARCH_CLASS_PRKEY |
 			    SC_PKCS15_SEARCH_CLASS_PUBKEY |
+			    SC_PKCS15_SEARCH_CLASS_SKEY |
 			    SC_PKCS15_SEARCH_CLASS_CERT |
 			    SC_PKCS15_SEARCH_CLASS_DATA |
 			    SC_PKCS15_SEARCH_CLASS_AUTH))) {
@@ -1010,12 +1232,15 @@ __sc_pkcs15_search_objects(sc_pkcs15_card_t *p15card,
 		df_mask |= (1 << SC_PKCS15_DODF);
 	if (class_mask & SC_PKCS15_SEARCH_CLASS_AUTH)
 		df_mask |= (1 << SC_PKCS15_AODF);
+	if (class_mask & SC_PKCS15_SEARCH_CLASS_SKEY)
+		df_mask |= (1 << SC_PKCS15_SKDF);
 
 	/* Make sure all the DFs we want to search have been
 	 * enumerated. */
 	for (df = p15card->df_list; df != NULL; df = df->next) {
-		if (!(df_mask & (1 << df->type)))
+		if (!(df_mask & (1 << df->type)))   {
 			continue;
+		}
 		if (df->enumerated)
 			continue;
 		/* Enumerate the DF's, so p15card->obj_list is
@@ -1071,7 +1296,13 @@ static int compare_obj_id(struct sc_pkcs15_object *obj, const sc_pkcs15_id_t *id
 	case SC_PKCS15_TYPE_PUBKEY_GOSTR3410:
 	case SC_PKCS15_TYPE_PUBKEY_EC:
 		return sc_pkcs15_compare_id(&((struct sc_pkcs15_pubkey_info *) data)->id, id);
+	case SC_PKCS15_TYPE_SKEY_DES:
+	case SC_PKCS15_TYPE_SKEY_2DES:
+	case SC_PKCS15_TYPE_SKEY_3DES:
+		return sc_pkcs15_compare_id(&((struct sc_pkcs15_skey_info *) data)->id, id);
 	case SC_PKCS15_TYPE_AUTH_PIN:
+	case SC_PKCS15_TYPE_AUTH_BIO:
+	case SC_PKCS15_TYPE_AUTH_AUTHKEY:
 		return sc_pkcs15_compare_id(&((struct sc_pkcs15_auth_info *) data)->auth_id, id);
 	case SC_PKCS15_TYPE_DATA_OBJECT:
 		return sc_pkcs15_compare_id(&((struct sc_pkcs15_data_info *) data)->id, id);
@@ -1287,11 +1518,18 @@ int sc_pkcs15_find_pubkey_by_id(struct sc_pkcs15_card *p15card,
 	return sc_pkcs15_find_object_by_id(p15card, SC_PKCS15_TYPE_PUBKEY, id, out);
 }
 
+int sc_pkcs15_find_skey_by_id(struct sc_pkcs15_card *p15card,
+				const struct sc_pkcs15_id *id,
+				struct sc_pkcs15_object **out)
+{
+	return sc_pkcs15_find_object_by_id(p15card, SC_PKCS15_TYPE_SKEY, id, out);
+}
+
 int sc_pkcs15_find_pin_by_auth_id(struct sc_pkcs15_card *p15card,
 			     const struct sc_pkcs15_id *id,
 			     struct sc_pkcs15_object **out)
 {
-	return sc_pkcs15_find_object_by_id(p15card, SC_PKCS15_TYPE_AUTH_PIN, id, out);
+	return sc_pkcs15_find_object_by_id(p15card, SC_PKCS15_TYPE_AUTH, id, out);
 }
 
 int sc_pkcs15_find_pin_by_reference(struct sc_pkcs15_card *p15card,
@@ -1342,6 +1580,54 @@ int sc_pkcs15_find_pin_by_type_and_reference(struct sc_pkcs15_card *p15card,
 	}
 
 	return SC_ERROR_OBJECT_NOT_FOUND;
+}
+
+int sc_pkcs15_find_so_pin(struct sc_pkcs15_card *p15card, struct sc_pkcs15_object **out)
+{
+	struct sc_pkcs15_search_key sk;
+
+	memset(&sk, 0, sizeof(sk));
+	sk.flags_mask = sk.flags_value = SC_PKCS15_PIN_FLAG_SO_PIN;
+	
+	return find_by_key(p15card, SC_PKCS15_TYPE_AUTH_PIN, &sk, out);
+}
+
+int sc_pkcs15_find_pin_by_flags(struct sc_pkcs15_card *p15card, 
+		unsigned flags, unsigned mask, int *index,
+		struct sc_pkcs15_object **out)
+{
+	sc_context_t *ctx = p15card->card->ctx;
+	struct sc_pkcs15_object *auths[SC_PKCS15_MAX_PINS];
+	int r, i, num, idx = 0;
+
+	LOG_FUNC_CALLED(ctx);
+	sc_log(ctx, "Find PIN flags:0x%X, mask:0x%X, index:%i", flags, mask, index ? *index : -1);
+	if (index)
+		idx = *index;
+	/* Get authentication PKCS#15 objects that are present in the given application */
+	r = sc_pkcs15_get_objects(p15card, SC_PKCS15_TYPE_AUTH_PIN, auths, SC_PKCS15_MAX_PINS);
+	if (r < 0)
+		return r;
+	num = r;
+
+	for (i=idx; i<num; i++)   {
+		struct sc_pkcs15_auth_info *pin_info = (struct sc_pkcs15_auth_info *)(*(auths + i))->data;
+		
+		if (!pin_info || pin_info->auth_type != SC_PKCS15_PIN_AUTH_TYPE_PIN)
+			continue;
+
+		if ((pin_info->attrs.pin.flags & mask) != flags)
+			continue;
+
+		if (out)
+			*out = *(auths + i);
+		if (index)
+			*index = i;
+
+		LOG_FUNC_RETURN(ctx, SC_SUCCESS);
+	}
+
+	LOG_FUNC_RETURN(ctx, SC_ERROR_OBJECT_NOT_FOUND);
 }
 
 int sc_pkcs15_find_data_object_by_id(struct sc_pkcs15_card *p15card,
@@ -1422,17 +1708,6 @@ int sc_pkcs15_find_prkey_by_reference(sc_pkcs15_card_t *p15card,
 	return find_by_key(p15card, SC_PKCS15_TYPE_PRKEY, &sk, out);
 }
 
-int sc_pkcs15_find_so_pin(struct sc_pkcs15_card *p15card,
-			struct sc_pkcs15_object **out)
-{
-	struct sc_pkcs15_search_key sk;
-
-	memset(&sk, 0, sizeof(sk));
-	sk.flags_mask = sk.flags_value = SC_PKCS15_PIN_FLAG_SO_PIN;
-	
-	return find_by_key(p15card, SC_PKCS15_TYPE_AUTH_PIN, &sk, out);
-}
-
 int sc_pkcs15_add_object(struct sc_pkcs15_card *p15card,
 			 struct sc_pkcs15_object *obj)
 {
@@ -1486,6 +1761,9 @@ void sc_pkcs15_free_object(struct sc_pkcs15_object *obj)
 	default:
 		free(obj->data);
 	}
+
+	if (obj->guid != NULL)
+		free(obj->guid);
 
 	sc_pkcs15_free_object_content(obj);
 
@@ -1599,8 +1877,7 @@ int sc_pkcs15_parse_df(struct sc_pkcs15_card *p15card,
 	int (* func)(struct sc_pkcs15_card *, struct sc_pkcs15_object *,
 		     const u8 **nbuf, size_t *nbufsize) = NULL;
 
-	sc_log(ctx, "called; path=%s, type=%d, enum=%d", 
-			sc_print_path(&df->path), df->type, df->enumerated);
+	sc_log(ctx, "called; path=%s, type=%d, enum=%d", sc_print_path(&df->path), df->type, df->enumerated);
 
 	if (p15card->ops.parse_df)   {
 		r = p15card->ops.parse_df(p15card, df);
@@ -1616,6 +1893,9 @@ int sc_pkcs15_parse_df(struct sc_pkcs15_card *p15card,
 		break;
 	case SC_PKCS15_PUKDF:
 		func = sc_pkcs15_decode_pukdf_entry;
+		break;
+	case SC_PKCS15_SKDF:
+		func = sc_pkcs15_decode_skdf_entry;
 		break;
 	case SC_PKCS15_CDF:
 	case SC_PKCS15_CDF_TRUSTED:
@@ -1637,7 +1917,6 @@ int sc_pkcs15_parse_df(struct sc_pkcs15_card *p15card,
 	LOG_TEST_RET(ctx, r, "pkcs15 read file failed");
 
 	p = buf;
-	sc_log(ctx, "bufsize %i; first tag 0x%X", bufsize, *p);
 	while (bufsize && *p != 0x00) {
 		
 		obj = calloc(1, sizeof(struct sc_pkcs15_object));
@@ -1646,7 +1925,6 @@ int sc_pkcs15_parse_df(struct sc_pkcs15_card *p15card,
 			goto ret;
 		}
 		r = func(p15card, obj, &p, &bufsize);
-		sc_log(ctx, "rv %i", r);
 		if (r) {
 			free(obj);
 			if (r == SC_ERROR_ASN1_END_OF_CONTENTS) {
@@ -1861,8 +2139,8 @@ int sc_pkcs15_read_file(struct sc_pkcs15_card *p15card,
 
 	assert(p15card != NULL && in_path != NULL && buf != NULL);
 
-	sc_log(ctx, "called; path=%s, index=%u, count=%d", sc_print_path(in_path), 
-			in_path->index, in_path->count);
+	LOG_FUNC_CALLED(ctx);
+	sc_log(ctx, "path=%s, index=%u, count=%d", sc_print_path(in_path), in_path->index, in_path->count);
 
 	r = -1; /* file state: not in cache */
 	if (p15card->opts.use_file_cache) {
@@ -2165,7 +2443,7 @@ sc_pkcs15_get_object_id(const struct sc_pkcs15_object *obj, struct sc_pkcs15_id 
  *  that are described in RFC-4122 .
  */
 static int
-sc_pkcs15_serialize_guid(unsigned char *in, size_t in_size, 
+sc_pkcs15_serialize_guid(unsigned char *in, size_t in_size, unsigned flags, 
 		char *out, size_t out_size)
 {
 	int ii, jj, offs = 0;
@@ -2175,7 +2453,9 @@ sc_pkcs15_serialize_guid(unsigned char *in, size_t in_size,
 	if (out_size < 39) 
 		return SC_ERROR_BUFFER_TOO_SMALL;
 
-	strcpy(out, "{");
+	*out = '\0';
+	if (!flags)
+		strcpy(out, "{");
 	for (ii=0; ii<4; ii++)
 		sprintf(out + strlen(out), "%02x", *(in + offs++));
 	for (jj=0; jj<3; jj++)   {
@@ -2186,14 +2466,15 @@ sc_pkcs15_serialize_guid(unsigned char *in, size_t in_size,
 	strcat(out, "-");
 	for (ii=0; ii<6; ii++)
 		sprintf(out + strlen(out), "%02x", *(in + offs++));
-	strcat(out, "}");
+	if (!flags)
+		strcat(out, "}");
 
 	return SC_SUCCESS;
 }
 
 int 
 sc_pkcs15_get_guid(struct sc_pkcs15_card *p15card, const struct sc_pkcs15_object *obj,
-		                char *out, size_t out_size)
+		                unsigned flags, char *out, size_t out_size)
 {
 	struct sc_serial_number serialnr;
 	struct sc_pkcs15_id  id;
@@ -2202,6 +2483,18 @@ sc_pkcs15_get_guid(struct sc_pkcs15_card *p15card, const struct sc_pkcs15_object
 
 	if (p15card->ops.get_guid)
 		return p15card->ops.get_guid(p15card, obj, out, out_size);
+
+	if (obj->guid)   {
+		if (out_size < strlen(obj->guid))
+			return SC_ERROR_BUFFER_TOO_SMALL;
+		memset(out, 0, out_size);
+
+		if (out_size > strlen(obj->guid))
+			out_size = strlen(obj->guid);
+		memcpy(out, obj->guid, out_size);
+
+		return SC_SUCCESS;
+	}
 
 	rv = sc_pkcs15_get_object_id(obj, &id);
 	if (rv)
@@ -2215,7 +2508,15 @@ sc_pkcs15_get_guid(struct sc_pkcs15_card *p15card, const struct sc_pkcs15_object
 	memcpy(guid_bin, id.value, id.len);
 	memcpy(guid_bin + id.len, serialnr.value, serialnr.len);
 
-	return sc_pkcs15_serialize_guid(guid_bin, id.len + serialnr.len, out, out_size);
+        // If OpenSSL is available (SHA1), then rather use the hash of the data
+        // - this also protects against data being too short
+#ifdef ENABLE_OPENSSL
+        SHA1(guid_bin, id.len + serialnr.len, guid_bin);
+        id.len = SHA_DIGEST_LENGTH;
+        serialnr.len = 0;
+#endif
+
+	return sc_pkcs15_serialize_guid(guid_bin, id.len + serialnr.len, flags, out, out_size);
 }
 
 void sc_pkcs15_free_key_params(struct sc_pkcs15_key_params *params)   

@@ -199,6 +199,11 @@ static struct map		idStyleNames[] = {
 	{ "rfc2459",		SC_PKCS15INIT_ID_STYLE_RFC2459 },
 	{ NULL, 0 }
 };
+static struct map		mdStyleNames[] = {
+	{ "none",		SC_PKCS15INIT_MD_STYLE_NONE },
+	{ "gemalto",		SC_PKCS15INIT_MD_STYLE_GEMALTO },
+	{ NULL, 0 }
+};
 static struct {
 	const char *		name;
 	struct map *		addr;
@@ -412,9 +417,12 @@ sc_profile_finish(struct sc_profile *profile, const struct sc_app_info *app_info
 		}
 	}
 	
+	if (profile->df_info)
+		sc_log(ctx, "DF info path before '%s'", sc_print_path(&(profile->df_info->file->path)));
 	profile->df_info = sc_profile_find_file(profile, NULL, "PKCS15-AppDF");
 	if (!profile->df_info)
 		LOG_TEST_RET(ctx, SC_ERROR_INCONSISTENT_PROFILE, "Profile doesn't define a PKCS15-AppDF");
+	sc_log(ctx, "DF info path '%s'", sc_print_path(&(profile->df_info->file->path)));
 
 	profile->p15_spec->file_app = profile->df_info->file;
 	profile->df_info->dont_free = 1;
@@ -897,6 +905,12 @@ static int
 do_pkcs15_id_style(struct state *cur, int argc, char **argv)
 {
 	return map_str2int(cur, argv[0], &cur->profile->id_style, idStyleNames);
+}
+
+static int
+do_minidriver_support_style(struct state *cur, int argc, char **argv)
+{
+	return map_str2int(cur, argv[0], &cur->profile->md_style, mdStyleNames);
 }
 
 /*
@@ -1777,10 +1791,11 @@ static struct command	pi_commands[] = {
  * pkcs15 dialect section
  */
 static struct command	p15_commands[] = {
- { "direct-certificates", 1,	1,	do_direct_certificates },
- { "encode-df-length",	1,	1,	do_encode_df_length },
- { "do-last-update", 1, 1, do_encode_update_field },
- { "pkcs15-id-style", 1, 1, do_pkcs15_id_style },
+ { "direct-certificates",	1,	1,	do_direct_certificates },
+ { "encode-df-length",		1,	1,	do_encode_df_length },
+ { "do-last-update",		1,	1,	do_encode_update_field },
+ { "pkcs15-id-style",		1,	1,	do_pkcs15_id_style },
+ { "minidriver-support-style",	1,	1,	do_minidriver_support_style },
  { NULL, 0, 0, NULL }
 };
 
@@ -1964,10 +1979,12 @@ sc_profile_find_file(struct sc_profile *pro,
 	len = path? path->len : 0;
 	for (fi = pro->ef_list; fi; fi = fi->next) {
 		sc_path_t *fpath = &fi->file->path;
+	}
 
-		if (!strcasecmp(fi->ident, name)
-		 && fpath->len >= len
-		 && !memcmp(fpath->value, path->value, len))
+	for (fi = pro->ef_list; fi; fi = fi->next) {
+		sc_path_t *fpath = &fi->file->path;
+
+		if (!strcasecmp(fi->ident, name) && fpath->len >= len && !memcmp(fpath->value, path->value, len))
 			return fi;
 	}
 	return NULL;
