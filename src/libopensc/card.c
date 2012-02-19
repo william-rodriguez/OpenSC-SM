@@ -1243,8 +1243,8 @@ static int sc_card_sm_check(struct sc_card *card)
 	sm_mode = scconf_get_str(sm_conf_block, "mode", NULL);
 	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SM mode '%s'; 'open' handler %p", sm_mode, card->sm_ctx.ops.open);
 	if (sm_mode && !strcasecmp("Transmit", sm_mode))   {
-		if (!card->sm_ctx.ops.open || !card->sm_ctx.ops.encode_apdu)
-			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "'Transmit' SM asked but not supported by the card driver");
+		if (!card->sm_ctx.ops.open || !card->sm_ctx.ops.get_sm_apdu || !card->sm_ctx.ops.free_sm_apdu)
+			LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "'Transmit' SM asked but not supported by card driver");
 
 		card->sm_ctx.sm_mode = SM_MODE_TRANSMIT;
 		rv = card->sm_ctx.ops.open(card);

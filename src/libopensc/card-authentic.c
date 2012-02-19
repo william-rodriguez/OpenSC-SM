@@ -101,7 +101,8 @@ static void authentic_debug_select_file(struct sc_card *card, const struct sc_pa
 
 #ifdef ENABLE_SM
 static int authentic_sm_open(struct sc_card *card);
-static int authentic_sm_encode_apdu(struct sc_card *card, struct sc_apdu *apdu);
+static int authentic_sm_get_wrapped_apdu(struct sc_card *card, struct sc_apdu *apdu, struct sc_apdu **sm_apdu);
+static int authentic_sm_free_wrapped_apdu(struct sc_card *card, struct sc_apdu *apdu, struct sc_apdu **sm_apdu);
 #endif
 
 static int
@@ -444,7 +445,8 @@ authentic_init_oberthur_authentic_3_2(struct sc_card *card)
 
 #ifdef ENABLE_SM
 	card->sm_ctx.ops.open = authentic_sm_open;
-	card->sm_ctx.ops.encode_apdu = authentic_sm_encode_apdu;
+	card->sm_ctx.ops.get_sm_apdu = authentic_sm_get_wrapped_apdu;
+	card->sm_ctx.ops.free_sm_apdu = authentic_sm_free_wrapped_apdu;
 #endif
 
 	rv = authentic_select_aid(card, aid_AuthentIC_3_2, sizeof(aid_AuthentIC_3_2), NULL, NULL);
@@ -900,7 +902,7 @@ authentic_read_binary(struct sc_card *card, unsigned int idx,
 	/* Data size more then 256 bytes can happen when card reader is 
 	 * configurated with max_send/recv_size more then 255/256 bytes 
 	 *   (for ex. 'remote-access' reader) .
-	 * For that case create chained APDUs 'read-binary' APDUs. 
+	 * In this case create chained 'read-binary' APDUs. 
 	 */
 	sc_log(ctx, "reader flags 0x%X", card->reader->flags);
 	if (count > 256 && !(card->reader->flags & SC_READER_HAS_WAITING_AREA))
@@ -921,8 +923,7 @@ authentic_read_binary(struct sc_card *card, unsigned int idx,
 		rest -= sz;
 	}
 
-	if (!apdus)
-	{
+	if (!apdus)   {
 		LOG_TEST_RET(ctx, SC_ERROR_INTERNAL, "authentic_read_binary() failed");
 		LOG_FUNC_RETURN(ctx, count);
 	}
@@ -2245,7 +2246,7 @@ authentic_sm_open(struct sc_card *card)
 
 	memset(&card->sm_ctx.info, 0, sizeof(card->sm_ctx.info));
 	memcpy(card->sm_ctx.info.config_section, card->sm_ctx.config_section, sizeof(card->sm_ctx.info.config_section));
-	sc_log(ctx, "card->sm_ctx.info.module_name '%s'", card->sm_ctx.info.config_section);
+	sc_log(ctx, "SM context config '%s'; SM mode 0x%X", card->sm_ctx.info.config_section, card->sm_ctx.sm_mode);
 
 	rv = authentic_sm_acl_init (card, &card->sm_ctx.info, SM_CMD_INITIALIZE, init_data, &init_data_len);
 	LOG_TEST_RET(ctx, rv, "authentIC: cannot open SM");
@@ -2259,40 +2260,91 @@ authentic_sm_open(struct sc_card *card)
 
 
 static int
-authentic_sm_encode_apdu(struct sc_card *card, struct sc_apdu *apdu)
+authentic_sm_free_wrapped_apdu(struct sc_card *card, struct sc_apdu *plain, struct sc_apdu **sm_apdu)
 {
 	struct sc_context *ctx = card->ctx;
+
+	LOG_FUNC_CALLED(ctx);
+	if (!sm_apdu)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+        if (!(*sm_apdu))
+		LOG_FUNC_RETURN(ctx, SC_SUCCESS);
+
+        if (plain)   {
+		if (plain->resplen < (*sm_apdu)->resplen)
+			LOG_TEST_RET(ctx, SC_ERROR_BUFFER_TOO_SMALL, "Unsufficient plain APDU response size");
+		memcpy(plain->resp, (*sm_apdu)->resp, (*sm_apdu)->resplen);
+		plain->resplen = (*sm_apdu)->resplen;
+		plain->sw1 = (*sm_apdu)->sw1;
+		plain->sw2 = (*sm_apdu)->sw2;
+	}
+
+	if ((*sm_apdu)->data)
+		free((*sm_apdu)->data);
+	if ((*sm_apdu)->resp)
+		free((*sm_apdu)->resp);
+
+	free(*sm_apdu);
+	*sm_apdu = NULL;
+	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
+}
+
+static int
+authentic_sm_get_wrapped_apdu(struct sc_card *card, struct sc_apdu *plain, struct sc_apdu **sm_apdu)
+{
+	struct sc_context *ctx = card->ctx;
+	struct sc_apdu *apdu = NULL;
 	int rv  = 0;
 
 	LOG_FUNC_CALLED(ctx);
 					
-	sc_log(ctx, "called; CLA:%X, INS:%X, P1:%X, P2:%X, data %X:%X:...", 
-			apdu->cla, apdu->ins, apdu->p1, apdu->p2, *(apdu->data), *(apdu->data + 1));
+        if (!plain || !sm_apdu)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
+	sc_log(ctx, "called; CLA:%X, INS:%X, P1:%X, P2:%X, data(%i) %p", 
+			plain->cla, plain->ins, plain->p1, plain->p2, plain->datalen, plain->data);
+        *sm_apdu = NULL;
 
-	if (apdu->cla & 0x04)
+	if (plain->cla & 0x04)
 		return 0;
-	else if (apdu->cla==0x00 && apdu->ins==0xA4)
+	else if (plain->cla==0x00 && plain->ins==0xA4)
 		return 0;
-	else if (apdu->cla==0x00 && apdu->ins==0xC0)
+	else if (plain->cla==0x00 && plain->ins==0xC0)
 		return 0;
-	else if (apdu->cla==0x00 && apdu->ins==0x20)
+	else if (plain->cla==0x00 && plain->ins==0x20)
 		return 0;
-	else if (apdu->cla==0x80 && apdu->ins==0x2E)
+	else if (plain->cla==0x80 && plain->ins==0x2E)
 		return 0;
-	else if (apdu->cla==0x80 && apdu->ins==0x50)
+	else if (plain->cla==0x80 && plain->ins==0x50)
 		return 0;
 	
-	if (card->sm_ctx.info.cmd != SM_CMD_APDU_TRANSMIT)
+	if (card->sm_ctx.sm_mode != SM_MODE_TRANSMIT)
 		LOG_FUNC_RETURN(ctx, SC_ERROR_SM_NOT_INITIALIZED);
 
 	if (!card->sm_ctx.module.ops.get_apdus)
 		LOG_FUNC_RETURN(ctx, SC_ERROR_NOT_SUPPORTED);
 
+        apdu = calloc(1, sizeof(struct sc_apdu));
+        if (!apdu)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_OUT_OF_MEMORY);
+	memcpy((void *)apdu, (void *)plain, sizeof(struct sc_apdu));
+
+        apdu->data = calloc (1, plain->datalen + 24);
+        if (!apdu->data)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_OUT_OF_MEMORY);
+	if (plain->data && plain->datalen)
+		memcpy(apdu->data, plain->data, plain->datalen);
+
+        apdu->resp = calloc (1, plain->resplen + 32);
+        if (!apdu->resp)
+		LOG_FUNC_RETURN(ctx, SC_ERROR_OUT_OF_MEMORY);
+
+	card->sm_ctx.info.cmd = SM_CMD_APDU_TRANSMIT;
 	card->sm_ctx.info.cmd_data = (void *)apdu;
 
 	rv = card->sm_ctx.module.ops.get_apdus(ctx, &card->sm_ctx.info, NULL, 0, NULL);
 	LOG_TEST_RET(ctx, rv, "SM: GET_APDUS failed");
-	
+
+	*sm_apdu = apdu;
 	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
 }
 #endif
