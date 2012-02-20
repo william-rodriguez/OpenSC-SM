@@ -99,7 +99,7 @@ buf_spec(CK_VOID_PTR buf_addr, CK_ULONG buf_len)
 }
 
 
-void 
+void
 print_enum(FILE *f, CK_LONG type, CK_VOID_PTR value, CK_ULONG size, CK_VOID_PTR arg)
 {
 	enum_spec *spec = (enum_spec*)arg;
@@ -116,7 +116,7 @@ print_enum(FILE *f, CK_LONG type, CK_VOID_PTR value, CK_ULONG size, CK_VOID_PTR 
 }
 
 
-void 
+void
 print_boolean(FILE *f, CK_LONG type, CK_VOID_PTR value, CK_ULONG size, CK_VOID_PTR arg)
 {
 	CK_BYTE i = *((CK_BYTE *)value);
@@ -124,7 +124,7 @@ print_boolean(FILE *f, CK_LONG type, CK_VOID_PTR value, CK_ULONG size, CK_VOID_P
 }
 
 
-void 
+void
 print_generic(FILE *f, CK_LONG type, CK_VOID_PTR value, CK_ULONG size, CK_VOID_PTR arg)
 {
 	CK_ULONG i;
@@ -150,10 +150,10 @@ print_generic(FILE *f, CK_LONG type, CK_VOID_PTR value, CK_ULONG size, CK_VOID_P
 
 			val = ((CK_BYTE *)value)[i];
 			/* hex */
-      			sprintf(hex_ptr, "%02X ", val);
-      			hex_ptr += 3;
-      			/* ascii */
-      			if (val > 31 && val < 128)
+			sprintf(hex_ptr, "%02X ", val);
+			hex_ptr += 3;
+			/* ascii */
+			if (val > 31 && val < 128)
 				*ascii_ptr = val;
 			else
 				*ascii_ptr = '.';
@@ -184,7 +184,7 @@ print_dn(FILE *f, CK_LONG type, CK_VOID_PTR value, CK_ULONG size, CK_VOID_PTR ar
 		X509_NAME *name;
 		const unsigned char *tmp = value;
 
-    		name = d2i_X509_NAME(NULL, &tmp, size);
+		name = d2i_X509_NAME(NULL, &tmp, size);
 		if(name) {
 			BIO *bio = BIO_new(BIO_s_file());
 			BIO_set_fp(bio, f, 0);
@@ -734,7 +734,7 @@ type_spec ck_attribute_specs[] = {
 CK_ULONG ck_attribute_num = sizeof(ck_attribute_specs)/sizeof(type_spec);
 
 
-const char 
+const char *
 lookup_enum_spec(enum_spec *spec, CK_ULONG value)
 {
 	CK_ULONG i;
@@ -785,7 +785,7 @@ print_slot_list(FILE *f, CK_SLOT_ID_PTR pSlotList, CK_ULONG ulCount)
 	if(pSlotList) {
 		for (i = 0; i < ulCount; i++)
 			fprintf(f, "Slot %ld\n", pSlotList[i]);
-  	} 
+	} 
 	else {
 		fprintf(f, "Count is %ld\n", ulCount);
 	}
@@ -843,7 +843,7 @@ print_token_info(FILE *f, CK_TOKEN_INFO *info)
 	fprintf(f, "      label:                  '%32.32s'\n",  info->label );
 	fprintf(f, "      manufacturerID:         '%32.32s'\n",  info->manufacturerID );
 	fprintf(f, "      model:                  '%16.16s'\n",  info->model );
-  	fprintf(f, "      serialNumber:           '%16.16s'\n",  info->serialNumber );
+	fprintf(f, "      serialNumber:           '%16.16s'\n",  info->serialNumber );
 	fprintf(f, "      ulMaxSessionCount:       %ld\n",       info->ulMaxSessionCount );
 	fprintf(f, "      ulSessionCount:          %ld\n",       info->ulSessionCount );
 	fprintf(f, "      ulMaxRwSessionCount:     %ld\n",       info->ulMaxRwSessionCount );
