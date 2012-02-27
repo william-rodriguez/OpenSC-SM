@@ -20,7 +20,18 @@
  */
 
 #include "config.h"
+#ifdef ENABLE_SM		/* empty file without SM enabled */
 #ifdef ENABLE_OPENSSL		/* empty file without openssl */
+
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <openssl/evp.h>
+#include <openssl/sha.h>
+
+#include "internal.h"
+#include "asn1.h"
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2375,4 +2386,5 @@ struct sc_card_driver *sc_get_epass2003_driver(void)
 {
 	return sc_get_driver();
 }
-#endif
+#endif	/* #ifdef ENABLE_OPENSSL */
+#endif	/* #ifdef ENABLE_SM */
