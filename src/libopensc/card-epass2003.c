@@ -955,7 +955,7 @@ static int epass2003_match_card(struct sc_card *card)
 	if (r < 0)
 		return 0;
 
-	return r;
+	return 1;
 }
 
 
