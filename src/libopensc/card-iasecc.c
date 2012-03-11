@@ -638,10 +638,6 @@ iasecc_read_binary(struct sc_card *card, unsigned int offs,
 	LOG_TEST_RET(ctx, rv, "APDU transmit failed");
 	rv = sc_check_sw(card, apdu.sw1, apdu.sw2);
 	LOG_TEST_RET(ctx, rv, "iasecc_read_binary() failed");
-/*	
-	if (apdu.resplen == 0)
-		SC_FUNC_RETURN(ctx, 2, sc_check_sw(card, apdu.sw1, apdu.sw2));
-*/
 	sc_log(ctx, "iasecc_read_binary() apdu.resplen %i", apdu.resplen);
 
 	if (apdu.resplen == IASECC_READ_BINARY_LENGTH_MAX && apdu.resplen < count)   {
