@@ -1643,7 +1643,6 @@ iasecc_store_data_object(struct sc_pkcs15_card *p15card, struct sc_profile *prof
 	int rv, nn_objs, indx, ii;
 
 	LOG_FUNC_CALLED(ctx);
-//	sc_log(ctx, "iasecc_store_data_object() id '%s'", sc_pkcs15_print_id(id));
 	sc_log(ctx, "iasecc_store_data_object() authID '%s'", sc_pkcs15_print_id(&object->auth_id));
 	nn_objs = sc_pkcs15_get_objects(p15card, SC_PKCS15_TYPE_DATA_OBJECT, p15objects, MAX_OBJS);
 	LOG_TEST_RET(ctx, nn_objs, "IasEcc get pkcs15 DATA objects error");
@@ -1781,14 +1780,6 @@ iasecc_emu_store_data(struct sc_pkcs15_card *p15card, struct sc_profile *profile
 	LOG_FUNC_RETURN(ctx, rv);
 }
 
-/*
-static int
-iasecc_emu_update_tokeninfo(struct sc_profile *profile, struct sc_pkcs15_card *p15card,
-		struct sc_pkcs15_tokeninfo *tinfo)
-{
-	LOG_FUNC_RETURN(p15card->card->ctx, SC_SUCCESS);
-}
-*/
 
 static struct sc_pkcs15init_operations 
 sc_pkcs15init_iasecc_operations = {
@@ -1810,16 +1801,11 @@ sc_pkcs15init_iasecc_operations = {
 	/* pkcs15init emulation */
 	NULL,	/* emu_update_dir */ 
 	NULL,	/* emu_update_any_df */ 
-	NULL, 	/* iasecc_emu_update_tokeninfo */
+	NULL, 	/* emu_update_tokeninfo */
 	NULL,	/* emu_write_info */
 	iasecc_emu_store_data,
 
 	NULL, 					/* sanity_check */
-/*
-	iasecc_pkcs15init_select_id,
-	iasecc_pkcs15init_set_pin,
-	iasecc_pkcs15init_erase_application
-*/
 };
 
 
