@@ -721,8 +721,6 @@ int main(int argc, char * argv[])
 		CK_TOKEN_INFO	info;
 
 		get_token_info(opt_slot, &info);
-		if (!(info.flags & CKF_TOKEN_INITIALIZED))
-			util_fatal("Token not initialized\n");
 		if (info.flags & CKF_LOGIN_REQUIRED)
 			opt_login++;
 	}
@@ -952,24 +950,14 @@ static void show_token(CK_SLOT_ID slot)
 		printf("  (token not recognized)\n");
 		return;
 	}
-	if (!(info.flags & CKF_TOKEN_INITIALIZED) && (!verbose)) {
-		printf("  token state:   uninitialized\n");
-		return;
-	}
+	if (!(info.flags & CKF_TOKEN_INITIALIZED))
+		printf("  token not uninitialized\n");
 
-	printf("  token label:   %s\n",
-			p11_utf8_to_local(info.label,
-				sizeof(info.label)));
-	printf("  token manuf:   %s\n",
-			p11_utf8_to_local(info.manufacturerID,
-				sizeof(info.manufacturerID)));
-	printf("  token model:   %s\n",
-			p11_utf8_to_local(info.model,
-				sizeof(info.model)));
-	printf("  token flags:   %s\n",
-			p11_token_info_flags(info.flags));
-	printf("  serial num  :  %s\n", p11_utf8_to_local(info.serialNumber,
-			sizeof(info.serialNumber)));
+	printf("  token label:   %s\n", p11_utf8_to_local(info.label, sizeof(info.label)));
+	printf("  token manuf:   %s\n", p11_utf8_to_local(info.manufacturerID, sizeof(info.manufacturerID)));
+	printf("  token model:   %s\n", p11_utf8_to_local(info.model, sizeof(info.model)));
+	printf("  token flags:   %s\n", p11_token_info_flags(info.flags));
+	printf("  serial num  :  %s\n", p11_utf8_to_local(info.serialNumber, sizeof(info.serialNumber)));
 }
 
 static void list_mechs(CK_SLOT_ID slot)
