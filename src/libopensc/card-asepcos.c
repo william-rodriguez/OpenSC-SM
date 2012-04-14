@@ -101,7 +101,7 @@ static int asepcos_init(sc_card_t *card)
 	return SC_SUCCESS;
 }
 
-/* tables to map the asepcos access mode bytes to the OpenSC 
+/* tables to map the asepcos access mode bytes to the OpenSC
  * access mode flags */
 
 typedef struct {
@@ -133,7 +133,7 @@ static const amode_entry_t ief_amode_table[] = {
 	{ 0, 0 },
 };
 
-static int set_sec_attr(sc_file_t *file, unsigned int am, unsigned int ac, 
+static int set_sec_attr(sc_file_t *file, unsigned int am, unsigned int ac,
 	unsigned int meth)
 {
 	const amode_entry_t *table;
@@ -174,12 +174,12 @@ static int asepcos_parse_sec_attr(sc_card_t *card, sc_file_t *file, const u8 *bu
 		amode = p[2];
 		if (p[3] == 0x90 && p[4] == 0x00) {
 			int r = set_sec_attr(file, amode, 0, SC_AC_NONE);
-			if (r != SC_SUCCESS) 
+			if (r != SC_SUCCESS)
 				return r;
 			tlen += 2;
 		} else if (p[3] == 0x97 && p[4] == 0x00) {
 			int r = set_sec_attr(file, amode, 0, SC_AC_NEVER);
-			if (r != SC_SUCCESS) 
+			if (r != SC_SUCCESS)
 				return r;
 			tlen += 2;
 		} else if (p[3] == 0xA0 && len >= 4U + p[4]) {
@@ -244,7 +244,7 @@ static int asepcos_get_current_df_path(sc_card_t *card, sc_path_t *path)
 	sc_apdu_t apdu;
 	u8        rbuf[SC_MAX_APDU_BUFFER_SIZE];
 
-	sc_format_apdu(card, &apdu, SC_APDU_CASE_2_SHORT, 0xca, 0x01, 0x83); 
+	sc_format_apdu(card, &apdu, SC_APDU_CASE_2_SHORT, 0xca, 0x01, 0x83);
 	apdu.resp    = rbuf;
 	apdu.resplen = sizeof(rbuf);
 	apdu.le      = 256;
@@ -256,7 +256,7 @@ static int asepcos_get_current_df_path(sc_card_t *card, sc_path_t *path)
 	return asepcos_tlvpath_to_scpath(path, apdu.resp, apdu.resplen);
 }
 
-/* SELECT FILE: call the ISO SELECT FILE implementation and parse 
+/* SELECT FILE: call the ISO SELECT FILE implementation and parse
  * asepcos specific security attributes.
  */
 static int asepcos_select_file(sc_card_t *card, const sc_path_t *in_path,
@@ -284,12 +284,12 @@ static int asepcos_select_file(sc_card_t *card, const sc_path_t *in_path,
 			if (tpath.len == npath.len) {
 				/* we are already in the requested DF */
 				if (file == NULL)
-					/* no file information requested => 
+					/* no file information requested =>
 					 * nothing to do */
 					return SC_SUCCESS;
 			} else {
 				/* shorten path */
-				r = sc_path_set(&npath, 0, &in_path->value[tpath.len], 
+				r = sc_path_set(&npath, 0, &in_path->value[tpath.len],
 						npath.len - tpath.len, 0, 0);
 				if (r != SC_SUCCESS)
 					return r;
@@ -303,12 +303,12 @@ static int asepcos_select_file(sc_card_t *card, const sc_path_t *in_path,
 
 	r = iso_ops->select_file(card, &npath, file);
 	/* XXX: this doesn't look right */
-	if (file != NULL && *file != NULL) 
+	if (file != NULL && *file != NULL)
 		if ((*file)->ef_structure == SC_FILE_EF_UNKNOWN)
 			(*file)->ef_structure = SC_FILE_EF_TRANSPARENT;
 	if (r == SC_SUCCESS && file != NULL && *file != NULL) {
 		r = asepcos_parse_sec_attr(card, *file, (*file)->sec_attr, (*file)->sec_attr_len);
-		if (r != SC_SUCCESS) 
+		if (r != SC_SUCCESS)
 			sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "error parsing security attributes");
 	}
 	SC_FUNC_RETURN(card->ctx, SC_LOG_DEBUG_NORMAL, r);
@@ -489,7 +489,7 @@ static int asepcos_set_security_attributes(sc_card_t *card, sc_file_t *file)
 		} else {
 			sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "unknow auth method: '%d'", ent->method);
 			return SC_ERROR_INTERNAL;
-		} 
+		}
 	}
 
 	if (p != buf)
@@ -514,7 +514,7 @@ static int asepcos_decipher(sc_card_t *card, const u8 * crgram, size_t crgram_le
 	 * to tell the card the we want everything available (note: we
 	 * always have Le <= crgram_len) */
 	apdu.le      = (outlen >= 256 && crgram_len < 256) ? 256 : outlen;
-	
+
 	apdu.data    = crgram;
 	apdu.lc      = crgram_len;
 	apdu.datalen = crgram_len;
@@ -527,7 +527,7 @@ static int asepcos_decipher(sc_card_t *card, const u8 * crgram, size_t crgram_le
 
 /* compute the signature. Currently the RSA ENCRYPT DECRYPT command
  * is used here (TODO: use the key attributes to determine method
- * to use for signature generation). 
+ * to use for signature generation).
  */
 static int asepcos_compute_signature(sc_card_t *card, const u8 *data, size_t datalen,
 			 u8 *out, size_t outlen)
@@ -582,13 +582,13 @@ static int asepcos_activate_file(sc_card_t *card, int fileid, int is_ef)
 	r = sc_transmit_apdu(card, &apdu);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "APDU transmit failed");
 	return sc_check_sw(card, apdu.sw1, apdu.sw2);
-} 
+}
 
 /* CREATE FILE: creates wEF, iEF and DFs. Note: although the ISO
  * command is used for wEF and iEF so format of the data send to
- * the card is asepcos specific. 
+ * the card is asepcos specific.
  * @param  card  the sc_card_t object to use
- * @param  file  sc_file_t object describing the file to create 
+ * @param  file  sc_file_t object describing the file to create
  * @return SC_SUCCESS on success and an error code otherwise.
  */
 static int asepcos_create_file(sc_card_t *card, sc_file_t *file)
@@ -624,7 +624,7 @@ static int asepcos_create_file(sc_card_t *card, sc_file_t *file)
 		r = sc_transmit_apdu(card, &apdu);
 		SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "APDU transmit failed");
 		if (apdu.sw1 != 0x90 || apdu.sw2 != 0x00)
-			return sc_check_sw(card, apdu.sw1, apdu.sw2); 
+			return sc_check_sw(card, apdu.sw1, apdu.sw2);
 
 		r = sc_select_file(card, &file->path, NULL);
 		if (r != SC_SUCCESS)
@@ -685,7 +685,7 @@ static int asepcos_create_file(sc_card_t *card, sc_file_t *file)
 	} else if (file->type == SC_FILE_TYPE_INTERNAL_EF) {
 		/* for internal EF we 'misuse' the prop_attr field of the
 		 * sc_file_t object to store the data send to the card in
-		 * the CREATE EF call. 
+		 * the CREATE EF call.
 		 */
 		int r, atype = SC_APDU_CASE_3_SHORT;
 		sc_apdu_t apdu;
@@ -818,27 +818,27 @@ static int asepcos_delete_file(sc_card_t *card, const sc_path_t *path)
 		/* looks like a EF */
 		atype = SC_APDU_CASE_3_SHORT;
 		ftype = 0x02;
-		buf[0] = path->value[path->len-2]; 
+		buf[0] = path->value[path->len-2];
 		buf[1] = path->value[path->len-1];
 	} else {
 		/* presumedly a DF */
 		atype = SC_APDU_CASE_1;
 		ftype = 0x00;
 	}
-	
+
 	sc_format_apdu(card, &apdu, atype, 0xe4, ftype, 0x00);
 	if (atype == SC_APDU_CASE_3_SHORT) {
 		apdu.lc      = 2;
 		apdu.datalen = 2;
 		apdu.data    = buf;
 	}
-	
+
 	r = sc_transmit_apdu(card, &apdu);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "APDU transmit failed");
 	return sc_check_sw(card, apdu.sw1, apdu.sw2);
 }
 
-/* returns the default transport key (note: this should be put in the 
+/* returns the default transport key (note: this should be put in the
  * pkcs15 profile file).
  */
 static int asepcos_get_default_key(sc_card_t *card,
@@ -974,7 +974,7 @@ static int asepcos_build_pin_apdu(sc_card_t *card, sc_apdu_t *apdu,
 		apdu->data     = buf;
 		break;
 	case SC_PIN_CMD_UNBLOCK:
-		/* build the UNBLOCK KEY apdu. The PIN file is implicitly 
+		/* build the UNBLOCK KEY apdu. The PIN file is implicitly
 		 * selected by its SFID. The new PIN is provided in the
 		 * data field of the UNBLOCK KEY command. */
 		*p++ = 0x81;
@@ -1015,7 +1015,7 @@ static int asepcos_pin_cmd(sc_card_t *card, struct sc_pin_cmd_data *pdata,
 	/* check PIN length */
 	if (pdata->pin1.len < 4 || pdata->pin1.len > 16) {
 		sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "invalid PIN1 length");
-		return SC_ERROR_INVALID_PIN_LENGTH; 
+		return SC_ERROR_INVALID_PIN_LENGTH;
 	}
 
 	switch (pdata->cmd) {
@@ -1038,7 +1038,7 @@ static int asepcos_pin_cmd(sc_card_t *card, struct sc_pin_cmd_data *pdata,
 			return SC_ERROR_INVALID_ARGUMENTS;
 		if (pdata->pin2.len < 4 || pdata->pin2.len > 16) {
 			sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "invalid PIN2 length");
-			return SC_ERROR_INVALID_PIN_LENGTH; 
+			return SC_ERROR_INVALID_PIN_LENGTH;
 		}
 		/* 1. step: verify the old pin */
 		r = asepcos_build_pin_apdu(card, &apdu, pdata, sbuf, sizeof(sbuf), SC_PIN_CMD_VERIFY, 0);
@@ -1068,7 +1068,7 @@ static int asepcos_pin_cmd(sc_card_t *card, struct sc_pin_cmd_data *pdata,
 			return SC_ERROR_INVALID_ARGUMENTS;
 		if (pdata->pin2.len < 4 || pdata->pin2.len > 16) {
 			sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "invalid PIN2 length");
-			return SC_ERROR_INVALID_PIN_LENGTH; 
+			return SC_ERROR_INVALID_PIN_LENGTH;
 		}
 		/* 1. step: verify the puk */
 		r = asepcos_build_pin_apdu(card, &apdu, pdata, sbuf, sizeof(sbuf), SC_PIN_CMD_VERIFY, 1);

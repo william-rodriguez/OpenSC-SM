@@ -483,7 +483,7 @@ main(int argc, char **argv)
 
 				r = sc_pkcs15_bind(card, &aid, &p15card);
 			}
-			else   {	
+			else   {
 				r = sc_pkcs15_bind(card, NULL, &p15card);
 			}
 			if (r) {
@@ -627,7 +627,7 @@ do_assert_pristine(sc_card_t *in_card)
 
 	sc_format_path("3F00", &path);
 	r = sc_select_file(in_card, &path, NULL);
-	if (r) 
+	if (r)
 		goto end;
 
 	sc_format_path("2F00", &path);
@@ -675,7 +675,7 @@ do_erase(sc_card_t *in_card, struct sc_profile *profile)
 		if (sc_hex_to_bin(opt_bind_to_aid, aid.value, &aid.len))   {
 			fprintf(stderr, "Invalid AID value: '%s'\n", opt_bind_to_aid);
 			return 1;
-									                
+
 		}
 
 		r = sc_pkcs15init_erase_card(p15card, profile, &aid);
@@ -744,9 +744,9 @@ do_init_app(struct sc_profile *profile)
 		role = "user";
 	else
 		hints.flags |= SC_UI_PIN_OPTIONAL; /* SO PIN is always optional */
-			
 
-	if ((info.attrs.pin.flags & SC_PKCS15_PIN_FLAG_UNBLOCK_DISABLED) 
+
+	if ((info.attrs.pin.flags & SC_PKCS15_PIN_FLAG_UNBLOCK_DISABLED)
 			&& (info.attrs.pin.flags & SC_PKCS15_PIN_FLAG_SO_PIN))
 		so_puk_disabled = 1;
 
@@ -832,7 +832,7 @@ do_store_pin(struct sc_profile *profile)
 	args.pin_len = strlen(opt_pins[0]);
 	args.label = opt_label;
 
-	if (!(info.attrs.pin.flags & SC_PKCS15_PIN_FLAG_UNBLOCK_DISABLED) 
+	if (!(info.attrs.pin.flags & SC_PKCS15_PIN_FLAG_UNBLOCK_DISABLED)
 			&& opt_pins[1] == NULL) {
 		sc_pkcs15init_get_pin_info(profile, SC_PKCS15INIT_USER_PUK, &info);
 
@@ -948,7 +948,7 @@ do_store_private_key(struct sc_profile *profile)
 			cargs.id = args.id;
 			if (opt_cert_label != 0)
 				cargs.label = opt_cert_label;
-		} 
+		}
 		else {
 			if (is_cacert_already_present(&cargs)) {
 				printf("Certificate #%d already present, not stored.\n", i);
@@ -961,7 +961,7 @@ do_store_private_key(struct sc_profile *profile)
 next_cert:
 		free(cargs.der_encoded.value);
 	}
-	
+
 	/* No certificates - store the public key */
 	if (ncerts == 0)
 		r = do_store_public_key(profile, pkey);
@@ -1447,7 +1447,7 @@ do_change_attributes(struct sc_profile *profile, unsigned int myopt_type)
 	if (opt_label != NULL) {
 		strlcpy(obj->label, opt_label, sizeof(obj->label));
 	}
-	
+
 	r = sc_pkcs15init_update_any_df(p15card, profile, obj->df, 0);
 
 	return r;
@@ -1468,9 +1468,9 @@ do_generate_key(struct sc_profile *profile, const char *spec)
 
 	if ((r = init_keyargs(&keygen_args.prkey_args)) < 0)
 		return r;
-        keygen_args.prkey_args.access_flags |= 
-		  SC_PKCS15_PRKEY_ACCESS_SENSITIVE 
-		| SC_PKCS15_PRKEY_ACCESS_ALWAYSSENSITIVE 
+        keygen_args.prkey_args.access_flags |=
+		  SC_PKCS15_PRKEY_ACCESS_SENSITIVE
+		| SC_PKCS15_PRKEY_ACCESS_ALWAYSSENSITIVE
 		| SC_PKCS15_PRKEY_ACCESS_NEVEREXTRACTABLE
 		| SC_PKCS15_PRKEY_ACCESS_LOCAL;
 
@@ -1668,7 +1668,7 @@ get_pin_callback(struct sc_profile *profile,
 	int	allocated = 0;
 
 	if (info->auth_type != SC_PKCS15_PIN_AUTH_TYPE_PIN)
-		return SC_ERROR_NOT_SUPPORTED; 
+		return SC_ERROR_NOT_SUPPORTED;
 
 	if (label)
 		snprintf(namebuf, sizeof(namebuf), "PIN [%s]", label);
@@ -1680,19 +1680,19 @@ get_pin_callback(struct sc_profile *profile,
 			switch (id) {
 			case SC_PKCS15INIT_USER_PIN:
 				name = "User PIN";
-				secret = opt_pins[OPT_PIN1 & 3]; 
+				secret = opt_pins[OPT_PIN1 & 3];
 				break;
 			case SC_PKCS15INIT_USER_PUK:
 				name = "User PIN unlock key";
-				secret = opt_pins[OPT_PUK1 & 3]; 
+				secret = opt_pins[OPT_PUK1 & 3];
 				break;
 			case SC_PKCS15INIT_SO_PIN:
 				name = "Security officer PIN";
-				secret = opt_pins[OPT_PIN2 & 3]; 
+				secret = opt_pins[OPT_PIN2 & 3];
 				break;
 			case SC_PKCS15INIT_SO_PUK:
 				name = "Security officer PIN unlock key";
-				secret = opt_pins[OPT_PUK2 & 3]; 
+				secret = opt_pins[OPT_PUK2 & 3];
 				break;
 			}
 		}
@@ -1783,7 +1783,7 @@ get_pin_callback(struct sc_profile *profile,
 }
 
 
-static int 
+static int
 get_key_callback(struct sc_profile *profile,
 			int method, int reference,
 			const u8 *def_key, size_t def_key_size,
@@ -2032,7 +2032,7 @@ do_read_pem_public_key(const char *filename)
 		util_fatal("Unable to open %s: %m", filename);
 	pk = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
 	BIO_free(bio);
-	if (pk == NULL) 
+	if (pk == NULL)
 		ossl_print_errors();
 	return pk;
 }
@@ -2048,7 +2048,7 @@ do_read_der_public_key(const char *filename)
 		util_fatal("Unable to open %s: %m", filename);
 	pk = d2i_PUBKEY_bio(bio, NULL);
 	BIO_free(bio);
-	if (pk == NULL) 
+	if (pk == NULL)
 		ossl_print_errors();
 	return pk;
 }
@@ -2085,7 +2085,7 @@ do_read_pem_certificate(const char *filename)
 		util_fatal("Unable to open %s: %m", filename);
 	xp = PEM_read_bio_X509(bio, NULL, NULL, NULL);
 	BIO_free(bio);
-	if (xp == NULL) 
+	if (xp == NULL)
 		ossl_print_errors();
 	return xp;
 }
@@ -2101,7 +2101,7 @@ do_read_der_certificate(const char *filename)
 		util_fatal("Unable to open %s: %m", filename);
 	xp = d2i_X509_bio(bio, NULL);
 	BIO_free(bio);
-	if (xp == NULL) 
+	if (xp == NULL)
 		ossl_print_errors();
 	return xp;
 }
@@ -2148,7 +2148,7 @@ do_read_data_object(const char *name, u8 **out, size_t *outlen)
 	if (*out == NULL) {
 		return SC_ERROR_OUT_OF_MEMORY;
 	}
- 
+
         inf = fopen(name, "rb");
         if (inf == NULL) {
                 fprintf(stderr, "Unable to open '%s' for reading.\n", name);
@@ -2173,17 +2173,17 @@ cert_common_name(X509 *x509)
 	char *out = NULL;
 	unsigned char *tmp = NULL;
 	int idx, out_len = 0;
-	
+
 	idx = X509_NAME_get_index_by_NID(X509_get_subject_name(x509), NID_commonName, -1);
 	if (idx < 0)
 		return NULL;
 
 	ne = X509_NAME_get_entry(X509_get_subject_name(x509), idx);
 	if (!ne)
-	       return NULL;	
+	       return NULL;
 
 	a_str = X509_NAME_ENTRY_get_data(ne);
-	if (!a_str) 
+	if (!a_str)
 		return NULL;
 
 	out_len = ASN1_STRING_to_UTF8(&tmp, a_str);
@@ -2226,7 +2226,7 @@ parse_objects(const char *list, unsigned int action)
 
 	while (1) {
 		int	len, n;
-		
+
 		while (*list == ',')
 			list++;
 		if (!*list)
@@ -2296,7 +2296,7 @@ parse_x509_usage(const char *list, unsigned int *res)
 
 	while (1) {
 		int	len, n, match = 0;
-		
+
 		while (*list == ',')
 			list++;
 		if (!*list)
@@ -2760,7 +2760,7 @@ static int verify_pin(struct sc_pkcs15_card *p15card, char *auth_id_str)
 	if (!auth_id_str)   {
 	        struct sc_pkcs15_object *objs[32];
         	int ii;
-		
+
 		r = sc_pkcs15_get_objects(p15card, SC_PKCS15_TYPE_AUTH_PIN, objs, 32);
 		if (r < 0) {
                         fprintf(stderr, "PIN code enumeration failed: %s\n", sc_strerror(r));
@@ -2808,7 +2808,7 @@ static int verify_pin(struct sc_pkcs15_card *p15card, char *auth_id_str)
 
 		if (pin_obj->label)
 			snprintf(pin_label, sizeof(pin_label), "User PIN [%s]", pin_obj->label);
-		else 
+		else
 			snprintf(pin_label, sizeof(pin_label), "User PIN");
                 memset(&hints, 0, sizeof(hints));
                 hints.dialog_name = "pkcs15init.get_pin";

@@ -185,7 +185,7 @@ static int flex_init(sc_card_t *card)
 	/* FIXME: Card type detection */
 	if (1) {
 		unsigned long flags;
-		
+
 		flags = SC_ALGORITHM_RSA_RAW;
 		flags |= SC_ALGORITHM_RSA_HASH_NONE;
 		if (card->flags & FLAG_KEYGEN)
@@ -263,7 +263,7 @@ cryptoflex_get_ac_keys(sc_card_t *card, sc_file_t *file)
 	sc_apdu_t apdu;
 	u8 rbuf[3];
 	int r;
-	
+
 	sc_format_apdu(card, &apdu, SC_APDU_CASE_2_SHORT, 0xC4, 0x00, 0x00);
 	apdu.cla = 0xF0 /* 0x00 for Cyberflex */;
 	apdu.le = 3;
@@ -286,7 +286,7 @@ cryptoflex_process_file_attrs(sc_card_t *card, sc_file_t *file,
 	const u8 *p = buf + 2;
 	u8 b1, b2;
 	int is_mf = 0;
-	
+
 	if (buflen < 14)
 		return -1;
 	b1 = *p++;
@@ -495,7 +495,7 @@ static void cache_path(sc_card_t *card, const sc_path_t *path,
 	int result)
 {
 	sc_path_t *curpath = &card->cache.current_path;
-	
+
 	if (result < 0) {
 		curpath->len = 0;
 		return;
@@ -651,7 +651,7 @@ static int cryptoflex_list_files(sc_card_t *card, u8 *buf, size_t buflen)
 	u8 rbuf[4];
 	int r;
 	size_t count = 0;
-	
+
 	sc_format_apdu(card, &apdu, SC_APDU_CASE_2_SHORT, 0xA8, 0, 0);
 	apdu.cla = 0xF0;
 	apdu.le = 4;
@@ -687,7 +687,7 @@ static int cyberflex_list_files(sc_card_t *card, u8 *buf, size_t buflen)
 	u8 rbuf[6];
 	int r;
 	size_t count = 0, p2 = 0;
-	
+
 	while (buflen > 2) {
 		sc_format_apdu(card, &apdu, SC_APDU_CASE_2_SHORT, 0xA8, 0, ++p2);
 		apdu.le = 6;
@@ -729,7 +729,7 @@ static int flex_delete_file(sc_card_t *card, const sc_path_t *path)
 	apdu.data = path->value;
 	apdu.lc = 2;
 	apdu.datalen = 2;
-	
+
 	r = sc_transmit_apdu(card, &apdu);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "APDU transmit failed");
 	return sc_check_sw(card, apdu.sw1, apdu.sw2);
@@ -920,7 +920,7 @@ cyberflex_construct_file_attrs(sc_card_t *card, const sc_file_t *file,
 		ops[5] = SC_AC_OP_INVALIDATE;
 	}
 	p[6] = p[7] = 0;
-	
+
 	*buflen = 16;
 
 	p[8] = p[9] = p[11] = 0xFF;
@@ -934,7 +934,7 @@ static int flex_create_file(sc_card_t *card, sc_file_t *file)
 	size_t sendlen;
 	int r, rec_nr;
 	sc_apdu_t apdu;
-	
+
 	/* Build the file attrs. These are not the real FCI bytes
 	 * in the standard sense, but its a convenient way of
 	 * abstracting the Cryptoflex/Cyberflex differences */
@@ -960,18 +960,18 @@ static int flex_create_file(sc_card_t *card, sc_file_t *file)
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "Card returned error");
 	if (card->cache.valid) {
 		u8 file_id[2];
-		
+
 		file_id[0] = file->id >> 8;
 		file_id[1] = file->id & 0xFF;
 		if (card->cache.current_path.len != 0)
 			sc_append_path_id(&card->cache.current_path, file_id, 2);
-	}		
+	}
 	return 0;
 }
 
 static int flex_set_security_env(sc_card_t *card,
 				 const sc_security_env_t *env,
-				 int se_num)   
+				 int se_num)
 {
 	struct flex_private_data *prv = (struct flex_private_data *) card->drv_data;
 
@@ -1023,7 +1023,7 @@ cryptoflex_compute_signature(sc_card_t *card, const u8 *data,
 	u8 sbuf[SC_MAX_APDU_BUFFER_SIZE];
 	int r;
 	size_t i, i2;
-	
+
 	if (data_len != 64 && data_len != 96 && data_len != 128  && data_len != 256) {
 		sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "Illegal input length: %d\n", data_len);
 		return SC_ERROR_INVALID_ARGUMENTS;
@@ -1078,7 +1078,7 @@ cyberflex_compute_signature(sc_card_t *card, const u8 *data,
 	sc_apdu_t apdu;
 	u8 alg_id, key_id;
 	int r;
-	
+
 	switch (data_len) {
 	case 64:  alg_id = 0xC4; break;
 	case 96:  alg_id = 0xC6; break;
@@ -1149,7 +1149,7 @@ static int flex_generate_key(sc_card_t *card, struct sc_cardctl_cryptoflex_genke
 	sc_apdu_t apdu;
 	u8 sbuf[SC_MAX_APDU_BUFFER_SIZE];
 	int r, p1, p2;
-	
+
 	switch (data->key_bits) {
 	case  512:	p2 = 0x40; break;
 	case  768:	p2 = 0x60; break;
@@ -1215,7 +1215,7 @@ static int flex_get_serialnr(sc_card_t *card, sc_serial_number_t *serial)
 	r = sc_read_binary(card, 0, buf, len, 0);
 	if (r < 0)
 		return r;
-	card->serialnr.len = len;	
+	card->serialnr.len = len;
 	memcpy(card->serialnr.value, buf, len);
 
 	memcpy(serial, &card->serialnr, sizeof(*serial));

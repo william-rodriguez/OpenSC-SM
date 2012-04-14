@@ -44,7 +44,7 @@ iasecc_parse_acls(struct sc_card *card, struct iasecc_sdo_docp *docp, int flags)
 {
 	struct sc_context *ctx = card->ctx;
 	struct iasecc_extended_tlv *acls = &docp->acls_contact;
-	int ii, offs; 
+	int ii, offs;
 	unsigned char mask = 0x40;
 
 	if (flags)
@@ -67,15 +67,15 @@ iasecc_parse_acls(struct sc_card *card, struct iasecc_sdo_docp *docp, int flags)
 
 
 int
-iasecc_sdo_convert_acl(struct sc_card *card, struct iasecc_sdo *sdo, 
+iasecc_sdo_convert_acl(struct sc_card *card, struct iasecc_sdo *sdo,
 		unsigned char op, unsigned *out_method, unsigned *out_ref)
 {
 	struct sc_context *ctx = card->ctx;
 	struct acl_op {
 		unsigned char op;
 		unsigned char mask;
-	} ops[] = { 
-		{SC_AC_OP_PSO_COMPUTE_SIGNATURE,IASECC_ACL_PSO_SIGNATURE}, 
+	} ops[] = {
+		{SC_AC_OP_PSO_COMPUTE_SIGNATURE,IASECC_ACL_PSO_SIGNATURE},
 		{SC_AC_OP_INTERNAL_AUTHENTICATE,IASECC_ACL_INTERNAL_AUTHENTICATE},
 		{SC_AC_OP_PSO_DECRYPT,	IASECC_ACL_PSO_DECIPHER},
 		{SC_AC_OP_GENERATE,	IASECC_ACL_GENERATE_KEY},
@@ -127,20 +127,20 @@ iasecc_sdo_convert_acl(struct sc_card *card, struct iasecc_sdo *sdo,
 					*out_method = SC_AC_AUT;
 				else if ((scb & IASECC_SCB_METHOD_MASK) == IASECC_SCB_METHOD_SM)
 					*out_method = SC_AC_PRO;
-				else 
+				else
 					*out_method = SC_AC_SCB, *out_ref = scb;
 
 				break;
 			}
 		}
 	}
-	
+
 	sc_log(ctx, "returns method %X; ref %X", *out_method, *out_ref);
 	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
 }
 
 
-void 
+void
 iasecc_sdo_free_fields(struct sc_card *card, struct iasecc_sdo *sdo)
 {
 	if (sdo->docp.tries_remaining.value)
@@ -194,7 +194,7 @@ iasecc_sdo_free_fields(struct sc_card *card, struct iasecc_sdo *sdo)
 	}
 }
 
-void 
+void
 iasecc_sdo_free(struct sc_card *card, struct iasecc_sdo *sdo)
 {
 	iasecc_sdo_free_fields(card, sdo);
@@ -202,7 +202,7 @@ iasecc_sdo_free(struct sc_card *card, struct iasecc_sdo *sdo)
 }
 
 
-static int 
+static int
 iasecc_crt_parse(struct sc_card *card, unsigned char *data, struct iasecc_se_info *se)
 {
 	struct sc_context *ctx = card->ctx;
@@ -260,7 +260,7 @@ iasecc_se_get_crt(struct sc_card *card, struct iasecc_se_info *se, struct sc_crt
 	LOG_FUNC_CALLED(ctx);
 	if (!se || !crt)
 		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
-	sc_log(ctx, "CRT search template: %X:%X:%X, refs %X:%X:...", 
+	sc_log(ctx, "CRT search template: %X:%X:%X, refs %X:%X:...",
 			crt->tag, crt->algo, crt->usage, crt->refs[0], crt->refs[1]);
 
 	for (ii=0; ii<IASECC_SE_CRTS_MAX && se->crts[ii].tag; ii++)   {
@@ -275,7 +275,7 @@ iasecc_se_get_crt(struct sc_card *card, struct iasecc_se_info *se, struct sc_crt
 
 		memcpy(crt, &se->crts[ii], sizeof(*crt));
 
-		sc_log(ctx, "iasecc_se_get_crt() found CRT with refs %X:%X:...", 
+		sc_log(ctx, "iasecc_se_get_crt() found CRT with refs %X:%X:...",
 				se->crts[ii].refs[0], se->crts[ii].refs[1]);
 		LOG_FUNC_RETURN(ctx, SC_SUCCESS);
 	}
@@ -286,7 +286,7 @@ iasecc_se_get_crt(struct sc_card *card, struct iasecc_se_info *se, struct sc_crt
 
 
 int
-iasecc_se_get_crt_by_usage(struct sc_card *card, struct iasecc_se_info *se, unsigned char tag, 
+iasecc_se_get_crt_by_usage(struct sc_card *card, struct iasecc_se_info *se, unsigned char tag,
 		unsigned char usage, struct sc_crt *crt)
 {
 	struct sc_context *ctx = card->ctx;
@@ -314,7 +314,7 @@ iasecc_se_get_crt_by_usage(struct sc_card *card, struct iasecc_se_info *se, unsi
 }
 
 
-int 
+int
 iasecc_se_parse(struct sc_card *card, unsigned char *data, size_t data_len, struct iasecc_se_info *se)
 {
 	struct sc_context *ctx = card->ctx;
@@ -358,7 +358,7 @@ iasecc_se_parse(struct sc_card *card, unsigned char *data, size_t data_len, stru
 
 	if (data_len != size + size_size + 1)
 		LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "parse error: invalide SE data size");
-	
+
 	offs = 1 + size_size;
 	for (; offs < data_len;)   {
 		rv = iasecc_crt_parse(card, data + offs, se);
@@ -374,7 +374,7 @@ iasecc_se_parse(struct sc_card *card, unsigned char *data, size_t data_len, stru
 }
 
 
-static int 
+static int
 iasecc_parse_size(unsigned char *data, size_t *out)
 {
 	if (*data < 0x80)   {
@@ -394,7 +394,7 @@ iasecc_parse_size(unsigned char *data, size_t *out)
 }
 
 
-static int 
+static int
 iasecc_parse_get_tlv(struct sc_card *card, unsigned char *data, struct iasecc_extended_tlv *tlv)
 {
 	struct sc_context *ctx = card->ctx;
@@ -410,7 +410,7 @@ iasecc_parse_get_tlv(struct sc_card *card, unsigned char *data, struct iasecc_ex
 		tlv->tag = *data;
 		tag_len = 1;
 	}
-	
+
 	sc_log(ctx, "iasecc_parse_get_tlv() tlv->tag 0x%X", tlv->tag);
 	size_len = iasecc_parse_size(data + tag_len, &tlv->size);
 	LOG_TEST_RET(ctx, size_len, "parse error: invalid size data");
@@ -427,7 +427,7 @@ iasecc_parse_get_tlv(struct sc_card *card, unsigned char *data, struct iasecc_ex
 }
 
 
-static int 
+static int
 iasecc_parse_chv(struct sc_card *card, unsigned char *data, size_t data_len, struct iasecc_sdo_chv *chv)
 {
 	struct sc_context *ctx = card->ctx;
@@ -459,7 +459,7 @@ iasecc_parse_chv(struct sc_card *card, unsigned char *data, size_t data_len, str
 }
 
 
-static int 
+static int
 iasecc_parse_prvkey(struct sc_card *card, unsigned char *data, size_t data_len, struct iasecc_sdo_prvkey *prvkey)
 {
 	struct sc_context *ctx = card->ctx;
@@ -487,7 +487,7 @@ iasecc_parse_prvkey(struct sc_card *card, unsigned char *data, size_t data_len, 
 }
 
 
-static int 
+static int
 iasecc_parse_pubkey(struct sc_card *card, unsigned char *data, size_t data_len, struct iasecc_sdo_pubkey *pubkey)
 {
 	struct sc_context *ctx = card->ctx;
@@ -523,7 +523,7 @@ iasecc_parse_pubkey(struct sc_card *card, unsigned char *data, size_t data_len, 
 }
 
 
-static int 
+static int
 iasecc_parse_keyset(struct sc_card *card, unsigned char *data, size_t data_len, struct iasecc_sdo_keyset *keyset)
 {
 	struct sc_context *ctx = card->ctx;
@@ -551,7 +551,7 @@ iasecc_parse_keyset(struct sc_card *card, unsigned char *data, size_t data_len, 
 }
 
 
-static int 
+static int
 iasecc_parse_docp(struct sc_card *card, unsigned char *data, size_t data_len, struct iasecc_sdo *sdo)
 {
 	struct sc_context *ctx = card->ctx;
@@ -613,7 +613,7 @@ iasecc_parse_docp(struct sc_card *card, unsigned char *data, size_t data_len, st
 }
 
 
-static int 
+static int
 iasecc_sdo_parse_data(struct sc_card *card, unsigned char *data, struct iasecc_sdo *sdo)
 {
 	struct sc_context *ctx = card->ctx;
@@ -691,7 +691,7 @@ iasecc_sdo_parse_data(struct sc_card *card, unsigned char *data, struct iasecc_s
 }
 
 
-int 
+int
 iasecc_sdo_parse(struct sc_card *card, unsigned char *data, size_t data_len, struct iasecc_sdo *sdo)
 {
 	struct sc_context *ctx = card->ctx;
@@ -723,7 +723,7 @@ iasecc_sdo_parse(struct sc_card *card, unsigned char *data, size_t data_len, str
 
 	if (data_len != size + size_size + 3)
 		LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "parse error: invalide SDO data size");
-	
+
 	sc_log(ctx, "sz %i, sz_size %i",  size, size_size);
 
 	offs = 3 + size_size;
@@ -743,8 +743,8 @@ iasecc_sdo_parse(struct sc_card *card, unsigned char *data, size_t data_len, str
 }
 
 
-int 
-iasecc_sdo_allocate_and_parse(struct sc_card *card, unsigned char *data, size_t data_len, 
+int
+iasecc_sdo_allocate_and_parse(struct sc_card *card, unsigned char *data, size_t data_len,
 		struct iasecc_sdo **out)
 {
 	struct sc_context *ctx = card->ctx;
@@ -757,7 +757,7 @@ iasecc_sdo_allocate_and_parse(struct sc_card *card, unsigned char *data, size_t 
 	if (*data != IASECC_SDO_TAG_HEADER)
 		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_DATA);
 
-	if (data_len < 3) 
+	if (data_len < 3)
 		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_DATA);
 
 	sdo = calloc(1, sizeof(struct iasecc_sdo));
@@ -778,7 +778,7 @@ iasecc_sdo_allocate_and_parse(struct sc_card *card, unsigned char *data, size_t 
 
 	if (data_len != size + size_size + 3)
 		LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "parse error: invalide SDO data size");
-	
+
 	sc_log(ctx, "sz %i, sz_size %i",  size, size_size);
 
 	offs = 3 + size_size;
@@ -811,7 +811,7 @@ iasecc_update_blob(struct sc_context *ctx, struct iasecc_extended_tlv *tlv,
 		LOG_FUNC_RETURN(ctx, SC_SUCCESS);
 
 	sz = tlv->size + 2;
-	
+
 	if (tlv->tag > 0xFF)
 		sz += 1;
 
@@ -819,11 +819,11 @@ iasecc_update_blob(struct sc_context *ctx, struct iasecc_extended_tlv *tlv,
 		sz += 1;
 	else if (tlv->size >= 0x100)
 		sz += 2;
-	
+
 	pp = realloc(*blob, *blob_size + sz);
 	if (!pp)
 		LOG_FUNC_RETURN(ctx, SC_ERROR_MEMORY_FAILURE);
-	
+
 	if (tlv->tag > 0xFF)
 		*(pp + *blob_size + offs++) = (tlv->tag >> 8) & 0xFF;
 	*(pp + *blob_size + offs++) = tlv->tag & 0xFF;
@@ -853,7 +853,7 @@ iasecc_encode_docp(struct sc_context *ctx, struct iasecc_sdo_docp *docp, unsigne
 	unsigned char *st_blob, *tmp_blob, *docp_blob;
 	size_t blob_size;
 	int rv;
-	
+
 	LOG_FUNC_CALLED(ctx);
 	if (!docp->acls_contact.size || (docp->size.size != 2))
 		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_DATA);
@@ -990,7 +990,7 @@ iasecc_sdo_encode_create(struct sc_context *ctx, struct iasecc_sdo *sdo, unsigne
 }
 
 
-int 
+int
 iasecc_sdo_encode_update_field(struct sc_context *ctx, unsigned char sdo_class, unsigned char sdo_ref,
 		struct iasecc_extended_tlv *tlv, unsigned char **out)
 {
@@ -1036,14 +1036,14 @@ iasecc_sdo_encode_update_field(struct sc_context *ctx, unsigned char sdo_class, 
 
 	rv = sc_asn1_encode(ctx, asn1_update_data, out, &out_len);
 	LOG_TEST_RET(ctx, rv, "Encode update data error");
-		
+
 	sc_debug(ctx, SC_LOG_DEBUG_ASN1,"Data: %s", sc_dump_hex(tlv->value, tlv->size));
 	sc_debug(ctx, SC_LOG_DEBUG_ASN1,"Encoded: %s", sc_dump_hex(*out, out_len));
 	LOG_FUNC_RETURN(ctx, out_len);
 }
 
 
-int 
+int
 iasecc_sdo_encode_rsa_update(struct sc_context *ctx, struct iasecc_sdo *sdo, struct sc_pkcs15_prkey_rsa *rsa,
 		struct iasecc_sdo_update *sdo_update)
 {
@@ -1055,7 +1055,7 @@ iasecc_sdo_encode_rsa_update(struct sc_context *ctx, struct iasecc_sdo *sdo, str
 		int indx = 0;
 
 		sc_log(ctx, "iasecc_sdo_encode_rsa_update(IASECC_SDO_CLASS_RSA_PRIVATE)");
-		if (!rsa->p.len || !rsa->q.len || !rsa->iqmp.len || !rsa->dmp1.len || !rsa->dmq1.len) 
+		if (!rsa->p.len || !rsa->q.len || !rsa->iqmp.len || !rsa->dmp1.len || !rsa->dmq1.len)
 			LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "need all private RSA key components");
 
 		sdo_update->magic = SC_CARDCTL_IASECC_SDO_MAGIC_PUT_DATA;
@@ -1096,7 +1096,7 @@ iasecc_sdo_encode_rsa_update(struct sc_context *ctx, struct iasecc_sdo *sdo, str
 		sc_log(ctx, "prv_key.compulsory.on_card %i", sdo->data.prv_key.compulsory.on_card);
 		if (!sdo->data.prv_key.compulsory.on_card)   {
 			if (sdo->data.prv_key.compulsory.value)   {
-				sc_log(ctx, "sdo_prvkey->data.prv_key.compulsory.size %i", sdo->data.prv_key.compulsory.size); 
+				sc_log(ctx, "sdo_prvkey->data.prv_key.compulsory.size %i", sdo->data.prv_key.compulsory.size);
 				sdo_update->fields[indx].parent_tag = IASECC_SDO_PRVKEY_TAG;
 				sdo_update->fields[indx].tag = IASECC_SDO_PRVKEY_TAG_COMPULSORY;
 				sdo_update->fields[indx].value = sdo->data.prv_key.compulsory.value;
@@ -1145,7 +1145,7 @@ iasecc_sdo_encode_rsa_update(struct sc_context *ctx, struct iasecc_sdo *sdo, str
 			indx++;
 		}
 
-		/* For ECC card 'compulsory' flag should be already here */ 
+		/* For ECC card 'compulsory' flag should be already here */
 		if (!sdo->data.pub_key.compulsory.on_card)   {
 			if (sdo->data.pub_key.compulsory.value)   {
 				sdo_update->fields[indx].parent_tag = IASECC_SDO_PUBKEY_TAG;
@@ -1222,7 +1222,7 @@ iasecc_sdo_parse_card_answer(struct sc_context *ctx, unsigned char *data, size_t
 static int
 iasecc_tlv_copy(struct sc_context *ctx, struct iasecc_extended_tlv *in, struct iasecc_extended_tlv *out)
 {
-	if (!in || !out) 
+	if (!in || !out)
 		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
 
 	memset(out, 0, sizeof(struct iasecc_extended_tlv));
@@ -1233,7 +1233,7 @@ iasecc_tlv_copy(struct sc_context *ctx, struct iasecc_extended_tlv *in, struct i
 		out->value = calloc(1, in->size);
 		if (!out->value)
 			LOG_FUNC_RETURN(ctx, SC_ERROR_OUT_OF_MEMORY);
-		
+
 		memcpy(out->value, in->value, in->size);
 		out->size = in->size;
 	}
@@ -1248,7 +1248,7 @@ iasecc_docp_copy(struct sc_context *ctx, struct iasecc_sdo_docp *in, struct iase
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
-	if (!in || !out) 
+	if (!in || !out)
 		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
 
 	memset(out, 0, sizeof(struct iasecc_sdo_docp));
@@ -1286,4 +1286,4 @@ iasecc_docp_copy(struct sc_context *ctx, struct iasecc_sdo_docp *in, struct iase
 	LOG_FUNC_RETURN(ctx, SC_SUCCESS);
 }
 
-#endif /* ENABLE_OPENSSL */ 
+#endif /* ENABLE_OPENSSL */

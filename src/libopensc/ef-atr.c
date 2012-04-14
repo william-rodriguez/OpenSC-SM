@@ -31,7 +31,7 @@
 #include "asn1.h"
 #include "iso7816.h"
 
-static int 
+static int
 sc_parse_ef_atr_content(struct sc_card *card, unsigned char *buf, size_t buflen)
 {
 	struct sc_context *ctx = card->ctx;
@@ -46,7 +46,7 @@ sc_parse_ef_atr_content(struct sc_card *card, unsigned char *buf, size_t buflen)
 
 	memset(&ef_atr, 0, sizeof(struct sc_ef_atr));
 	/* IAS/ECC specific: skip second 'zero' byte */
-	if (*(++buf)  == 0x00)	
+	if (*(++buf)  == 0x00)
 		++buf;
 
 	tag = sc_asn1_find_tag(ctx, buf, buflen, ISO7816_TAG_II_CARD_SERVICE, &taglen);
@@ -70,7 +70,7 @@ sc_parse_ef_atr_content(struct sc_card *card, unsigned char *buf, size_t buflen)
 		ef_atr.df_selection =  *(tag + 0);
 		ef_atr.unit_size = *(tag + 1);
 		ef_atr.card_capabilities = *(tag + 2);
-		sc_log(ctx, "EF.ATR: DF selection %X, unit_size %X, card caps %X", 
+		sc_log(ctx, "EF.ATR: DF selection %X, unit_size %X, card caps %X",
 				ef_atr.df_selection, ef_atr.unit_size, ef_atr.card_capabilities);
 	}
 
@@ -139,7 +139,7 @@ int sc_parse_ef_atr(struct sc_card *card)
 		LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "Memory allocation error");
 	rv = sc_read_binary(card, 0, buf, file->size, 0);
 	LOG_TEST_RET(ctx, rv, "Cannot read EF(ATR) file");
-	
+
 	rv = sc_parse_ef_atr_content(card, buf, file->size);
 	LOG_TEST_RET(ctx, rv, "EF(ATR) parse error");
 

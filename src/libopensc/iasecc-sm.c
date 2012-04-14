@@ -35,7 +35,7 @@
 #include "authentic.h"
 
 
-#ifdef ENABLE_SM	
+#ifdef ENABLE_SM
 static int
 sm_save_sc_context (struct sc_card *card, struct sm_info *sm_info)
 {
@@ -89,7 +89,7 @@ iasecc_sm_transmit_apdus(struct sc_card *card, struct sc_remote_data *rdata,
 		unsigned char *out, size_t *out_len)
 {
 	struct sc_context *ctx = card->ctx;
-#ifdef ENABLE_SM	
+#ifdef ENABLE_SM
 	struct sc_remote_apdu *rapdu = rdata->data;
 	int rv = SC_SUCCESS, offs = 0;
 
@@ -115,7 +115,7 @@ iasecc_sm_transmit_apdus(struct sc_card *card, struct sc_remote_data *rdata,
 		rapdu = rapdu->next;
 	}
 
-	if (out_len) 
+	if (out_len)
 		*out_len = offs;
 
 	LOG_FUNC_RETURN(ctx, rv);
@@ -127,12 +127,12 @@ iasecc_sm_transmit_apdus(struct sc_card *card, struct sc_remote_data *rdata,
 
 
 /* Big TODO: do SM release in all handles, clean the saved card context -- current DF, EF, etc. */
-static int 
-sm_release (struct sc_card *card, struct sc_remote_data *rdata, 
+static int
+sm_release (struct sc_card *card, struct sc_remote_data *rdata,
 		unsigned char *out, size_t out_len)
 {
 	struct sc_context *ctx = card->ctx;
-#ifdef ENABLE_SM	
+#ifdef ENABLE_SM
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	int rv;
 
@@ -155,7 +155,7 @@ int
 iasecc_sm_external_authentication(struct sc_card *card, unsigned skey_ref, int *tries_left)
 {
 	struct sc_context *ctx = card->ctx;
-#ifdef ENABLE_SM	
+#ifdef ENABLE_SM
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sc_remote_data rdata;
 	struct sc_apdu apdu;
@@ -164,7 +164,7 @@ iasecc_sm_external_authentication(struct sc_card *card, unsigned skey_ref, int *
 
 	LOG_FUNC_CALLED(ctx);
 	sc_log(ctx, "iasecc_sm_external_authentication(): SKey ref %i", skey_ref);
-	
+
 	if (card->sm_ctx.sm_mode == SM_MODE_NONE)
 		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "Cannot do 'External Authentication' without SM activated ");
 
@@ -208,7 +208,7 @@ iasecc_sm_external_authentication(struct sc_card *card, unsigned skey_ref, int *
 	sc_log(ctx, "sm_iasecc_external_authentication(): rdata length %i\n", rdata.length);
 
 	rv = iasecc_sm_transmit_apdus (card, &rdata, NULL, 0);
-	if (rv == SC_ERROR_PIN_CODE_INCORRECT && tries_left) 
+	if (rv == SC_ERROR_PIN_CODE_INCORRECT && tries_left)
 		*tries_left = (rdata.data + rdata.length - 1)->apdu.sw2 & 0x0F;
 	LOG_TEST_RET(ctx, rv, "sm_iasecc_external_authentication(): execute failed");
 
@@ -224,7 +224,7 @@ static int
 iasecc_sm_se_mutual_authentication(struct sc_card *card, unsigned se_num)
 {
 	struct sc_context *ctx = card->ctx;
-#ifdef ENABLE_SM	
+#ifdef ENABLE_SM
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct iasecc_se_info se;
 	struct sc_crt *crt =  &sm_info->sm_params.cwa.crt_at;
@@ -274,7 +274,7 @@ iasecc_sm_se_mutual_authentication(struct sc_card *card, unsigned se_num)
 }
 
 
-static int 
+static int
 iasecc_sm_get_challenge(struct sc_card *card, unsigned char *out, size_t len)
 {
 	struct sc_context *ctx = card->ctx;
@@ -292,7 +292,7 @@ iasecc_sm_get_challenge(struct sc_card *card, unsigned char *out, size_t len)
 	LOG_TEST_RET(ctx, rv, "APDU transmit failed");
 	rv = sc_check_sw(card, apdu.sw1, apdu.sw2);
 	LOG_TEST_RET(ctx, rv, "Command failed");
-	
+
 	memcpy(out, rbuf, apdu.resplen);
 
 	LOG_FUNC_RETURN(ctx, apdu.resplen);
@@ -303,7 +303,7 @@ int
 iasecc_sm_initialize(struct sc_card *card, unsigned se_num, unsigned cmd)
 {
 	struct sc_context *ctx = card->ctx;
-#ifdef ENABLE_SM	
+#ifdef ENABLE_SM
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sm_cwa_session *cwa_session = &sm_info->schannel.session.cwa;
 	struct sc_remote_data rdata;
@@ -338,7 +338,7 @@ iasecc_sm_initialize(struct sc_card *card, unsigned se_num, unsigned cmd)
 		rdata.data->flags |= SC_REMOTE_APDU_FLAG_RETURN_ANSWER;
 		rdata.data->apdu.flags &= ~SC_APDU_FLAGS_NO_GET_RESP;
 	}
-	else   { 
+	else   {
 		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "TODO: SM init with more then one APDU");
 	}
 
@@ -362,13 +362,13 @@ iasecc_sm_initialize(struct sc_card *card, unsigned se_num, unsigned cmd)
 }
 
 
-static int 
+static int
 iasecc_sm_cmd(struct sc_card *card, struct sc_remote_data *rdata)
 {
 #define AUTH_SM_APDUS_MAX 12
 #define ENCODED_APDUS_MAX_LENGTH (AUTH_SM_APDUS_MAX * (SC_MAX_APDU_BUFFER_SIZE * 2 + 64) + 32)
 	struct sc_context *ctx = card->ctx;
-#ifdef ENABLE_SM	
+#ifdef ENABLE_SM
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sm_cwa_session *session = &sm_info->schannel.session.cwa;
 	struct sc_remote_apdu *rapdu = NULL;
@@ -389,11 +389,11 @@ iasecc_sm_cmd(struct sc_card *card, struct sc_remote_data *rdata)
 		if (!apdu->ins)
 			break;
 		rv = sc_transmit_apdu(card, apdu);
-		if (rv < 0)   { 
+		if (rv < 0)   {
 			sc_log(ctx, "iasecc_sm_cmd() APDU transmit error rv:%i", rv);
 			break;
 		}
-		
+
 		rv = sc_check_sw(card, apdu->sw1, apdu->sw2);
 		if (rv < 0 && !(rapdu->flags & SC_REMOTE_APDU_FLAG_NOT_FATAL))   {
 			sc_log(ctx, "iasecc_sm_cmd() APDU error rv:%i", rv);
@@ -410,11 +410,11 @@ iasecc_sm_cmd(struct sc_card *card, struct sc_remote_data *rdata)
 }
 
 
-int 
+int
 iasecc_sm_rsa_generate(struct sc_card *card, unsigned se_num, struct iasecc_sdo *sdo)
 {
 	struct sc_context *ctx = card->ctx;
-#ifdef ENABLE_SM	
+#ifdef ENABLE_SM
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sc_remote_data rdata;
 	int rv;
@@ -443,17 +443,17 @@ iasecc_sm_rsa_generate(struct sc_card *card, unsigned se_num, struct iasecc_sdo 
 }
 
 
-int 
+int
 iasecc_sm_rsa_update(struct sc_card *card, unsigned se_num, struct iasecc_sdo_rsa_update *udata)
 {
 	struct sc_context *ctx = card->ctx;
-#ifdef ENABLE_SM	
+#ifdef ENABLE_SM
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sc_remote_data rdata;
 	int rv;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "SM update RSA: SE#: 0x%X, SDO(class:0x%X:ref:%X)", se_num, 
+	sc_log(ctx, "SM update RSA: SE#: 0x%X, SDO(class:0x%X:ref:%X)", se_num,
 			udata->sdo_prv_key->sdo_class, udata->sdo_prv_key->sdo_ref);
 
 	rv = iasecc_sm_initialize(card, se_num, SM_CMD_RSA_UPDATE);
@@ -488,7 +488,7 @@ iasecc_sm_pin_verify(struct sc_card *card, unsigned se_num, struct sc_pin_cmd_da
 
 	LOG_FUNC_CALLED(ctx);
 	sc_log(ctx, "iasecc_sm_pin_verify() SE#%i, PIN(ref:%i,len:%i)", se_num, data->pin_reference, data->pin1.len);
-	
+
 	rv = iasecc_sm_initialize(card, se_num, SM_CMD_PIN_VERIFY);
 	LOG_TEST_RET(ctx, rv, "iasecc_sm_pin_verify() SM INITIALIZE failed");
 
@@ -525,7 +525,7 @@ iasecc_sm_sdo_update(struct sc_card *card, unsigned se_num, struct iasecc_sdo_up
 
 	LOG_FUNC_CALLED(ctx);
 	sc_log(ctx, "iasecc_sm_sdo_update() SE#%i, SDO(class:0x%X,ref:%i)", se_num, update->sdo_class, update->sdo_ref);
-	
+
 	rv = iasecc_sm_initialize(card, se_num, SM_CMD_SDO_UPDATE);
 	LOG_TEST_RET(ctx, rv, "iasecc_sm_sdo_update() SM INITIALIZE failed");
 
@@ -560,7 +560,7 @@ iasecc_sm_pin_reset(struct sc_card *card, unsigned se_num, struct sc_pin_cmd_dat
 
 	LOG_FUNC_CALLED(ctx);
 	sc_log(ctx, "iasecc_sm_pin_reset() SE#%i, PIN(ref:%i,len:%i)", se_num, data->pin_reference, data->pin2.len);
-	
+
 	rv = iasecc_sm_initialize(card, se_num, SM_CMD_PIN_RESET);
 	LOG_TEST_RET(ctx, rv, "iasecc_sm_pin_reset() SM INITIALIZE failed");
 
@@ -586,7 +586,7 @@ int
 iasecc_sm_create_file(struct sc_card *card, unsigned se_num, unsigned char *fcp, size_t fcp_len)
 {
 	struct sc_context *ctx = card->ctx;
-#ifdef ENABLE_SM	
+#ifdef ENABLE_SM
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sc_remote_data rdata;
 	struct iasecc_sm_cmd_create_file cmd_data;
@@ -594,7 +594,7 @@ iasecc_sm_create_file(struct sc_card *card, unsigned se_num, unsigned char *fcp,
 
 	LOG_FUNC_CALLED(ctx);
 	sc_log(ctx, "iasecc_sm_create_file() SE#%i, fcp(%i) '%s'", se_num, fcp_len, sc_dump_hex(fcp, fcp_len));
-	
+
 	rv = iasecc_sm_initialize(card, se_num, SM_CMD_FILE_CREATE);
 	LOG_TEST_RET(ctx, rv, "iasecc_sm_create_file() SM INITIALIZE failed");
 
@@ -617,7 +617,7 @@ iasecc_sm_create_file(struct sc_card *card, unsigned se_num, unsigned char *fcp,
 #endif
 }
 
-int 
+int
 iasecc_sm_read_binary(struct sc_card *card, unsigned se_num, size_t offs, unsigned char *buff, size_t count)
 {
 	struct sc_context *ctx = card->ctx;
@@ -655,12 +655,12 @@ iasecc_sm_read_binary(struct sc_card *card, unsigned se_num, size_t offs, unsign
 }
 
 
-int 
-iasecc_sm_update_binary(struct sc_card *card, unsigned se_num, size_t offs, 
+int
+iasecc_sm_update_binary(struct sc_card *card, unsigned se_num, size_t offs,
 		const unsigned char *buff, size_t count)
 {
 	struct sc_context *ctx = card->ctx;
-#ifdef ENABLE_SM	
+#ifdef ENABLE_SM
 	struct sm_info *sm_info = &card->sm_ctx.info;
 	struct sc_remote_data rdata;
 	struct iasecc_sm_cmd_update_binary cmd_data;

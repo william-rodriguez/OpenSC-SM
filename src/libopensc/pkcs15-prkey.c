@@ -72,7 +72,7 @@ static const struct sc_asn1_entry c_asn1_com_key_attr[C_ASN1_COM_KEY_ATTR_SIZE] 
 
 #define C_ASN1_COM_PRKEY_ATTR_SIZE 2
 static const struct sc_asn1_entry c_asn1_com_prkey_attr[C_ASN1_COM_PRKEY_ATTR_SIZE] = {
-	{ "subjectName", SC_ASN1_OCTET_STRING, SC_ASN1_TAG_SEQUENCE | SC_ASN1_CONS, 
+	{ "subjectName", SC_ASN1_OCTET_STRING, SC_ASN1_TAG_SEQUENCE | SC_ASN1_CONS,
 		SC_ASN1_EMPTY_ALLOWED | SC_ASN1_ALLOC | SC_ASN1_OPTIONAL, NULL, NULL },
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
@@ -571,7 +571,7 @@ sc_pkcs15_convert_bignum(sc_pkcs15_bignum_t *dst, const void *src)
 #endif
 }
 
-int 
+int
 sc_pkcs15_convert_prkey(struct sc_pkcs15_prkey *pkcs15_key, void *evp_key)
 {
 #ifdef ENABLE_OPENSSL

@@ -315,7 +315,7 @@ int sc_lock(sc_card_t *card)
 	int r = 0, r2 = 0;
 
 	LOG_FUNC_CALLED(card->ctx);
-	
+
 	if (card == NULL)
 		return SC_ERROR_INVALID_ARGUMENTS;
 	r = sc_mutex_lock(card->ctx, card->mutex);
@@ -827,7 +827,7 @@ sc_algorithm_info_t * sc_card_find_ec_alg(sc_card_t *card,
 {
 	return sc_card_find_alg(card, SC_ALGORITHM_EC, key_length);
 }
-	
+
 int _sc_card_add_rsa_alg(sc_card_t *card, unsigned int key_length,
 			 unsigned long flags, unsigned long exponent)
 {
@@ -895,7 +895,7 @@ static int match_atr_table(sc_context_t *ctx, struct sc_atr_table *table, struct
 			mbin_len = sizeof(mbin);
 			sc_hex_to_bin(matr, mbin, &mbin_len);
 			if (mbin_len != fix_bin_len) {
-				sc_log(ctx, "length of atr and atr mask do not match - ignored: %s - %s", tatr, matr); 
+				sc_log(ctx, "length of atr and atr mask do not match - ignored: %s - %s", tatr, matr);
 				continue;
 			}
 			for (s = 0; s < tbin_len; s++) {
@@ -1023,10 +1023,10 @@ scconf_block *sc_get_conf_block(sc_context_t *ctx, const char *name1, const char
 {
 	int i;
 	scconf_block *conf_block = NULL;
-	
+
 	for (i = 0; ctx->conf_blocks[i] != NULL; i++) {
 		scconf_block **blocks;
-		
+
 		blocks = scconf_find_blocks(ctx->conf, ctx->conf_blocks[i], name1, name2);
 		if (blocks != NULL) {
 			conf_block = blocks[0];
@@ -1046,7 +1046,7 @@ void sc_print_cache(struct sc_card *card)   {
 
 	if (!card->cache.valid || (!card->cache.current_ef && !card->cache.current_df))   {
 		sc_log(ctx, "card cache invalid");
-		return; 
+		return;
 	}
 
 	if (card->cache.current_ef)
@@ -1146,33 +1146,33 @@ static int sc_card_sm_load(struct sc_card *card, const char *module_path, const 
 			sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SM handler 'initialize' not exported: %s", sc_dlerror());
 			break;
 		}
-		
+
 		mod_ops->get_apdus  = sc_dlsym(mod_handle, "get_apdus");
 		if (!mod_ops->get_apdus)   {
 			sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SM handler 'get_apdus' not exported: %s", sc_dlerror());
 			break;
 		}
-		
+
 		mod_ops->finalize  = sc_dlsym(mod_handle, "finalize");
-		if (!mod_ops->finalize) 
+		if (!mod_ops->finalize)
 			sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SM handler 'finalize' not exported -- ignored");
-		
+
 		mod_ops->module_init  = sc_dlsym(mod_handle, "module_init");
-		if (!mod_ops->module_init) 
+		if (!mod_ops->module_init)
 			sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SM handler 'module_init' not exported -- ignored");
-		
+
 		mod_ops->module_cleanup  = sc_dlsym(mod_handle, "module_cleanup");
-		if (!mod_ops->module_cleanup) 
+		if (!mod_ops->module_cleanup)
 			sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SM handler 'module_cleanup' not exported -- ignored");
-		
+
 		mod_ops->test  = sc_dlsym(mod_handle, "test");
-		if (mod_ops->test) 
+		if (mod_ops->test)
 			sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SM handler 'test' not exported -- ignored");
-		
+
 		rv = 0;
 		break;
 	} while(0);
-	
+
 	if (rv)
 		sc_card_sm_unload(card);
 

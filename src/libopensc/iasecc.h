@@ -83,13 +83,13 @@
 #define IASECC_CARD_ANSWER_TAG_SW	0x99
 #define IASECC_CARD_ANSWER_TAG_MAC	0x8E
 
-#define IASECC_SM_DO_TAG_TLE	0x97 
-#define IASECC_SM_DO_TAG_TSW	0x99 
-#define IASECC_SM_DO_TAG_TCC	0x8E 
-#define IASECC_SM_DO_TAG_TCG_ODD_INS	0x85 
-#define IASECC_SM_DO_TAG_TCG_EVEN_INS	0x87 
-#define IASECC_SM_DO_TAG_TCG	0x87 
-#define IASECC_SM_DO_TAG_TBR	0x85 
+#define IASECC_SM_DO_TAG_TLE	0x97
+#define IASECC_SM_DO_TAG_TSW	0x99
+#define IASECC_SM_DO_TAG_TCC	0x8E
+#define IASECC_SM_DO_TAG_TCG_ODD_INS	0x85
+#define IASECC_SM_DO_TAG_TCG_EVEN_INS	0x87
+#define IASECC_SM_DO_TAG_TCG	0x87
+#define IASECC_SM_DO_TAG_TBR	0x85
 
 struct sc_security_env;
 
@@ -136,7 +136,7 @@ struct iasecc_private_data {
 };
 
 
-int sm_iasecc_rsa_generate(struct sc_card *card, unsigned security_condition, 
+int sm_iasecc_rsa_generate(struct sc_card *card, unsigned security_condition,
 		struct iasecc_sdo *sdo);
 
 #endif

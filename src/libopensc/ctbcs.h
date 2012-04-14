@@ -1,5 +1,5 @@
 /*
-    CT-BCS commands, responses and parameters for terminals 
+    CT-BCS commands, responses and parameters for terminals
     without keypad and display.
 
     This file is part of the Unix driver for Towitoko smart card readers
@@ -24,7 +24,7 @@
 #define _CTBCS_
 
 /*
- * Command and response size 
+ * Command and response size
  */
 #define CTBCS_MIN_COMMAND_SIZE		2
 #define CTBCS_MIN_RESPONSE_SIZE		2
@@ -50,8 +50,8 @@
 #define CTBCS_INS_PERFORM_VERIFICATION	0x18	/* Verify PIN from pin pad */
 #define CTBCS_INS_MODIFY_VERIFICATION	0x19	/* Perform a change/unblock PIN op */
 
-/* 
- * P1 parameter: functional units 
+/*
+ * P1 parameter: functional units
  */
 
 #define CTBCS_P1_CT_KERNEL		0x00
@@ -87,7 +87,7 @@
 #define CTBCS_P2_RESET_GET_HIST		0x02	/* Return historical bytes */
 
 /*
- * P2 parameter for Request ICC: data to be returned 
+ * P2 parameter for Request ICC: data to be returned
  */
 #define CTBCS_P2_REQUEST_NO_RESP	0x00	/* Return no data */
 #define CTBCS_P2_REQUEST_GET_ATR	0x01	/* Return complete ATR */
@@ -139,7 +139,7 @@
 #define CTBCS_SW2_ICC_ERROR		0x00	/* no longer reacts */
 
 /*
- * Return codes for Reset CT 
+ * Return codes for Reset CT
  */
 #define CTBCS_SW1_RESET_CT_OK		0x90	/* Reset CT successful */
 #define CTBCS_SW2_RESET_CT_OK		0x00

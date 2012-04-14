@@ -54,9 +54,9 @@ int sc_pkcs15emu_initialize_objects(sc_pkcs15_card_t *p15card, p15data_items *it
 
 		strncpy(obj_obj.label, objects[i].label, SC_PKCS15_MAX_LABEL_SIZE - 1);
 		obj_obj.flags = objects[i].obj_flags;
-		
-		r = sc_pkcs15emu_object_add(p15card, SC_PKCS15_TYPE_DATA_OBJECT, 
-			&obj_obj, &obj_info); 
+
+		r = sc_pkcs15emu_object_add(p15card, SC_PKCS15_TYPE_DATA_OBJECT,
+			&obj_obj, &obj_info);
 		if (r < 0)
 			SC_FUNC_RETURN(card->ctx, SC_LOG_DEBUG_NORMAL, r);
 	}
@@ -80,28 +80,28 @@ static int add_private_key(sc_pkcs15_card_t *p15card, const prdata* key, int usa
 
 	memset(&prkey_info, 0, sizeof(prkey_info));
 	memset(&prkey_obj,  0, sizeof(prkey_obj));
-	
+
 	sc_pkcs15_format_id(key->id, &prkey_info.id);
-	
+
 	prkey_info.native        = 1;
 	prkey_info.key_reference = key->ref;
 
 	if(!modulus_length) modulus_length = key->modulus_len;
 	prkey_info.modulus_length= modulus_length;
-	
+
 	sc_format_path(key->path, &prkey_info.path);
-	
+
 	strncpy(prkey_obj.label, key->label, SC_PKCS15_MAX_LABEL_SIZE - 1);
-	
+
 	prkey_obj.flags = key->obj_flags;
-	
+
 	/* Setup key usage */
 	if(!usage) usage = key->usage;
 	prkey_info.usage = usage;
-	
+
 	if (key->auth_id)
 		sc_pkcs15_format_id(key->auth_id, &prkey_obj.auth_id);
-	
+
 	return sc_pkcs15emu_add_rsa_prkey(p15card, &prkey_obj, &prkey_info);
 }
 
@@ -120,7 +120,7 @@ static int add_public_key(sc_pkcs15_card_t *p15card, const pubdata *key, int usa
 	if(!modulus_length) modulus_length = key->modulus_len;
 	pubkey_info.modulus_length= modulus_length;
 	/* we really don't know how many bits or module length,
-	 * we will assume 1024 for now 
+	 * we will assume 1024 for now
 	 */
 	sc_format_path(key->path, &pubkey_info.path);
 
@@ -154,7 +154,7 @@ CERT_HANDLE_FUNCTION(default_cert_handle) {
 	}
 
 	pkey = X509_get_pubkey(cert_data);
-	
+
 	if(pkey == NULL) {
 		sc_debug(p15card->card->ctx, SC_LOG_DEBUG_NORMAL, "Error: no public key associated with the certificate");
 		r = SC_ERROR_INTERNAL;
@@ -172,18 +172,18 @@ CERT_HANDLE_FUNCTION(default_cert_handle) {
 		r = SC_ERROR_INTERNAL;
 		goto err;
 	}
-	
+
 	modulus_len = 8 * BN_num_bytes(pkey->pkey.rsa->n); /* converting to bits */
 	/* printf("Key Size: %d bits\n\n", modulus_len); */
 	/* cached_cert->modulusLength = modulus_len; */
-	
+
 	if(key->label) {
 		int usage = 0;
 		if (certtype & EVP_PKT_SIGN) {
 			usage |= SC_PKCS15_PRKEY_USAGE_SIGN;
 			usage |= SC_PKCS15_PRKEY_USAGE_NONREPUDIATION;
 		}
-		
+
 		if (certtype & EVP_PKT_ENC) {
 			usage |= SC_PKCS15_PRKEY_USAGE_ENCRYPT;
 			usage |= SC_PKCS15_PRKEY_USAGE_DECRYPT;
@@ -219,17 +219,17 @@ int sc_pkcs15emu_initialize_certificates(sc_pkcs15_card_t *p15card, p15data_item
 	for (i = 0; certs[i].label; i++) {
 		struct sc_pkcs15_cert_info cert_info;
 		struct sc_pkcs15_object    cert_obj;
-		
+
 		memset(&cert_info, 0, sizeof(cert_info));
 		memset(&cert_obj,  0, sizeof(cert_obj));
-		
+
 		sc_pkcs15_format_id(certs[i].id, &cert_info.id);
 		cert_info.authority = certs[i].authority;
 		sc_format_path(certs[i].path, &cert_info.path);
 
 		strncpy(cert_obj.label, certs[i].label, SC_PKCS15_MAX_LABEL_SIZE - 1);
 		cert_obj.flags = certs[i].obj_flags;
-		
+
 		if(items->cert_load) {
 			u8* cert_buffer = NULL;
 			size_t cert_length = 0;

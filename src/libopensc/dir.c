@@ -71,7 +71,7 @@ static int parse_dir_record(sc_card_t *card, u8 ** buf, size_t *buflen,
 	sc_format_asn1_entry(asn1_dirrecord + 1, label, &label_len, 0);
 	sc_format_asn1_entry(asn1_dirrecord + 2, path, &path_len, 0);
 	sc_format_asn1_entry(asn1_dirrecord + 3, ddo, &ddo_len, 0);
-	
+
 	r = sc_asn1_decode(card->ctx, asn1_dir, *buf, *buflen, (const u8 **) buf, buflen);
 	if (r == SC_ERROR_ASN1_END_OF_CONTENTS)
 		return r;
@@ -84,7 +84,7 @@ static int parse_dir_record(sc_card_t *card, u8 ** buf, size_t *buflen,
 	app = calloc(1, sizeof(struct sc_app_info));
 	if (app == NULL)
 		return SC_ERROR_OUT_OF_MEMORY;
-	
+
 	memcpy(&app->aid, &aid, sizeof(struct sc_aid));
 
 	if (asn1_dirrecord[1].flags & SC_ASN1_PRESENT)
@@ -100,15 +100,15 @@ static int parse_dir_record(sc_card_t *card, u8 ** buf, size_t *buflen,
 			return SC_ERROR_INVALID_ASN1_OBJECT;
 		}
 		memcpy(app->path.value, path, path_len);
-		app->path.len = path_len;	
+		app->path.len = path_len;
 		app->path.type = SC_PATH_TYPE_PATH;
-	} 
+	}
 	else {
 		/* application path not present: use AID as application path */
 		memcpy(app->path.value, aid.value, aid.len);
 		app->path.len = aid.len;
 		app->path.type = SC_PATH_TYPE_DF_NAME;
-	} 
+	}
 
 	if (asn1_dirrecord[3].flags & SC_ASN1_PRESENT) {
 		app->ddo.value = malloc(ddo_len);
@@ -126,7 +126,7 @@ static int parse_dir_record(sc_card_t *card, u8 ** buf, size_t *buflen,
 	app->rec_nr = rec_nr;
 	card->app[card->app_count] = app;
 	card->app_count++;
-	
+
 	return 0;
 }
 
@@ -163,7 +163,7 @@ int sc_enum_apps(sc_card_t *card)
 	if (ef_structure == SC_FILE_EF_TRANSPARENT) {
 		u8 *buf = NULL, *p;
 		size_t bufsize;
-		
+
 		buf = malloc(file_size);
 		if (buf == NULL)
 			SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_NORMAL, SC_ERROR_OUT_OF_MEMORY);
@@ -186,12 +186,12 @@ int sc_enum_apps(sc_card_t *card)
 		if (buf)
 			free(buf);
 
-	} 
+	}
 	else {	/* record structure */
 		u8 buf[256], *p;
 		unsigned int rec_nr;
 		size_t       rec_size;
-		
+
 		for (rec_nr = 1; ; rec_nr++) {
 			r = sc_read_record(card, rec_nr, buf, sizeof(buf), SC_RECORD_BY_REC_NR);
 			if (r == SC_ERROR_RECORD_NOT_FOUND)
@@ -311,7 +311,7 @@ static int update_transparent(sc_card_t *card, sc_file_t *file)
 	r = sc_update_binary(card, 0, buf, buf_size, 0);
 	free(buf);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "Unable to update EF(DIR)");
-	
+
 	return SC_SUCCESS;
 }
 
@@ -320,7 +320,7 @@ static int update_single_record(sc_card_t *card, sc_app_info_t *app)
 	u8 *rec;
 	size_t rec_size;
 	int r;
-	
+
 	r = encode_dir_record(card->ctx, app, &rec, &rec_size);
 	if (r)
 		return r;
@@ -367,7 +367,7 @@ int sc_update_dir(sc_card_t *card, sc_app_info_t *app)
 	sc_path_t path;
 	sc_file_t *file;
 	int r;
-	
+
 	sc_format_path("3F002F00", &path);
 
 	r = sc_select_file(card, &path, &file);

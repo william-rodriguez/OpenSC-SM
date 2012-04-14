@@ -1,5 +1,5 @@
 /*
- * sm-common.c: Common cryptographic procedures related to 
+ * sm-common.c: Common cryptographic procedures related to
  * 		Secure Messaging
  *
  * Copyright (C) 2010  Viktor Tarasov <vtarasov@opentrust.com>
@@ -79,9 +79,9 @@
 
 
 /*
- * Inspired by or taken from OpenSSL crypto/des/cbc3_enc.c 
+ * Inspired by or taken from OpenSSL crypto/des/cbc3_enc.c
  */
-static void 
+static void
 DES_3cbc_encrypt(DES_cblock *input, DES_cblock *output, long length,
 		 DES_key_schedule *ks1, DES_key_schedule *ks2, DES_cblock *iv,
 		 int enc)
@@ -114,7 +114,7 @@ DES_3cbc_encrypt(DES_cblock *input, DES_cblock *output, long length,
 }
 
 
-DES_LONG 
+DES_LONG
 DES_cbc_cksum_3des_emv96(const unsigned char *in, DES_cblock *output,
 			   long length, DES_key_schedule *schedule, DES_key_schedule *schedule2,
 			   const_DES_cblock *ivec)
@@ -127,7 +127,7 @@ DES_cbc_cksum_3des_emv96(const unsigned char *in, DES_cblock *output,
 
 	c2l(iv,tout0);
 	c2l(iv,tout1);
-	
+
 	for (; l>8; l-=8)   {
 		if (l >= 16)
 			{
@@ -136,21 +136,21 @@ DES_cbc_cksum_3des_emv96(const unsigned char *in, DES_cblock *output,
 			}
 		else
 			c2ln(in,tin0,tin1,l);
-			
+
 		tin0^=tout0; tin[0]=tin0;
 		tin1^=tout1; tin[1]=tin1;
 		DES_encrypt1((DES_LONG *)tin,schedule, DES_ENCRYPT);
 		tout0=tin[0];
 		tout1=tin[1];
 	}
-	
+
 	if (l == 8)   {
 		c2l(in,tin0);
 		c2l(in,tin1);
 	}
 	else
 		c2ln(in,tin0,tin1,l);
-			
+
 	tin0^=tout0; tin[0]=tin0;
 	tin1^=tout1; tin[1]=tin1;
 	DES_encrypt3((DES_LONG *)tin,schedule,schedule2,schedule);
@@ -176,7 +176,7 @@ DES_cbc_cksum_3des_emv96(const unsigned char *in, DES_cblock *output,
 }
 
 
-DES_LONG 
+DES_LONG
 DES_cbc_cksum_3des(const unsigned char *in, DES_cblock *output,
 		       long length, DES_key_schedule *schedule, DES_key_schedule *schedule2,
 		       const_DES_cblock *ivec)
@@ -189,7 +189,7 @@ DES_cbc_cksum_3des(const unsigned char *in, DES_cblock *output,
 
 	c2l(iv,tout0);
 	c2l(iv,tout1);
-	
+
 	for (; l>0; l-=8)
 		{
 		if (l >= 8)
@@ -199,7 +199,7 @@ DES_cbc_cksum_3des(const unsigned char *in, DES_cblock *output,
 			}
 		else
 			c2ln(in,tin0,tin1,l);
-			
+
 		tin0^=tout0; tin[0]=tin0;
 		tin1^=tout1; tin[1]=tin1;
 		DES_encrypt3((DES_LONG *)tin,schedule,schedule2,schedule);
@@ -226,7 +226,7 @@ DES_cbc_cksum_3des(const unsigned char *in, DES_cblock *output,
 }
 
 
-int 
+int
 sm_encrypt_des_ecb3(unsigned char *key, unsigned char *data, int data_len,
 		unsigned char **out, int *out_len)
 {
@@ -234,60 +234,60 @@ sm_encrypt_des_ecb3(unsigned char *key, unsigned char *data, int data_len,
 	DES_cblock kk,k2;
 	DES_key_schedule ks,ks2;
 
-	
+
 	if (!out || !out_len)
 		return -1;
 
-	
+
 	*out_len = data_len + 7;
 	*out_len -= *out_len % 8;
 
 	*out = malloc(*out_len);
 	if (!(*out))
 		return -1;
-		
+
 	memcpy(&kk, key, 8);
 	memcpy(&k2, key + 8, 8);
 
 	DES_set_key_unchecked(&kk,&ks);
 	DES_set_key_unchecked(&k2,&ks2);
 
-	for (ii=0; ii<data_len; ii+=8) 
-		DES_ecb2_encrypt( (DES_cblock *)(data + ii),	
+	for (ii=0; ii<data_len; ii+=8)
+		DES_ecb2_encrypt( (DES_cblock *)(data + ii),
 				(DES_cblock *)(*out + ii), &ks, &ks2, DES_ENCRYPT);
 
 	return 0;
 }
 
 
-int 
-sm_decrypt_des_cbc3(struct sc_context *ctx, unsigned char *key, 
-		unsigned char *data, size_t data_len, 
+int
+sm_decrypt_des_cbc3(struct sc_context *ctx, unsigned char *key,
+		unsigned char *data, size_t data_len,
 		unsigned char **out, size_t *out_len)
 {
 	DES_cblock kk,k2;
 	DES_key_schedule ks,ks2;
 	DES_cblock icv={0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 	size_t st;
-	
+
 	LOG_FUNC_CALLED(ctx);
 	if (!out || !out_len)
 		LOG_TEST_RET(ctx, SC_ERROR_INVALID_ARGUMENTS, "SM decrypt_des_cbc3: invalid input arguments");
-	
+
 	*out_len = data_len + 7;
 	*out_len -= *out_len % 8;
 
 	*out = malloc(*out_len);
 	if (!(*out))
 		LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "SM decrypt_des_cbc3: allocation error");
-		
+
 	memcpy(&kk, key, 8);
 	memcpy(&k2, key + 8, 8);
 
 	DES_set_key_unchecked(&kk,&ks);
 	DES_set_key_unchecked(&k2,&ks2);
 
-	for (st=0; st<data_len; st+=8)   
+	for (st=0; st<data_len; st+=8)
 		DES_3cbc_encrypt((DES_cblock *)(data + st),
 				(DES_cblock *)(*out + st), 8, &ks, &ks2, &icv, DES_DECRYPT);
 
@@ -296,8 +296,8 @@ sm_decrypt_des_cbc3(struct sc_context *ctx, unsigned char *key,
 
 
 int
-sm_encrypt_des_cbc3(struct sc_context *ctx, unsigned char *key, 
-		const unsigned char *in, size_t in_len,  
+sm_encrypt_des_cbc3(struct sc_context *ctx, unsigned char *key,
+		const unsigned char *in, size_t in_len,
 		unsigned char **out, size_t *out_len, int not_force_pad)
 {
 	DES_cblock kk,k2;
@@ -316,7 +316,7 @@ sm_encrypt_des_cbc3(struct sc_context *ctx, unsigned char *key,
 
 	*out = NULL;
 	*out_len = 0;
-	
+
 	data = malloc(in_len + 8);
 	if (data == NULL)
 		LOG_TEST_RET(ctx, SC_ERROR_OUT_OF_MEMORY, "SM encrypt_des_cbc3: allocation error");
@@ -345,7 +345,7 @@ sm_encrypt_des_cbc3(struct sc_context *ctx, unsigned char *key,
 
 	DES_set_key_unchecked(&kk,&ks);
 	DES_set_key_unchecked(&k2,&ks2);
-	
+
 	for (st=0; st<data_len; st+=8)
 		DES_3cbc_encrypt((DES_cblock *)(data + st), (DES_cblock *)(*out + st), 8, &ks, &ks2, &icv, DES_ENCRYPT);
 

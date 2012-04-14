@@ -59,7 +59,7 @@ sm_gp_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 {
 	scconf_block *sm_conf_block = NULL, **blocks;
 	const char *kmc = NULL;
-	unsigned char hex[48];		
+	unsigned char hex[48];
 	size_t hex_len = sizeof(hex);
 	int rv, ii;
 
@@ -70,7 +70,7 @@ sm_gp_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 			sm_conf_block = blocks[0];
 			free(blocks);
 		}
-	                       
+
 		if (sm_conf_block)
 			break;
 	}
@@ -80,11 +80,11 @@ sm_gp_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 		return SC_ERROR_SM_KEYSET_NOT_FOUND;
 
 	rv = sc_hex_to_bin(kmc, hex, &hex_len);
-	if (rv)   {		
+	if (rv)   {
 		sc_log(ctx, "SM get KMC: hex to bin failed for '%s'; error %i", kmc, rv);
 		return SC_ERROR_UNKNOWN_DATA_RECEIVED;
 	}
-		
+
 	sc_log(ctx, "SM type:%X, KMC(%i) %s", sm_info->sm_type, hex_len, sc_dump_hex(hex, hex_len));
 	if (hex_len != 16 && hex_len != 48 )
 		return SC_ERROR_INVALID_DATA;
@@ -114,7 +114,7 @@ sm_cwa_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 			sm_conf_block = blocks[0];
 			free(blocks);
 		}
-	                       
+
 		if (sm_conf_block)
 			break;
 	}
@@ -122,7 +122,7 @@ sm_cwa_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 	sc_log(ctx, "CRT(algo:%X,ref:%X)", crt_at->algo, crt_at->refs[0]);
 	/* Keyset ENC */
 	if (sm_info->current_aid.len && (crt_at->refs[0] & IASECC_OBJECT_REF_LOCAL))
-		snprintf(name, sizeof(name), "keyset_%s_%02i_enc", 
+		snprintf(name, sizeof(name), "keyset_%s_%02i_enc",
 				sc_dump_hex(sm_info->current_aid.value, sm_info->current_aid.len), ref);
 	else
 		snprintf(name, sizeof(name), "keyset_%02i_enc", ref);
@@ -139,7 +139,7 @@ sm_cwa_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 	else   {
 		hex_len = sizeof(hex);
 		rv = sc_hex_to_bin(value, hex, &hex_len);
-		if (rv)   {		
+		if (rv)   {
 			sc_log(ctx, "SM get %s: hex to bin failed for '%s'; error %i", name, value, rv);
 			return SC_ERROR_UNKNOWN_DATA_RECEIVED;
 		}
@@ -147,14 +147,14 @@ sm_cwa_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 		sc_log(ctx, "ENC(%i) %s", hex_len, sc_dump_hex(hex, hex_len));
 		if (hex_len != 16)
 			return SC_ERROR_INVALID_DATA;
-	
+
 		memcpy(sm_info->schannel.keyset.cwa.enc, hex, hex_len);
 	}
 	sc_log(ctx, "%s %s", name, sc_dump_hex(sm_info->schannel.keyset.cwa.enc, 16));
 
 	/* Keyset MAC */
 	if (sm_info->current_aid.len && (crt_at->refs[0] & IASECC_OBJECT_REF_LOCAL))
-		snprintf(name, sizeof(name), "keyset_%s_%02i_mac", 
+		snprintf(name, sizeof(name), "keyset_%s_%02i_mac",
 				sc_dump_hex(sm_info->current_aid.value, sm_info->current_aid.len), ref);
 	else
 		snprintf(name, sizeof(name), "keyset_%02i_mac", ref);
@@ -171,7 +171,7 @@ sm_cwa_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 	else   {
 		hex_len = sizeof(hex);
 		rv = sc_hex_to_bin(value, hex, &hex_len);
-		if (rv)   {		
+		if (rv)   {
 			sc_log(ctx, "SM get '%s': hex to bin failed for '%s'; error %i", name, value, rv);
 			return SC_ERROR_UNKNOWN_DATA_RECEIVED;
 		}
@@ -179,7 +179,7 @@ sm_cwa_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 		sc_log(ctx, "MAC(%i) %s", hex_len, sc_dump_hex(hex, hex_len));
 		if (hex_len != 16)
 			return SC_ERROR_INVALID_DATA;
-	
+
 		memcpy(sm_info->schannel.keyset.cwa.mac, hex, hex_len);
 	}
 	sc_log(ctx, "%s %s", name, sc_dump_hex(sm_info->schannel.keyset.cwa.mac, 16));
@@ -194,7 +194,7 @@ sm_cwa_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 		return SC_ERROR_SM_IFD_DATA_MISSING;
 	hex_len = sizeof(hex);
 	rv = sc_hex_to_bin(value, hex, &hex_len);
-	if (rv)   {		
+	if (rv)   {
 		sc_log(ctx, "SM get 'ifd_serial': hex to bin failed for '%s'; error %i", value, rv);
 		return SC_ERROR_UNKNOWN_DATA_RECEIVED;
 	}
@@ -203,7 +203,7 @@ sm_cwa_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
 		sc_log(ctx, "SM get 'ifd_serial': invalid IFD serial length: %i", hex_len);
 		return SC_ERROR_UNKNOWN_DATA_RECEIVED;
 	}
-	
+
 	memcpy(session_data->ifd.sn, hex, hex_len);
 
         rv = RAND_bytes(session_data->ifd.rnd, 8);
@@ -231,7 +231,7 @@ sm_cwa_config_get_keyset(struct sc_context *ctx, struct sm_info *sm_info)
  * Read keyset from the OpenSC configuration file,
  * get and return the APDU(s) to initialize SM session.
  */
-int 
+int
 initialize(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *out)
 {
 	int rv = SC_ERROR_NOT_SUPPORTED;
@@ -267,11 +267,11 @@ initialize(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_dat
 /**
  * Get APDU(s)
  *
- * Get securized APDU(s) corresponding 
+ * Get securized APDU(s) corresponding
  * to the asked command.
  */
 int
-get_apdus(struct sc_context *ctx, struct sm_info *sm_info, unsigned char *init_data, size_t init_len, 
+get_apdus(struct sc_context *ctx, struct sm_info *sm_info, unsigned char *init_data, size_t init_len,
 		struct sc_remote_data *out)
 {
 	int rv = SC_ERROR_NOT_SUPPORTED;
@@ -329,7 +329,7 @@ finalize(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data 
  *
  * Module specific initialization
  */
-int 
+int
 module_init(struct sc_context *ctx, char *data)
 {
 
@@ -343,7 +343,7 @@ module_init(struct sc_context *ctx, char *data)
  *
  * Module specific cleanup
  */
-int 
+int
 module_cleanup(struct sc_context *ctx)
 {
 	sc_log(ctx, "Module cleanup: TODO");

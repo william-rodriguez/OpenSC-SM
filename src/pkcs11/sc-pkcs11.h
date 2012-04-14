@@ -38,7 +38,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif 
+#endif
 
 #if defined(_WIN32) || defined(USE_CYGWIN)
 #define PKCS11_DEFAULT_MODULE_NAME      "opensc-pkcs11.dll"
@@ -124,7 +124,7 @@ struct sc_pkcs11_object_ops {
 			CK_BYTE_PTR pDerived, CK_ULONG_PTR pulDerivedLen);
 
 	/* Check compatibility of PKCS#15 object usage and an asked PKCS#11 mechanism. */
-	CK_RV (*can_do)(struct sc_pkcs11_session *, void *, 
+	CK_RV (*can_do)(struct sc_pkcs11_session *, void *,
 			CK_MECHANISM_TYPE, unsigned int);
 
 	/* Others to be added when implemented */
@@ -278,7 +278,7 @@ struct sc_pkcs11_mechanism_type {
 					CK_BYTE_PTR, CK_ULONG,
 					CK_BYTE_PTR, CK_ULONG_PTR);
 	CK_RV		  (*derive)(sc_pkcs11_operation_t *,
-					struct sc_pkcs11_object *, 
+					struct sc_pkcs11_object *,
 					CK_BYTE_PTR, CK_ULONG,
 					CK_BYTE_PTR, CK_ULONG_PTR);
 	/* mechanism specific data */
@@ -403,7 +403,7 @@ CK_RV sc_pkcs11_verif_final(struct sc_pkcs11_session *, CK_BYTE_PTR, CK_ULONG);
 CK_RV sc_pkcs11_decr_init(struct sc_pkcs11_session *, CK_MECHANISM_PTR, struct sc_pkcs11_object *, CK_MECHANISM_TYPE);
 CK_RV sc_pkcs11_decr(struct sc_pkcs11_session *, CK_BYTE_PTR, CK_ULONG, CK_BYTE_PTR, CK_ULONG_PTR);
 CK_RV sc_pkcs11_deri(struct sc_pkcs11_session *, CK_MECHANISM_PTR,
-		    struct sc_pkcs11_object *, CK_KEY_TYPE, 
+		    struct sc_pkcs11_object *, CK_KEY_TYPE,
 		    CK_SESSION_HANDLE,
 		    CK_OBJECT_HANDLE,
 		    struct sc_pkcs11_object *);

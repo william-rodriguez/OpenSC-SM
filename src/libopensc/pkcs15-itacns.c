@@ -203,15 +203,15 @@ static int itacns_add_cert(sc_pkcs15_card_t *p15card,
 	sc_pkcs15_cert_t *cert;
 
 	SC_FUNC_CALLED(p15card->card->ctx, 1);
-	
+
 	if(type != SC_PKCS15_TYPE_CERT_X509) {
 		sc_debug(p15card->card->ctx, SC_LOG_DEBUG_NORMAL,
 			"Cannot add a certificate of a type other than X.509");
 		return 1;
 	}
-	
+
 	*ext_info_ok = 0;
-	
+
 
 	memset(&info, 0, sizeof(info));
 	memset(&obj,  0, sizeof(obj));

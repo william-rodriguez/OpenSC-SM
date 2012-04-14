@@ -1,5 +1,5 @@
 /*
- * sm-cwa14890.c: Procedures related to Secure Messaging according to the CWA-14890 
+ * sm-cwa14890.c: Procedures related to Secure Messaging according to the CWA-14890
  *
  * Copyright (C) 2010  Viktor Tarasov <vtarasov@opentrust.com>
  *					  OpenTrust <www.opentrust.com>
@@ -59,17 +59,17 @@ static const struct sc_asn1_entry c_asn1_iasecc_response[4] = {
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
 
-int 
-sm_cwa_get_mac(struct sc_context *ctx, unsigned char *key, DES_cblock *icv, 
+int
+sm_cwa_get_mac(struct sc_context *ctx, unsigned char *key, DES_cblock *icv,
 			unsigned char *in, int in_len, DES_cblock *out, int force_padding)
 {
 	DES_cblock kk, k2;
 	DES_key_schedule ks,ks2;
 	unsigned char padding[8] = {0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 	unsigned char *buf;
-		
+
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "sm_cwa_get_mac() data length %i", in_len);	
+	sc_log(ctx, "sm_cwa_get_mac() data length %i", in_len);
 
 	buf = malloc(in_len + 8);
 	if (!buf)
@@ -80,9 +80,9 @@ sm_cwa_get_mac(struct sc_context *ctx, unsigned char *key, DES_cblock *icv,
 	memcpy(buf + in_len, padding, 8);
 
 	if (force_padding)
-		in_len = ((in_len + 8) / 8) * 8; 
+		in_len = ((in_len + 8) / 8) * 8;
 	else
-		in_len = ((in_len + 7) / 8) * 8; 
+		in_len = ((in_len + 7) / 8) * 8;
 
 	sc_log(ctx, "sm_cwa_get_mac() data to MAC(%i) %s", in_len, sc_dump_hex(buf, in_len));
 	sc_log(ctx, "sm_cwa_get_mac() ICV %s", sc_dump_hex((unsigned char *)icv, 8));
@@ -99,7 +99,7 @@ sm_cwa_get_mac(struct sc_context *ctx, unsigned char *key, DES_cblock *icv,
 
 
 static int
-sm_cwa_encode_external_auth_data(struct sc_context *ctx, struct sm_cwa_session *session_data, 
+sm_cwa_encode_external_auth_data(struct sc_context *ctx, struct sm_cwa_session *session_data,
 		unsigned char *out, size_t out_len)
 {
 	if (out_len < 16)
@@ -116,7 +116,7 @@ sm_cwa_encode_external_auth_data(struct sc_context *ctx, struct sm_cwa_session *
 
 
 int
-sm_cwa_encode_mutual_auth_data(struct sc_context *ctx, struct sm_cwa_session *session_data, 
+sm_cwa_encode_mutual_auth_data(struct sc_context *ctx, struct sm_cwa_session *session_data,
 		unsigned char *out, size_t out_len)
 {
 	if (out_len < 64)
@@ -139,14 +139,14 @@ sm_cwa_encode_mutual_auth_data(struct sc_context *ctx, struct sm_cwa_session *se
 
 
 int
-sm_cwa_decode_authentication_data(struct sc_context *ctx, struct sm_cwa_keyset *keyset, 
+sm_cwa_decode_authentication_data(struct sc_context *ctx, struct sm_cwa_keyset *keyset,
 		struct sm_cwa_session *session_data, unsigned char *auth_data)
 {
 	DES_cblock icv = {0, 0, 0, 0, 0, 0, 0, 0};
 	DES_cblock cblock;
 	unsigned char *decrypted = NULL;
 	size_t decrypted_len;
-	int rv; 
+	int rv;
 
 	LOG_FUNC_CALLED(ctx);
 
@@ -183,7 +183,7 @@ sm_cwa_decode_authentication_data(struct sc_context *ctx, struct sm_cwa_keyset *
 
 
 int
-sm_cwa_init_session_keys(struct sc_context *ctx, struct sm_cwa_session *session_data, 
+sm_cwa_init_session_keys(struct sc_context *ctx, struct sm_cwa_session *session_data,
 		unsigned char mechanism)
 {
 	unsigned char xored[36];
@@ -219,7 +219,7 @@ sm_cwa_init_session_keys(struct sc_context *ctx, struct sm_cwa_session *session_
 		memcpy(&session_data->session_mac[0], buff, sizeof(session_data->session_mac));
 	}
 	else   {
-		return SC_ERROR_INVALID_ARGUMENTS; 
+		return SC_ERROR_INVALID_ARGUMENTS;
 	}
 
 	memcpy(session_data->ssc + 0, session_data->icc.rnd + 4, 4);
@@ -245,7 +245,7 @@ sm_cwa_incr_ssc(struct sm_cwa_session *session_data)
 }
 
 
-int 
+int
 sm_cwa_initialize(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata)
 {
 	struct sm_cwa_session *session_data = &sm_info->schannel.session.cwa;
@@ -264,7 +264,7 @@ sm_cwa_initialize(struct sc_context *ctx, struct sm_info *sm_info, struct sc_rem
 	sc_log(ctx, "SM IAS/ECC initialize: card challenge %s", sc_dump_hex(sm_info->schannel.card_challenge, 8));
 	sc_log(ctx, "SM IAS/ECC initialize: current_df_path %s", sc_print_path(&sm_info->current_path_df));
 	sc_log(ctx, "SM IAS/ECC initialize: CRT_AT reference 0x%X", sm_info->sm_params.cwa.crt_at.refs[0]);
-	
+
 	if (!rdata || !rdata->alloc)
 		LOG_FUNC_RETURN(ctx, SC_ERROR_INVALID_ARGUMENTS);
 
@@ -332,7 +332,7 @@ sm_cwa_securize_apdu(struct sc_context *ctx, struct sm_info *sm_info, struct sc_
 	int rv, offs;
 
 	LOG_FUNC_CALLED(ctx);
-	sc_log(ctx, "securize APDU (cla:%X,ins:%X,p1:%X,p2:%X,data(%i):%p)", 
+	sc_log(ctx, "securize APDU (cla:%X,ins:%X,p1:%X,p2:%X,data(%i):%p)",
 			apdu->cla, apdu->ins, apdu->p1, apdu->p2, apdu->datalen, apdu->data);
 
 	sm_cwa_incr_ssc(session_data);

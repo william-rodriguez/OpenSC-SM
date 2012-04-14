@@ -34,9 +34,9 @@ extern "C" {
 #define SC_PKCS15_MAX_LABEL_SIZE	255
 #define SC_PKCS15_MAX_ID_SIZE		255
 
-/* When changing this value, change also initialisation of the 
+/* When changing this value, change also initialisation of the
  * static ASN1 variables, that use this macro,
- * like for example, 'c_asn1_access_control_rules' 
+ * like for example, 'c_asn1_access_control_rules'
  * in src/libopensc/asn1.c */
 #define SC_PKCS15_MAX_ACCESS_RULES      8
 
@@ -193,7 +193,7 @@ struct sc_pkcs15_prkey_dsa {
 	sc_pkcs15_bignum_t priv;
 };
 
-/* 
+/*
  * The ecParameters can be presented as
  * - named curve;
  * - OID of named curve;
@@ -428,7 +428,7 @@ struct sc_pkcs15_skey_info {
 	struct sc_pkcs15_id id;
 	unsigned int usage, access_flags;
 	int native, key_reference;
-	size_t value_len; 
+	size_t value_len;
 	unsigned long key_type;
 	int algo_refs[SC_MAX_SUPPORTED_ALGORITHMS];
 	struct sc_path path; /* if on card */
@@ -497,7 +497,7 @@ struct sc_pkcs15_object {
 
 	struct sc_pkcs15_df *df; /* can be NULL, if object is 'floating' */
 	struct sc_pkcs15_object *next, *prev; /* used only internally */
-	
+
 	struct sc_pkcs15_der content;
 
 	/* Used by minidriver and its on-card support */
@@ -576,7 +576,7 @@ typedef struct sc_pkcs15_tokeninfo {
 struct sc_pkcs15_operations   {
 	int (*parse_df)(struct sc_pkcs15_card *, struct sc_pkcs15_df *);
 	void (*clear)(struct sc_pkcs15_card *);
-	int (*get_guid)(struct sc_pkcs15_card *, const struct sc_pkcs15_object *, 
+	int (*get_guid)(struct sc_pkcs15_card *, const struct sc_pkcs15_object *,
 			char *, size_t);
 };
 
@@ -685,11 +685,11 @@ int sc_pkcs15_encode_pubkey(struct sc_context *,
 			struct sc_pkcs15_pubkey *, u8 **, size_t *);
 void sc_pkcs15_erase_pubkey(struct sc_pkcs15_pubkey *);
 void sc_pkcs15_free_pubkey(struct sc_pkcs15_pubkey *);
-int sc_pkcs15_pubkey_from_prvkey(struct sc_context *, struct sc_pkcs15_prkey *, 
+int sc_pkcs15_pubkey_from_prvkey(struct sc_context *, struct sc_pkcs15_prkey *,
 			struct sc_pkcs15_pubkey **);
-int sc_pkcs15_pubkey_from_cert(struct sc_context *, struct sc_pkcs15_der *, 
+int sc_pkcs15_pubkey_from_cert(struct sc_context *, struct sc_pkcs15_der *,
 			struct sc_pkcs15_pubkey **);
-int sc_pkcs15_pubkey_from_spki_filename(struct sc_context *, 
+int sc_pkcs15_pubkey_from_spki_filename(struct sc_context *,
 			char *, sc_pkcs15_pubkey_t ** );
 int sc_pkcs15_pubkey_from_spki(struct sc_context *,
 			sc_pkcs15_pubkey_t **, u8 *, size_t, int);
@@ -764,7 +764,7 @@ int sc_pkcs15_find_pin_by_reference(struct sc_pkcs15_card *card,
 				    const sc_path_t *path, int reference,
 				    struct sc_pkcs15_object **out);
 int sc_pkcs15_find_pin_by_type_and_reference(struct sc_pkcs15_card *card,
-				    const sc_path_t *path, unsigned auth_method, 
+				    const sc_path_t *path, unsigned auth_method,
 				    int reference,
 				    struct sc_pkcs15_object **out);
 int sc_pkcs15_find_so_pin(struct sc_pkcs15_card *card,
@@ -773,9 +773,9 @@ int sc_pkcs15_find_pin_by_flags(struct sc_pkcs15_card *p15card,
 		unsigned flags, unsigned mask, int *index,
 		struct sc_pkcs15_object **out);
 
-void sc_pkcs15_pincache_add(struct sc_pkcs15_card *, struct sc_pkcs15_object *, 
+void sc_pkcs15_pincache_add(struct sc_pkcs15_card *, struct sc_pkcs15_object *,
 			const u8 *, size_t);
-int sc_pkcs15_pincache_revalidate(struct sc_pkcs15_card *p15card, 
+int sc_pkcs15_pincache_revalidate(struct sc_pkcs15_card *p15card,
 			const sc_pkcs15_object_t *obj);
 void sc_pkcs15_pincache_clear(struct sc_pkcs15_card *p15card);
 
@@ -891,9 +891,9 @@ void sc_pkcs15_format_id(const char *id_in, struct sc_pkcs15_id *id_out);
 int sc_pkcs15_hex_string_to_id(const char *in, struct sc_pkcs15_id *out);
 int sc_der_copy(sc_pkcs15_der_t *, const sc_pkcs15_der_t *);
 int sc_pkcs15_get_object_id(const struct sc_pkcs15_object *, struct sc_pkcs15_id *);
-int sc_pkcs15_get_guid(struct sc_pkcs15_card *, const struct sc_pkcs15_object *, unsigned, 
+int sc_pkcs15_get_guid(struct sc_pkcs15_card *, const struct sc_pkcs15_object *, unsigned,
 		char *, size_t);
-int sc_encode_oid (struct sc_context *, struct sc_object_id *, 
+int sc_encode_oid (struct sc_context *, struct sc_object_id *,
 		unsigned char **, size_t *);
 
 /* Get application by type: 'protected', 'generic' */

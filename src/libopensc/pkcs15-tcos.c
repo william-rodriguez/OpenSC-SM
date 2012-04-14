@@ -336,7 +336,7 @@ static int detect_netkey(
 		insert_cert(p15card, dirpath(dir,"C000"), 0x49, 1, "SigG Zertifikat 1");
 		insert_cert(p15card, dirpath(dir,"4331"), 0x49, 1, "SigG Zertifikat 2");
 		insert_cert(p15card, dirpath(dir,"4332"), 0x49, 1, "SigG Zertifikat 3");
-		
+
 		if(card->type==SC_CARD_TYPE_TCOS_V3){
 			insert_key(p15card, dirpath(dir,"0000"), 0x49, 0x84, 2048, 5, "SigG Schluessel");
 		} else {

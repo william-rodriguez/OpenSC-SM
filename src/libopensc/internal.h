@@ -144,7 +144,7 @@ int sc_pkcs1_strip_digest_info_prefix(unsigned int *algorithm,
  * @param  flags   IN  the algorithm to use
  * @param  in      IN  input buffer
  * @param  inlen   IN  length of the input
- * @param  out     OUT output buffer (in == out is allowed) 
+ * @param  out     OUT output buffer (in == out is allowed)
  * @param  outlen  OUT length of the output buffer
  * @param  modlen  IN  length of the modulus in bytes
  * @return SC_SUCCESS on success and an error code otherwise
@@ -178,7 +178,7 @@ int sc_get_encoding_flags(sc_context_t *ctx,
 int sc_mutex_create(const sc_context_t *ctx, void **mutex);
 /**
  * Tries to acquire a lock for a sc_mutex object. Note: Unless
- * sc_mutex_set_mutex_funcs() has been called before this 
+ * sc_mutex_set_mutex_funcs() has been called before this
  * function does nothing and always returns SUCCESS.
  * @param  ctx    sc_context_t object with the thread context
  * @param  mutex  mutex object to lock

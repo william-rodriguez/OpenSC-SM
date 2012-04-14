@@ -182,7 +182,7 @@ static int tcos_construct_fci(const sc_file_t *file,
         else {
                 n = 0;
                 buf[n++] = 0x01; /* not invalidated, permanent */
-                if (file->type == SC_FILE_TYPE_WORKING_EF) 
+                if (file->type == SC_FILE_TYPE_WORKING_EF)
                         buf[n++] = 0x00; /* generic data file */
         }
         sc_asn1_put_tag(0x85, buf, n, p, 16, &p);
@@ -202,7 +202,7 @@ static int tcos_construct_fci(const sc_file_t *file,
         }
         sc_asn1_put_tag(0x86, buf, n, p, sizeof (buf), &p);
 
-        
+
         /* fixup length of FCI */
         out[1] = p - out - 2;
 
@@ -221,7 +221,7 @@ static int tcos_create_file(sc_card_t *card, sc_file_t *file)
 	len = SC_MAX_APDU_BUFFER_SIZE;
 	r = tcos_construct_fci(file, sbuf, &len);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "tcos_construct_fci() failed");
-	
+
 	sc_format_apdu(card, &apdu, SC_APDU_CASE_3_SHORT, 0xE0, 0x00, 0x00);
         apdu.cla |= 0x80;  /* this is an proprietary extension */
 	apdu.lc = len;
@@ -272,7 +272,7 @@ static void parse_sec_attr(sc_card_t *card,
                            sc_file_t *file, const u8 *buf, size_t len)
 {
         unsigned int op;
-        
+
         /* list directory is not covered by ACLs - so always add an entry */
         sc_file_add_acl_entry (file, SC_AC_OP_LIST_FILES,
                                SC_AC_NONE, SC_AC_KEY_REF_NONE);
@@ -351,7 +351,7 @@ static int tcos_select_file(sc_card_t *card,
 	pathlen = in_path->len;
 
 	sc_format_apdu(card, &apdu, SC_APDU_CASE_4_SHORT, 0xA4, 0, 0x04);
-	
+
 	switch (in_path->type) {
 	case SC_PATH_TYPE_FILE_ID:
 		if (pathlen != 2) return SC_ERROR_INVALID_ARGUMENTS;
@@ -385,8 +385,8 @@ static int tcos_select_file(sc_card_t *card,
 		apdu.le = 256;
 	} else {
 		apdu.resplen = 0;
-		apdu.le = 0; 
-		apdu.p2 = 0x0C; 
+		apdu.le = 0;
+		apdu.p2 = 0x0C;
 		apdu.cse = (pathlen == 0) ? SC_APDU_CASE_1 : SC_APDU_CASE_3_SHORT;
 	}
 
@@ -433,10 +433,10 @@ static int tcos_select_file(sc_card_t *card,
 			file->namelen = len;
 			break;
 		case 0x86:
-			sc_file_set_sec_attr(file, d, len); 
+			sc_file_set_sec_attr(file, d, len);
 			break;
 		default:
-			if (len>0) sc_file_set_prop_attr(file, d, len); 
+			if (len>0) sc_file_set_prop_attr(file, d, len);
 		}
 	}
 	file->magic = SC_FILE_MAGIC;
@@ -501,7 +501,7 @@ static int tcos_delete_file(sc_card_t *card, const sc_path_t *path)
 	apdu.lc = 2;
 	apdu.datalen = 2;
 	apdu.data = sbuf;
-	
+
 	r = sc_transmit_apdu(card, &apdu);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "APDU transmit failed");
 	return sc_check_sw(card, apdu.sw1, apdu.sw2);
@@ -695,7 +695,7 @@ static int tcos_setperm(sc_card_t *card, int enable_nullpin)
 	apdu.lc = 0;
 	apdu.datalen = 0;
 	apdu.data = NULL;
-	
+
 	r = sc_transmit_apdu(card, &apdu);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "APDU transmit failed");
 	return sc_check_sw(card, apdu.sw1, apdu.sw2);
@@ -729,7 +729,7 @@ static int tcos_get_serialnr(sc_card_t *card, sc_serial_number_t *serial)
 	if (r < 0) return r;
 	if (buf[0] != 0x5a || buf[1] > len - 2) return SC_ERROR_INTERNAL;
 
-	card->serialnr.len = buf[1];	
+	card->serialnr.len = buf[1];
 	memcpy(card->serialnr.value, buf+2, buf[1]);
 	memcpy(serial, &card->serialnr, sizeof(*serial));
 
@@ -769,6 +769,6 @@ struct sc_card_driver * sc_get_tcos_driver(void)
 	tcos_ops.decipher             = tcos_decipher;
 	tcos_ops.restore_security_env = tcos_restore_security_env;
 	tcos_ops.card_ctl             = tcos_card_ctl;
-	
+
 	return &tcos_drv;
 }

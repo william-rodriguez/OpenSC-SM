@@ -177,7 +177,7 @@ static int cardos_init(sc_card_t *card)
 		if (r == 1)
 			rsa_2048 = 1;
 		card->caps |= SC_CARD_CAP_APDU_EXT;
-	} else if (card->type == SC_CARD_TYPE_CARDOS_M4_3 
+	} else if (card->type == SC_CARD_TYPE_CARDOS_M4_3
 		|| card->type == SC_CARD_TYPE_CARDOS_M4_2B
 		|| card->type == SC_CARD_TYPE_CARDOS_M4_2C
 		|| card->type == SC_CARD_TYPE_CARDOS_M4_4) {
@@ -198,61 +198,61 @@ static int cardos_init(sc_card_t *card)
 static const struct sc_card_error cardos_errors[] = {
 /* some error inside the card */
 /* i.e. nothing you can do */
-{ 0x6581, SC_ERROR_MEMORY_FAILURE,	"EEPROM error; command aborted"}, 
+{ 0x6581, SC_ERROR_MEMORY_FAILURE,	"EEPROM error; command aborted"},
 { 0x6fff, SC_ERROR_CARD_CMD_FAILED,	"internal assertion error"},
-{ 0x6700, SC_ERROR_WRONG_LENGTH,	"LC invalid"}, 
-{ 0x6985, SC_ERROR_CARD_CMD_FAILED,	"no random number available"}, 
-{ 0x6f81, SC_ERROR_CARD_CMD_FAILED,	"file invalid, maybe checksum error"}, 
-{ 0x6f82, SC_ERROR_CARD_CMD_FAILED,	"not enough memory in xram"}, 
-{ 0x6f84, SC_ERROR_CARD_CMD_FAILED,	"general protection fault"}, 
+{ 0x6700, SC_ERROR_WRONG_LENGTH,	"LC invalid"},
+{ 0x6985, SC_ERROR_CARD_CMD_FAILED,	"no random number available"},
+{ 0x6f81, SC_ERROR_CARD_CMD_FAILED,	"file invalid, maybe checksum error"},
+{ 0x6f82, SC_ERROR_CARD_CMD_FAILED,	"not enough memory in xram"},
+{ 0x6f84, SC_ERROR_CARD_CMD_FAILED,	"general protection fault"},
 
 /* the card doesn't now thic combination of ins+cla+p1+p2 */
 /* i.e. command will never work */
-{ 0x6881, SC_ERROR_NO_CARD_SUPPORT,	"logical channel not supported"}, 
-{ 0x6a86, SC_ERROR_INCORRECT_PARAMETERS,"p1/p2 invalid"}, 
-{ 0x6d00, SC_ERROR_INS_NOT_SUPPORTED,	"ins invalid"}, 
-{ 0x6e00, SC_ERROR_CLASS_NOT_SUPPORTED,	"class invalid (hi nibble)"}, 
+{ 0x6881, SC_ERROR_NO_CARD_SUPPORT,	"logical channel not supported"},
+{ 0x6a86, SC_ERROR_INCORRECT_PARAMETERS,"p1/p2 invalid"},
+{ 0x6d00, SC_ERROR_INS_NOT_SUPPORTED,	"ins invalid"},
+{ 0x6e00, SC_ERROR_CLASS_NOT_SUPPORTED,	"class invalid (hi nibble)"},
 
 /* known command, but incorrectly used */
 /* i.e. command could work, but you need to change something */
-{ 0x6981, SC_ERROR_CARD_CMD_FAILED,	"command cannot be used for file structure"}, 
-{ 0x6a80, SC_ERROR_INCORRECT_PARAMETERS,"invalid parameters in data field"}, 
-{ 0x6a81, SC_ERROR_NOT_SUPPORTED,	"function/mode not supported"}, 
-{ 0x6a85, SC_ERROR_INCORRECT_PARAMETERS,"lc does not fit the tlv structure"}, 
-{ 0x6986, SC_ERROR_INCORRECT_PARAMETERS,"no current ef selected"}, 
-{ 0x6a87, SC_ERROR_INCORRECT_PARAMETERS,"lc does not fit p1/p2"}, 
-{ 0x6c00, SC_ERROR_WRONG_LENGTH,	"le does not fit the data to be sent"}, 
-{ 0x6f83, SC_ERROR_CARD_CMD_FAILED,	"command must not be used in transaction"}, 
+{ 0x6981, SC_ERROR_CARD_CMD_FAILED,	"command cannot be used for file structure"},
+{ 0x6a80, SC_ERROR_INCORRECT_PARAMETERS,"invalid parameters in data field"},
+{ 0x6a81, SC_ERROR_NOT_SUPPORTED,	"function/mode not supported"},
+{ 0x6a85, SC_ERROR_INCORRECT_PARAMETERS,"lc does not fit the tlv structure"},
+{ 0x6986, SC_ERROR_INCORRECT_PARAMETERS,"no current ef selected"},
+{ 0x6a87, SC_ERROR_INCORRECT_PARAMETERS,"lc does not fit p1/p2"},
+{ 0x6c00, SC_ERROR_WRONG_LENGTH,	"le does not fit the data to be sent"},
+{ 0x6f83, SC_ERROR_CARD_CMD_FAILED,	"command must not be used in transaction"},
 
 /* (something) not found */
-{ 0x6987, SC_ERROR_INCORRECT_PARAMETERS,"key object for sm not found"}, 
-{ 0x6f86, SC_ERROR_CARD_CMD_FAILED,	"key object not found"}, 
-{ 0x6a82, SC_ERROR_FILE_NOT_FOUND,	"file not found"}, 
-{ 0x6a83, SC_ERROR_RECORD_NOT_FOUND,	"record not found"}, 
-{ 0x6a88, SC_ERROR_CARD_CMD_FAILED,	"object not found"}, 
+{ 0x6987, SC_ERROR_INCORRECT_PARAMETERS,"key object for sm not found"},
+{ 0x6f86, SC_ERROR_CARD_CMD_FAILED,	"key object not found"},
+{ 0x6a82, SC_ERROR_FILE_NOT_FOUND,	"file not found"},
+{ 0x6a83, SC_ERROR_RECORD_NOT_FOUND,	"record not found"},
+{ 0x6a88, SC_ERROR_CARD_CMD_FAILED,	"object not found"},
 
 /* (something) invalid */
-{ 0x6884, SC_ERROR_CARD_CMD_FAILED,	"chaining error"}, 
-{ 0x6984, SC_ERROR_CARD_CMD_FAILED,	"bs object has invalid format"}, 
-{ 0x6988, SC_ERROR_INCORRECT_PARAMETERS,"key object used for sm has invalid format"}, 
+{ 0x6884, SC_ERROR_CARD_CMD_FAILED,	"chaining error"},
+{ 0x6984, SC_ERROR_CARD_CMD_FAILED,	"bs object has invalid format"},
+{ 0x6988, SC_ERROR_INCORRECT_PARAMETERS,"key object used for sm has invalid format"},
 
 /* (something) deactivated */
 { 0x6283, SC_ERROR_CARD_CMD_FAILED,	"file is deactivated"	},
-{ 0x6983, SC_ERROR_AUTH_METHOD_BLOCKED,	"bs object blocked"}, 
+{ 0x6983, SC_ERROR_AUTH_METHOD_BLOCKED,	"bs object blocked"},
 
 /* access denied */
-{ 0x6300, SC_ERROR_SECURITY_STATUS_NOT_SATISFIED,"authentication failed"}, 
-{ 0x6982, SC_ERROR_SECURITY_STATUS_NOT_SATISFIED,"required access right not granted"}, 
+{ 0x6300, SC_ERROR_SECURITY_STATUS_NOT_SATISFIED,"authentication failed"},
+{ 0x6982, SC_ERROR_SECURITY_STATUS_NOT_SATISFIED,"required access right not granted"},
 
 /* other errors */
-{ 0x6a84, SC_ERROR_CARD_CMD_FAILED,	"not enough memory"}, 
+{ 0x6a84, SC_ERROR_CARD_CMD_FAILED,	"not enough memory"},
 
 /* command ok, execution failed */
-{ 0x6f00, SC_ERROR_CARD_CMD_FAILED,	"technical error (see eToken developers guide)"}, 
+{ 0x6f00, SC_ERROR_CARD_CMD_FAILED,	"technical error (see eToken developers guide)"},
 
 /* no error, maybe a note */
-{ 0x9000, SC_SUCCESS,		NULL}, 
-{ 0x9001, SC_SUCCESS,		"success, but eeprom weakness detected"}, 
+{ 0x9000, SC_SUCCESS,		NULL},
+{ 0x9001, SC_SUCCESS,		"success, but eeprom weakness detected"},
 { 0x9850, SC_SUCCESS,		"over/underflow useing in/decrease"}
 };
 
@@ -260,10 +260,10 @@ static int cardos_check_sw(sc_card_t *card, unsigned int sw1, unsigned int sw2)
 {
 	const int err_count = sizeof(cardos_errors)/sizeof(cardos_errors[0]);
 	int i;
-			        
+
 	for (i = 0; i < err_count; i++) {
 		if (cardos_errors[i].SWs == ((sw1 << 8) | sw2)) {
-			if ( cardos_errors[i].errorstr ) 
+			if ( cardos_errors[i].errorstr )
 				sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "%s\n",
 				 	cardos_errors[i].errorstr);
 			return cardos_errors[i].errorno;
@@ -435,7 +435,7 @@ static int cardos_select_file(sc_card_t *card,
 			      sc_file_t **file)
 {
 	int r;
-	
+
 	SC_FUNC_CALLED(card->ctx, SC_LOG_DEBUG_VERBOSE);
 	r = iso_ops->select_file(card, in_path, file);
 	if (r >= 0 && file)
@@ -669,7 +669,7 @@ static int cardos_create_file(sc_card_t *card, sc_file_t *file)
 			sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "unable to create FCP");
 			return r;
 		}
-	
+
 		sc_format_apdu(card, &apdu, SC_APDU_CASE_3_SHORT, 0xE0, 0x00, 0x00);
 		apdu.lc      = len;
 		apdu.datalen = len;
@@ -808,7 +808,7 @@ cardos_compute_signature(sc_card_t *card, const u8 *data, size_t datalen,
 	size_t buf_len = sizeof(buf), tmp_len = buf_len;
 	sc_context_t *ctx;
 
-	assert(card != NULL && data != NULL && out != NULL);	
+	assert(card != NULL && data != NULL && out != NULL);
 	ctx = card->ctx;
 	SC_FUNC_CALLED(ctx, SC_LOG_DEBUG_VERBOSE);
 
@@ -828,7 +828,7 @@ cardos_compute_signature(sc_card_t *card, const u8 *data, size_t datalen,
 	 */
 
         if (card->caps & SC_CARD_CAP_ONLY_RAW_HASH_STRIPPED)
-            sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "Forcing RAW_HASH_STRIPPED\n");        	 
+            sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "Forcing RAW_HASH_STRIPPED\n");
         if (card->caps & SC_CARD_CAP_ONLY_RAW_HASH)
             sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "Forcing RAW_HASH\n");
 
@@ -837,8 +837,8 @@ cardos_compute_signature(sc_card_t *card, const u8 *data, size_t datalen,
 		r = do_compute_signature(card, data, datalen, out, outlen);
 		if (r >= SC_SUCCESS)
 			SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, r);
-	}		
-		
+	}
+
 	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "trying RSA_SIG (just the DigestInfo)\n");
 	/* remove padding: first try pkcs1 bt01 padding */
 	r = sc_pkcs1_strip_01_padding(data, datalen, buf, &tmp_len);
@@ -856,9 +856,9 @@ cardos_compute_signature(sc_card_t *card, const u8 *data, size_t datalen,
 	}
 
 	if (!(card->caps & (SC_CARD_CAP_ONLY_RAW_HASH_STRIPPED | SC_CARD_CAP_ONLY_RAW_HASH)) || card->caps & SC_CARD_CAP_ONLY_RAW_HASH ) {
-		sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "trying to sign raw hash value with prefix\n");	
+		sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "trying to sign raw hash value with prefix\n");
 		r = do_compute_signature(card, buf, tmp_len, out, outlen);
-		if (r >= SC_SUCCESS)	
+		if (r >= SC_SUCCESS)
 			SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, r);
 	}
 
@@ -866,7 +866,7 @@ cardos_compute_signature(sc_card_t *card, const u8 *data, size_t datalen,
 	    sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "Failed to sign raw hash value with prefix when forcing\n");
 	    SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_ARGUMENTS);
 	}
-	   
+
 	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "trying to sign stripped raw hash value (card is responsible for prefix)\n");
 	r = sc_pkcs1_strip_digest_info_prefix(NULL,buf,tmp_len,buf,&buf_len);
 	if (r != SC_SUCCESS)
@@ -932,7 +932,7 @@ cardos_lifecycle_set(sc_card_t *card, int *mode)
 	target = *mode;
 
 	r = cardos_lifecycle_get(card, &current);
-	
+
 	if (r != SC_SUCCESS)
 		return r;
 

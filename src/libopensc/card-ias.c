@@ -308,7 +308,7 @@ static int ias_set_security_env(sc_card_t *card,
 
 	return r;
 }
- 
+
 static int ias_compute_signature(sc_card_t *card, const u8 * data,
 		size_t data_len, u8 * out, size_t outlen)
 {

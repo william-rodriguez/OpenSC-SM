@@ -82,7 +82,7 @@ sm_oberthur_diversify_keyset(struct sc_context *ctx, struct sm_info *sm_info,
 
 			rv = sm_encrypt_des_ecb3(master_key, key_buff, sizeof(key_buff), &tmp, &tmp_len);
 			LOG_TEST_RET(ctx, rv, "GP init session: cannot derivate key");
-			
+
 			memcpy(keys[ii], tmp, sizeof(keyset->enc));
 			free(tmp);
 		}
@@ -93,21 +93,21 @@ sm_oberthur_diversify_keyset(struct sc_context *ctx, struct sm_info *sm_info,
 
 	if (!rv && ctx)   {
 		char dump_buf[2048];
-		
-		sc_hex_dump(ctx, SC_LOG_DEBUG_NORMAL, 
+
+		sc_hex_dump(ctx, SC_LOG_DEBUG_NORMAL,
 				schannel->card_challenge, sizeof(schannel->card_challenge), dump_buf, sizeof(dump_buf));
 		sc_log(ctx, "Card challenge: %s", dump_buf);
-		
-		sc_hex_dump(ctx, SC_LOG_DEBUG_NORMAL, 
+
+		sc_hex_dump(ctx, SC_LOG_DEBUG_NORMAL,
 				schannel->host_challenge, sizeof(schannel->host_challenge), dump_buf, sizeof(dump_buf));
 		sc_log(ctx, "Host challenge: %s", dump_buf);
-		
+
 		sc_hex_dump(ctx, SC_LOG_DEBUG_NORMAL, keyset->enc, sizeof(keyset->enc), dump_buf, sizeof(dump_buf));
 		sc_log(ctx, "ENC: %s", dump_buf);
-		
+
 		sc_hex_dump(ctx, SC_LOG_DEBUG_NORMAL, keyset->mac, sizeof(keyset->mac), dump_buf, sizeof(dump_buf));
 		sc_log(ctx, "MAC: %s", dump_buf);
-		
+
 		sc_hex_dump(ctx, SC_LOG_DEBUG_NORMAL, keyset->kek, sizeof(keyset->kek), dump_buf, sizeof(dump_buf));
 		sc_log(ctx, "KEK: %s", dump_buf);
 	}
@@ -165,7 +165,7 @@ sm_authentic_get_apdu_read_binary(struct sc_context *ctx, struct sm_info *sm_inf
 		offs += sz;
 		size -= sz;
 	}
-			
+
 	LOG_FUNC_RETURN(ctx, rv);
 }
 
@@ -203,7 +203,7 @@ sm_authentic_get_apdu_update_binary(struct sc_context *ctx, struct sm_info *sm_i
 		data_offs += sz;
 		size -= sz;
 	}
-			
+
 	LOG_FUNC_RETURN(ctx, rv);
 }
 
@@ -268,7 +268,7 @@ sm_authentic_get_apdu_release(struct sc_context *ctx, struct sm_info *sm_info,
 
 
 int
-sm_authentic_get_apdus(struct sc_context *ctx, struct sm_info *sm_info, 
+sm_authentic_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
 		unsigned char *init_data, size_t init_len, struct sc_remote_data *rdata,
 		int release_sm)
 {
@@ -287,7 +287,7 @@ sm_authentic_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
 	}
 
 	switch (sm_info->cmd)  {
-#if 0	
+#if 0
 	case SM_CMD_FILE_READ:
 		rv = sm_authentic_get_apdu_read_binary(ctx, sm_info, init_data, &rapdus);
 		LOG_TEST_RET(ctx, rv, "SM get APDUs: add 'READ BINARY' failed");
@@ -305,11 +305,11 @@ sm_authentic_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
 		LOG_TEST_RET(ctx, rv, "SM get APDUs: add 'VERIFY PIN' failed");
 		break;
 	case SM_CMD_PIN_RESET:
-		break;	
+		break;
 	case SM_CMD_PIN_CREATE:
-		break;	
+		break;
 	case SM_CMD_RSA_GENERATE:
-		break;	
+		break;
 	case SM_CMD_RSA_UPDATE:
 		break;
 #endif

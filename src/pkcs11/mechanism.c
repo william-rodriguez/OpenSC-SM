@@ -369,7 +369,7 @@ sc_pkcs11_signature_init(sc_pkcs11_operation_t *operation,
 		}
 	}
 
-	/* If this is a signature with hash operation, 
+	/* If this is a signature with hash operation,
 	 * and card cannot perform itself signature with hash operation,
 	 * set up the hash operation */
 	info = (struct hash_signature_info *) operation->type->mech_data;
@@ -456,15 +456,15 @@ sc_pkcs11_signature_size(sc_pkcs11_operation_t *operation, CK_ULONG_PTR pLength)
 	key = ((struct signature_data *) operation->priv_data)->key;
 	/*
 	 * EC and GOSTR do not have CKA_MODULUS_BITS attribute.
-	 * But other code in framework treats them as if they do. 
+	 * But other code in framework treats them as if they do.
 	 * So should do switch(key_type)
-	 * and then get what ever attributes are needed. 
+	 * and then get what ever attributes are needed.
 	 */
 	rv = key->ops->get_attribute(operation->session, key, &attr_key_type);
-	if (rv == CKR_OK) { 
+	if (rv == CKR_OK) {
 		switch(key_type) {
 			case CKK_RSA:
-				rv = key->ops->get_attribute(operation->session, key, &attr); 
+				rv = key->ops->get_attribute(operation->session, key, &attr);
 				/* convert bits to bytes */
 				if (rv == CKR_OK)
 					*pLength = (*pLength + 7) / 8;
@@ -472,7 +472,7 @@ sc_pkcs11_signature_size(sc_pkcs11_operation_t *operation, CK_ULONG_PTR pLength)
 			case CKK_EC:
 				/* TODO: -DEE we should use something other then CKA_MODULUS_BITS... */
 				rv = key->ops->get_attribute(operation->session, key, &attr);
-				*pLength = ((*pLength + 7)/8) * 2 ; /* 2*nLen in bytes */ 
+				*pLength = ((*pLength + 7)/8) * 2 ; /* 2*nLen in bytes */
 				break;
 			case CKK_GOSTR3410:
 				rv = key->ops->get_attribute(operation->session, key, &attr);
@@ -774,7 +774,7 @@ sc_pkcs11_deri(struct sc_pkcs11_session *session,
 	struct sc_pkcs11_card *p11card;
 	sc_pkcs11_operation_t *operation;
 	sc_pkcs11_mechanism_type_t *mt;
-	CK_BYTE_PTR keybuf = NULL; 
+	CK_BYTE_PTR keybuf = NULL;
 	CK_ULONG ulDataLen = 0;
 	CK_ATTRIBUTE template[] = {
 		{CKA_VALUE, keybuf, 0}
@@ -784,7 +784,7 @@ sc_pkcs11_deri(struct sc_pkcs11_session *session,
 
 
 	if (!session || !session->slot
-	 || !(p11card = session->slot->card))	    
+	 || !(p11card = session->slot->card))
 		return CKR_ARGUMENTS_BAD;
 
 	/* See if we support this mechanism type */
@@ -802,16 +802,16 @@ sc_pkcs11_deri(struct sc_pkcs11_session *session,
 		return rv;
 
 	memcpy(&operation->mechanism, pMechanism, sizeof(CK_MECHANISM));
-	
+
 	/* Get the size of the data to be returned
 	 * If the card could derive a key an leave it on the card
 	 * then no data is returned.
 	 * If the card returns the data, we will store it in the sercet key CKA_VALUE
 	 */
-	
+
 	ulDataLen = 0;
 	rv = operation->type->derive(operation, basekey,
-	    pMechanism->pParameter, pMechanism->ulParameterLen, 
+	    pMechanism->pParameter, pMechanism->ulParameterLen,
 	    NULL, &ulDataLen);
 	if (rv != CKR_OK)
 	    goto out;
@@ -837,8 +837,8 @@ sc_pkcs11_deri(struct sc_pkcs11_session *session,
 
 /* add the CKA_VALUE attribute to the template if it was returned
  * if not assume it is on the card...
- * But for now PIV with ECDH returns the generic key data 
- * TODO need to support truncation, if CKA_VALUE_LEN < ulDataLem 
+ * But for now PIV with ECDH returns the generic key data
+ * TODO need to support truncation, if CKA_VALUE_LEN < ulDataLem
  */
 	if (ulDataLen > 0) {
 	    template[0].pValue = keybuf;
@@ -855,8 +855,8 @@ out:
 	if (keybuf)
 	    free(keybuf);
 	return rv;
-} 
-	    
+}
+
 
 /*
  * Initialize a signature operation
@@ -899,7 +899,7 @@ sc_pkcs11_derive(sc_pkcs11_operation_t *operation,
 	    CK_BYTE_PTR pmechParam, CK_ULONG ulmechParamLen,
 	    CK_BYTE_PTR pData, CK_ULONG_PTR pulDataLen)
 {
-	
+
 	return basekey->ops->derive(operation->session,
 		    basekey,
 		    &operation->mechanism,
@@ -994,8 +994,8 @@ sc_pkcs11_register_sign_and_hash_mechanism(struct sc_pkcs11_card *p11card,
 	info->hash_mech = hash_mech;
 
 	new_type = sc_pkcs11_new_fw_mechanism(mech, &mech_info, sign_type->key_type, info);
-		
+
 	if (!new_type)
-		return CKR_HOST_MEMORY;	
+		return CKR_HOST_MEMORY;
 	return sc_pkcs11_register_mechanism(p11card, new_type);
 }

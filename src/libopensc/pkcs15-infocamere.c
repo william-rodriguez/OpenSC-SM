@@ -241,7 +241,7 @@ static int infocamere_1200_init(sc_pkcs15_card_t * p15card)
 	sc_format_path("3F002F02", &path);
 
 	r = sc_select_file(card, &path, &file);
-	
+
 	if (r != SC_SUCCESS || file->size > 255) {
 		/* Not EF.GDO */
 		return SC_ERROR_WRONG_CARD;
@@ -328,18 +328,18 @@ static int infocamere_1200_init(sc_pkcs15_card_t * p15card)
         	if (r < 0)
         		return SC_ERROR_INTERNAL;
 
-		/* XXX: the IDs for the key/pin in case of the 1203 type 
+		/* XXX: the IDs for the key/pin in case of the 1203 type
 		 * are wrong, therefore I disable them for now -- Nils */
-		if (!change_sign) {    
+		if (!change_sign) {
 		/* add authentication PIN */
 
                 sc_format_path(infocamere_auth_path[ef_gdo[len_iccsn+6]-2], &path);
-                
+
 		sc_pkcs15_format_id("1", &id);
 		sc_pkcs15emu_add_pin(p15card, &id,
                                 authPIN, &path, infocamere_idpin_auth_obj[ef_gdo[len_iccsn+6]-2],
                                 SC_PKCS15_PIN_TYPE_ASCII_NUMERIC,
-                                5, 8, flags, 3, 0, 
+                                5, 8, flags, 3, 0,
 				SC_PKCS15_CO_FLAG_MODIFIABLE | SC_PKCS15_CO_FLAG_PRIVATE);
 
 		/* add authentication private key */
@@ -349,7 +349,7 @@ static int infocamere_1200_init(sc_pkcs15_card_t * p15card)
 
 		sc_pkcs15emu_add_prkey(p15card, &id,
 				authPRKEY,
-				SC_PKCS15_TYPE_PRKEY_RSA, 
+				SC_PKCS15_TYPE_PRKEY_RSA,
 				1024, authprkey_usage,
 				&path, infocamere_idprkey_auth_obj[ef_gdo[len_iccsn+6]-2],
 				&auth_id, SC_PKCS15_CO_FLAG_PRIVATE);
@@ -371,7 +371,7 @@ static int infocamere_1200_init(sc_pkcs15_card_t * p15card)
 	/* Now set the certificate offset/len */
 	path.index = 2;
 	path.count = (certlen[1] << 8) + certlen[0];
-	
+
         memset(&cert_info, 0, sizeof(cert_info));
         memset(&cert_obj,  0, sizeof(cert_obj));
 
@@ -438,7 +438,7 @@ static int infocamere_1200_init(sc_pkcs15_card_t * p15card)
 	auth_id.len = 1;
 
 	sc_pkcs15emu_add_prkey(p15card, &id, nonrepPRKEY,
-			       SC_PKCS15_TYPE_PRKEY_RSA, 
+			       SC_PKCS15_TYPE_PRKEY_RSA,
                                1024, prkey_usage,
                                &path, infocamere_idprkey_nrepud_obj[ef_gdo[len_iccsn+6]-2],
                                &auth_id, SC_PKCS15_CO_FLAG_PRIVATE);
@@ -592,7 +592,7 @@ static int infocamere_1400_init(sc_pkcs15_card_t * p15card)
 	sc_format_path("30000001", &path);
 
 	r = sc_select_file(card, &path, NULL);
-	
+
 	if (r != SC_SUCCESS)
 		return SC_ERROR_WRONG_CARD;
 

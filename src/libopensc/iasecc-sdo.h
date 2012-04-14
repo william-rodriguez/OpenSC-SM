@@ -218,7 +218,7 @@ struct iasecc_sdo_keyset  {
 	struct iasecc_extended_tlv enc;
 	struct iasecc_extended_tlv compulsory;
 };
-	
+
 struct iasecc_sdo  {
 	unsigned char sdo_class;
 	unsigned char sdo_ref;
@@ -311,10 +311,10 @@ int iasecc_sdo_parse(struct sc_card *, unsigned char *, size_t, struct iasecc_sd
 int iasecc_sdo_allocate_and_parse(struct sc_card *, unsigned char *, size_t, struct iasecc_sdo **);
 int iasecc_encode_size(size_t, unsigned char *);
 int iasecc_sdo_encode_create(struct sc_context*, struct iasecc_sdo *, unsigned char **);
-int iasecc_sdo_encode_update_field(struct sc_context *, unsigned char, unsigned char, 
+int iasecc_sdo_encode_update_field(struct sc_context *, unsigned char, unsigned char,
 		struct iasecc_extended_tlv *, unsigned char **);
 int iasecc_se_get_crt(struct sc_card *, struct iasecc_se_info *, struct sc_crt *);
-int iasecc_se_get_crt_by_usage(struct sc_card *, struct iasecc_se_info *, 
+int iasecc_se_get_crt_by_usage(struct sc_card *, struct iasecc_se_info *,
 		unsigned char, unsigned char, struct sc_crt *);
 int iasecc_sdo_encode_rsa_update(struct sc_context *, struct iasecc_sdo *, struct sc_pkcs15_prkey_rsa *, struct iasecc_sdo_update *);
 int iasecc_sdo_parse_card_answer(struct sc_context *, unsigned char *, size_t, struct iasecc_sm_card_answer *);

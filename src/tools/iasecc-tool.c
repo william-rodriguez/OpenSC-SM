@@ -178,7 +178,7 @@ static int list_apps(FILE *fout)
 
 	for (i=0; i < card->app_count; i++)   {
 		struct sc_app_info *info = card->app[i];
-	
+
 		fprintf(fout, "Application '%s':\n", info->label);
 		fprintf(fout, "\tAID: ");
 		for(j=0;j<info->aid.len;j++)
@@ -187,7 +187,7 @@ static int list_apps(FILE *fout)
 
 		if (info->ddo.value && info->ddo.len)   {
 			fprintf(fout, "\tDDO: ");
-			for(j=0;j<info->ddo.len;j++)    
+			for(j=0;j<info->ddo.len;j++)
 				fprintf(fout, "%02X", info->ddo.value[j]);
 			fprintf(fout, "\n");
 		}
@@ -248,7 +248,7 @@ int main(int argc, char * const argv[])
 	}
 
 	/* Only change if not in opensc.conf */
-	if (verbose > 1 && ctx->debug == 0) { 
+	if (verbose > 1 && ctx->debug == 0) {
 		ctx->debug = verbose;
 		sc_ctx_log_to_file(ctx, "stderr");
 	}

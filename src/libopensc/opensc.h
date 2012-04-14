@@ -114,7 +114,7 @@ extern "C" {
 /* Or should the HASH_NONE be 0x00000010  and HASHES be 0x00008010 */
 
 /* May need more bits if card can do more hashes */
-/* TODO: -DEE Will overload RSA_HASHES with EC_HASHES */ 
+/* TODO: -DEE Will overload RSA_HASHES with EC_HASHES */
 /* Not clear if these need their own bits or not */
 /* The PIV card does not support and hashes */
 #define SC_ALGORITHM_ECDSA_RAW				0x00010000
@@ -282,7 +282,7 @@ typedef struct sc_reader {
 	const struct sc_reader_operations *ops;
 	void *drv_data;
 	char *name;
-	
+
 	unsigned long flags, capabilities;
 	unsigned int supported_protocols, active_protocol;
 
@@ -325,7 +325,7 @@ struct sc_pin_cmd_pin {
 	u8 pad_char;
 	size_t offset;		/* PIN offset in the APDU */
 	size_t length_offset;	/* Effective PIN length offset in the APDU */
-	
+
 	int max_tries;	/* Used for signaling back from SC_PIN_CMD_GET_INFO */
 	int tries_left;	/* Used for signaling back from SC_PIN_CMD_GET_INFO */
 
@@ -372,7 +372,7 @@ struct sc_reader_operations {
 	int (*perform_verify)(struct sc_reader *, struct sc_pin_cmd_data *);
 
 	/* Wait for an event */
-	int (*wait_for_event)(struct sc_context *ctx, unsigned int event_mask, sc_reader_t **event_reader, unsigned int *event, 
+	int (*wait_for_event)(struct sc_context *ctx, unsigned int event_mask, sc_reader_t **event_reader, unsigned int *event,
 			int timeout, void **reader_states);
 	/* Reset a reader */
 	int (*reset)(struct sc_reader *, int);
@@ -618,7 +618,7 @@ typedef struct sc_context {
 	char *preferred_language;
 
 	list_t readers;
-	
+
 	struct sc_reader_driver *reader_driver;
 	void *reader_drv_data;
 
@@ -703,7 +703,7 @@ int sc_context_repair(sc_context_t **ctx);
  * Creates a new sc_context_t object.
  * @param  ctx   pointer to a sc_context_t pointer for the newly
  *               created sc_context_t object.
- * @param  parm  parameters for the sc_context_t creation (see 
+ * @param  parm  parameters for the sc_context_t creation (see
  *               sc_context_param_t for a description of the supported
  *               options). This parameter is optional and can be NULL.
  * @return SC_SUCCESS on success and an error code otherwise.
@@ -738,12 +738,12 @@ sc_reader_t *sc_ctx_get_reader(sc_context_t *ctx, unsigned int i);
  *
  * @param  ctx   pointer to a sc_context_t
  * @param  pcsc_context_handle pointer to the  new context_handle to use
- * @param  pcsc_card_handle pointer to the new card_handle to use 
+ * @param  pcsc_card_handle pointer to the new card_handle to use
  * @return SC_SUCCESS on success and an error code otherwise.
  */
 int sc_ctx_use_reader(sc_context_t *ctx, void * pcsc_context_handle, void * pcsc_card_handle);
 
-/** 
+/**
  * Returns a pointer to the specified sc_reader_t object
  * @param  ctx  OpenSC context
  * @param  name name of the reader to look for
@@ -752,7 +752,7 @@ int sc_ctx_use_reader(sc_context_t *ctx, void * pcsc_context_handle, void * pcsc
  */
 sc_reader_t *sc_ctx_get_reader_by_name(sc_context_t *ctx, const char *name);
 
-/** 
+/**
  * Returns a pointer to the specified sc_reader_t object
  * @param  ctx  OpenSC context
  * @param  id id of the reader (starting from 0)
@@ -828,7 +828,7 @@ int sc_detect_card_presence(sc_reader_t *reader);
  * @retval = 1 if the timeout occured
  */
 int sc_wait_for_event(sc_context_t *ctx, unsigned int event_mask,
-                      sc_reader_t **event_reader, unsigned int *event, 
+                      sc_reader_t **event_reader, unsigned int *event,
 		      int timeout, void **reader_states);
 
 /**
@@ -897,8 +897,8 @@ int sc_read_binary(sc_card_t *card, unsigned int idx, u8 * buf,
 		   size_t count, unsigned long flags);
 /**
  * Write data to a binary EF
- * @param  card   sc_card_t object on which to issue the command 
- * @param  idx    index within the file for the data to be written 
+ * @param  card   sc_card_t object on which to issue the command
+ * @param  idx    index within the file for the data to be written
  * @param  buf    buffer with the data
  * @param  count  number of bytes to write
  * @param  flags  flags for the WRITE BINARY command (currently not used)
@@ -1066,8 +1066,8 @@ int sc_file_set_type_attr(sc_file_t *file, const u8 *type_attr,
  * Sets the content of a sc_path_t object.
  * @param  path    sc_path_t object to set
  * @param  type    type of path
- * @param  id      value of the path 
- * @param  id_len  length of the path value 
+ * @param  id      value of the path
+ * @param  id_len  length of the path value
  * @param  index   index within the file
  * @param  count   number of bytes
  * @return SC_SUCCESS on success and an error code otherwise
@@ -1078,7 +1078,7 @@ int sc_path_set(sc_path_t *path, int type, const u8 *id, size_t id_len,
 void sc_format_path(const char *path_in, sc_path_t *path_out);
 /**
  * Return string representation of the given sc_path_t object
- * Warning: as static memory is used for the return value 
+ * Warning: as static memory is used for the return value
  *          this function is not thread-safe !!!
  * @param  path  sc_path_t object of the path to be printed
  * @return pointer to a const buffer with the string representation
@@ -1094,7 +1094,7 @@ const char *sc_print_path(const sc_path_t *path);
  */
 int sc_path_print(char *buf, size_t buflen, const sc_path_t *path);
 /**
- * Compares two sc_path_t objects 
+ * Compares two sc_path_t objects
  * @param  patha  sc_path_t object of the first path
  * @param  pathb  sc_path_t object of the second path
  * @return 1 if both paths are equal and 0 otherwise
@@ -1118,7 +1118,7 @@ int sc_concatenate_path(sc_path_t *d, const sc_path_t *p1, const sc_path_t *p2);
  */
 int sc_append_path(sc_path_t *dest, const sc_path_t *src);
 /**
- * Checks whether one path is a prefix of another path 
+ * Checks whether one path is a prefix of another path
  * @param  prefix  sc_path_t object with the prefix
  * @param  path    sc_path_t object with the path which should start
  *                 with the given prefix
@@ -1190,9 +1190,9 @@ struct sc_algorithm_info * sc_card_find_gostr3410_alg(sc_card_t *card,
 		unsigned int key_length);
 
 /**
- * Used to initialize the @c sc_remote_data structure -- 
- * reset the header of the 'remote APDUs' list, set the handlers 
- * to manipulate the list. 
+ * Used to initialize the @c sc_remote_data structure --
+ * reset the header of the 'remote APDUs' list, set the handlers
+ * to manipulate the list.
  */
 void sc_remote_data_init(struct sc_remote_data *rdata);
 

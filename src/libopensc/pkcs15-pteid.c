@@ -102,7 +102,7 @@ static int sc_pkcs15emu_pteid_init(sc_pkcs15_card_t * p15card)
 
 	/* TODO: Use the cardholder's name?  */
 	/* TODO: Use Portuguese descriptions? */
-	
+
 	/* Add X.509 Certificates */
 	for (i = 0; i < 4; i++) {
 		static const char *pteid_cert_names[4] = {
@@ -136,7 +136,7 @@ static int sc_pkcs15emu_pteid_init(sc_pkcs15_card_t * p15card)
 			goto end;
 		}
 	}
-	
+
 	/* Add PINs */
 	for (i = 0; i < 3; i++) {
 		static const char *pteid_pin_names[3] = {

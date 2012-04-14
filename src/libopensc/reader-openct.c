@@ -117,7 +117,7 @@ openct_add_reader(sc_context_t *ctx, unsigned int num, ct_info_t *info)
 	reader->drv_data = data;
 	reader->name = strdup(data->info.ct_name);
 
-	if ((rc = _sc_add_reader(ctx, reader)) < 0) { 
+	if ((rc = _sc_add_reader(ctx, reader)) < 0) {
 		free(data);
 		free(reader->name);
 		free(reader);
@@ -158,7 +158,7 @@ static int openct_reader_release(sc_reader_t *reader)
 		reader->drv_data = NULL;
 		free(data);
 	}
-	
+
 	return SC_SUCCESS;
 }
 
@@ -310,7 +310,7 @@ out:
 		sc_mem_clear(rbuf, rbuflen);
 		free(rbuf);
 	}
-	
+
 	return r;
 }
 

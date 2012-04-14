@@ -1,7 +1,7 @@
 /*
  * partial PKCS15 emulation for gemsafe GPK cards
  *
- * Copyright (C) 2005, Douglas E. Engert <deengert@anl.gov> 
+ * Copyright (C) 2005, Douglas E. Engert <deengert@anl.gov>
  *               2004, Nils Larsch <larsch@trustcenter.de>
  *
  * This library is free software; you can redistribute it and/or
@@ -35,7 +35,7 @@
 
 int sc_pkcs15emu_gemsafeGPK_init_ex(sc_pkcs15_card_t *, sc_pkcs15emu_opt_t *);
 
-static int (*pin_cmd_save)(struct sc_card *, struct sc_pin_cmd_data *, 
+static int (*pin_cmd_save)(struct sc_card *, struct sc_pin_cmd_data *,
 		int *tries_left);
 
 typedef struct cdata_st {
@@ -55,11 +55,11 @@ typedef struct pdata_st {
 	unsigned int maxlen;
 	unsigned int minlen;
 	unsigned int storedlen;
-	int         flags;	
+	int         flags;
 	int         tries_left;
 	const char  pad_char;
 	int         obj_flags;
-} pindata; 
+} pindata;
 
 typedef struct prdata_st {
 	const char *id;
@@ -94,16 +94,16 @@ static const u8 gemsafe_aid[] = {0xA0, 0x00, 0x00, 0x00, 0x18,
 		0x0F, 0x00, 0x00, 0x01, 0x63, 0x00, 0x01};
 
 static int my_pin_cmd(sc_card_t * card, struct sc_pin_cmd_data * data,
-			int *tries_left) 
+			int *tries_left)
 {
 	/* GemSAFE pin uses a null terminated string with 0xFF */
 	/* so we need to add the 0x00 to the pin  then pad with 0xFF */
-	
+
 	int r;
 	const u8 *saved_data = NULL;
 	int saved_len = 0;
 	u8  newpin[8];
-	
+
 	SC_FUNC_CALLED(card->ctx, SC_LOG_DEBUG_NORMAL);
 
 	memset(newpin, 0xff, sizeof(newpin));
@@ -111,7 +111,7 @@ static int my_pin_cmd(sc_card_t * card, struct sc_pin_cmd_data * data,
 	if (data->pin1.data && data->pin1.len < 8 && data->pin1.len > 0) {
 		memcpy(newpin,data->pin1.data, (size_t)data->pin1.len);
 		newpin[data->pin1.len] = 0x00;
-		
+
 		sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "pin len=%d", data->pin1.len);
 
 		saved_data = data->pin1.data;
@@ -131,7 +131,7 @@ static int my_pin_cmd(sc_card_t * card, struct sc_pin_cmd_data * data,
 }
 
 
-static int is_seq(unsigned char * seq, unsigned int *seq_size, unsigned int *seq_len) 
+static int is_seq(unsigned char * seq, unsigned int *seq_size, unsigned int *seq_len)
 {
 	int i,j,k;
 
@@ -139,10 +139,10 @@ static int is_seq(unsigned char * seq, unsigned int *seq_size, unsigned int *seq
 		return 0;   /* not a sequence */
 	if (seq[1] & 0x80) {
 		i = seq[1] & 0x7f;
-		if (i > 2 || i == 0) 
+		if (i > 2 || i == 0)
 			return 0; /* cert would be bigger then 65k or zero */
-		if (seq[2] == 0) 
-			return 0; /* DER would not have extra zero */		
+		if (seq[2] == 0)
+			return 0; /* DER would not have extra zero */
 		k = 0;
 		for (j = 0; j < i; j++) {
 			k = (k << 8) + seq[j + 2];
@@ -153,7 +153,7 @@ static int is_seq(unsigned char * seq, unsigned int *seq_size, unsigned int *seq
 		  i = 0;
 		  k = seq[1];
 	}
-	
+
 	*seq_size = i + 2;
 	*seq_len = k;
 	return 1;
@@ -168,7 +168,7 @@ static int gemsafe_detect_card(sc_pkcs15_card_t *p15card)
 
 	if (strcmp(card->name, "Gemplus GPK"))
 		return SC_ERROR_WRONG_CARD;
-	
+
 	return SC_SUCCESS;
 }
 
@@ -258,10 +258,10 @@ static int sc_pkcs15emu_gemsafeGPK_init(sc_pkcs15_card_t *p15card)
 	for (i = 7; i < 16; i++) {
 		path.value[0] = 0x00;
 		path.value[1] = i;
-		path.len = 2;	
+		path.len = 2;
 		path.type = SC_PATH_TYPE_FILE_ID;
 		r = sc_select_file(card, &path, NULL);
-		if (r < 0) 
+		if (r < 0)
 			continue;
 		r = sc_read_record(card, 1, sysrec, sizeof(sysrec), SC_RECORD_BY_REC_NR);
 		if (r != 7 || sysrec[0] != 0) {
@@ -281,29 +281,29 @@ static int sc_pkcs15emu_gemsafeGPK_init(sc_pkcs15_card_t *p15card)
 		}
 
 		kinfo[num_keyinfo].fileid = i;
-		sc_pkcs15_format_id("NONE", &kinfo[num_keyinfo].id); 
+		sc_pkcs15_format_id("NONE", &kinfo[num_keyinfo].id);
 
 		sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL,"reading modulus");
-		r = sc_read_record(card, 2, modulus_buf, 
+		r = sc_read_record(card, 2, modulus_buf,
 				kinfo[num_keyinfo].modulus_len+1, SC_RECORD_BY_REC_NR);
-		if (r < 0) 
+		if (r < 0)
 			continue;
-			
+
 		/* need to reverse the modulus skiping the tag */
 		j = kinfo[num_keyinfo].modulus_len;
 		cp = kinfo[num_keyinfo].modulus;
-		while (j--) 
+		while (j--)
 			*cp++ =  modulus_buf[j + 1];
 		num_keyinfo++;
-	} 
+	}
 
 	/* Get the gemsafe data with the cert */
 	 sc_format_path("3F000200004", &path);
 
 	/* file.id has the real DF of the GemSAFE file from above*/
 	 path.value[2] = dfpath >> 8;
-	 path.value[3] = dfpath & 0xff; 
-	
+	 path.value[3] = dfpath & 0xff;
+
 	if (sc_select_file(card, &path, &file) < 0) {
 		return SC_ERROR_WRONG_CARD;
 	}
@@ -314,7 +314,7 @@ static int sc_pkcs15emu_gemsafeGPK_init(sc_pkcs15_card_t *p15card)
 	/* and less then 65K, and must be fit in the file->size */
 	/* There is a chance that we might find something that is not */
 	/* a cert, but the chances are low. If GemPlus ever publishes */
-	/* the format of the file, we can used that instead. */ 
+	/* the format of the file, we can used that instead. */
 
 	/* For performance reasons we will only */
 	/* read part of the file , as it is about 6100 bytes */
@@ -368,9 +368,9 @@ static int sc_pkcs15emu_gemsafeGPK_init(sc_pkcs15_card_t *p15card)
 				idx1 + 4 + seq_len1 < file->size) {
 				/* we have a cert (I hope) */
 				/* read in rest if needed */
-				idxlen = idx1 + seq_len1 + 4 - idx2; 
+				idxlen = idx1 + seq_len1 + 4 - idx2;
 				if (idxlen > 0) {
-					idxlen = (idxlen + 3) & 0xfffffffc;  
+					idxlen = (idxlen + 3) & 0xfffffffc;
 					r = sc_read_binary(card, idx2, gsdata + idx2, idxlen, 0);
 					if (r < 0)
 						break; /* can not read cert */
@@ -378,9 +378,9 @@ static int sc_pkcs15emu_gemsafeGPK_init(sc_pkcs15_card_t *p15card)
 				}
 				cert_info.value.len = seq_len1 + 4;
 				sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "Found cert at offset %d", idx1);
-				cert_info.value.value = (unsigned char *) 
+				cert_info.value.value = (unsigned char *)
 						malloc(cert_info.value.len);
-				if (!cert_info.value.value) 
+				if (!cert_info.value.value)
 					return SC_ERROR_OUT_OF_MEMORY;
 
 				memcpy(cert_info.value.value, gsdata + idx1, cert_info.value.len);
@@ -389,8 +389,8 @@ static int sc_pkcs15emu_gemsafeGPK_init(sc_pkcs15_card_t *p15card)
 			}
 			idx1++;
 		}
-		
-		if (cert_info.value.value == NULL) 
+
+		if (cert_info.value.value == NULL)
 			break; /* cert not found, no more certs */
 
 		r = sc_pkcs15emu_add_x509_cert(p15card, &cert_obj, &cert_info);
@@ -400,17 +400,17 @@ static int sc_pkcs15emu_gemsafeGPK_init(sc_pkcs15_card_t *p15card)
 		}
 
 		/* now lets see if we have a matching key for this cert */
-		
+
 		r = sc_pkcs15_read_certificate(p15card, &cert_info, &cert_out);
 		if (r < 0) {
 			free(gsdata);
 			return SC_ERROR_INTERNAL;
 		}
 
-		for (j = 0; j < num_keyinfo; j++) { 
-			if (cert_out->key->u.rsa.modulus.len == kinfo[j].modulus_len &&	
-					memcmp(cert_out->key->u.rsa.modulus.data, 
-					&kinfo[j].modulus, cert_out->key->u.rsa.modulus.len) == 0) { 
+		for (j = 0; j < num_keyinfo; j++) {
+			if (cert_out->key->u.rsa.modulus.len == kinfo[j].modulus_len &&
+					memcmp(cert_out->key->u.rsa.modulus.data,
+					&kinfo[j].modulus, cert_out->key->u.rsa.modulus.len) == 0) {
 			memcpy(&kinfo[j].id, &cert_info.id, sizeof(sc_pkcs15_id_t));
 			sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "found match");
 			}
@@ -481,10 +481,10 @@ static int sc_pkcs15emu_gemsafeGPK_init(sc_pkcs15_card_t *p15card)
  		/* will use the default path, unless we found a key with */
 		/* the same modulus as the cert(s) we already added */
 		/* This allows us to have a card with a key but no cert */
-	
+
 		for (j = 0; j < num_keyinfo; j++) {
 			if (sc_pkcs15_compare_id(&kinfo[j].id, &prkey_info.id))  {
-				sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "found key in file %d for id %d", 
+				sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "found key in file %d for id %d",
 						kinfo[j].fileid, prkey_info.id);
 				prkey_info.path.value[0] = kinfo[j].fileid >> 8;
 				prkey_info.path.value[1] = kinfo[j].fileid & 0xff;

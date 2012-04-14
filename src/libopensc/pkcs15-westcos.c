@@ -1,7 +1,7 @@
 /*
  * pkcs15-westcos.c: pkcs15 emulation for westcos card
  *
- * Copyright (C) 2009 francois.leblanc@cev-sa.com 
+ * Copyright (C) 2009 francois.leblanc@cev-sa.com
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -64,7 +64,7 @@ static int sc_pkcs15emu_westcos_init(sc_pkcs15_card_t * p15card)
 	p15card->tokeninfo->serial_number = strdup(buf);
 	sc_format_path("AAAA", &path);
 	r = sc_select_file(card, &path, &file);
-	if (r) 
+	if (r)
 	{
 		goto out;
 	}
@@ -110,13 +110,13 @@ static int sc_pkcs15emu_westcos_init(sc_pkcs15_card_t * p15card)
 				goto out;
 		}
 	}
-	
+
 	if (file)
 		sc_file_free(file);
 	file = NULL;
 	sc_format_path("0002", &path);
 	r = sc_select_file(card, &path, &file);
-	if (r) 
+	if (r)
 	{
 		goto out;
 	}
@@ -148,7 +148,7 @@ static int sc_pkcs15emu_westcos_init(sc_pkcs15_card_t * p15card)
 			if (r)
 				goto out;
 			pkey = cert->key;
-			
+
 			if (pkey->algorithm == SC_ALGORITHM_RSA) {
 				modulus_length = (int)(pkey->u.rsa.modulus.len * 8);
 			}
@@ -200,7 +200,7 @@ static int sc_pkcs15emu_westcos_init(sc_pkcs15_card_t * p15card)
 	file = NULL;
 	sc_format_path("0001", &path);
 	r = sc_select_file(card, &path, &file);
-	if (r) 
+	if (r)
 	{
 		goto out;
 	}

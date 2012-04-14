@@ -51,11 +51,11 @@ typedef struct pdata_st {
 	unsigned int maxlen;
 	unsigned int minlen;
 	unsigned int storedlen;
-	int         flags;	
+	int         flags;
 	int         tries_left;
 	const char  pad_char;
 	int         obj_flags;
-} pindata; 
+} pindata;
 
 typedef struct prdata_st {
 	const char *id;
@@ -77,14 +77,14 @@ static int get_cert_len(sc_card_t *card, sc_path_t *path)
 	if (r < 0)
 		return 0;
 	r = sc_read_binary(card, 0, buf, sizeof(buf), 0);
-	if (r < 0)	
+	if (r < 0)
 		return 0;
 	if (buf[0] != 0x30 || buf[1] != 0x82)
 		return 0;
 	path->index = 0;
 	path->count = ((((size_t) buf[2]) << 8) | buf[3]) + 4;
 	return 1;
-} 
+}
 
 static int acos_detect_card(sc_pkcs15_card_t *p15card)
 {
@@ -129,14 +129,14 @@ static int sc_pkcs15emu_atrust_acos_init(sc_pkcs15_card_t *p15card)
 		  SC_PKCS15_PIN_TYPE_ASCII_NUMERIC,
 		  6, 6, 8, SC_PKCS15_PIN_FLAG_NEEDS_PADDING |
 		  SC_PKCS15_PIN_FLAG_LOCAL, -1, 0x00,
-		  SC_PKCS15_CO_FLAG_MODIFIABLE | SC_PKCS15_CO_FLAG_PRIVATE }, 
+		  SC_PKCS15_CO_FLAG_MODIFIABLE | SC_PKCS15_CO_FLAG_PRIVATE },
 		{ "03", "PIN.INF", "3F00DF71", 0x83, /* Infobox PIN */
 		  SC_PKCS15_PIN_TYPE_ASCII_NUMERIC,
 		  4, 4, 8, SC_PKCS15_PIN_FLAG_NEEDS_PADDING |
 		  SC_PKCS15_PIN_FLAG_LOCAL, -1, 0x00,
 		  SC_PKCS15_CO_FLAG_MODIFIABLE | SC_PKCS15_CO_FLAG_PRIVATE },
 #endif
-		{ NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0} 
+		{ NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	};
 
 	const prdata prkeys[] = {
@@ -269,7 +269,7 @@ static int sc_pkcs15emu_atrust_acos_init(sc_pkcs15_card_t *p15card)
 		if (r < 0)
 			return SC_ERROR_INTERNAL;
 	}
-		
+
 	/* select the application DF */
 	sc_format_path("DF71", &path);
 	r = sc_select_file(card, &path, &file);

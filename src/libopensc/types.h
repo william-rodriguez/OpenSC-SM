@@ -44,9 +44,9 @@ typedef unsigned char u8;
 #define SC_MAX_SDO_ACLS			8
 #define SC_MAX_CRTS_IN_SE		12
 
-/* When changing this value, pay attention to the initialization of the ASN1 
- * static variables that use this macro, like, for example, 
- * 'c_asn1_supported_algorithms' in src/libopensc/pkcs15.c 
+/* When changing this value, pay attention to the initialization of the ASN1
+ * static variables that use this macro, like, for example,
+ * 'c_asn1_supported_algorithms' in src/libopensc/pkcs15.c
  */
 #define SC_MAX_SUPPORTED_ALGORITHMS     8
 #define SC_MAX_SE_NUM			8
@@ -250,7 +250,7 @@ typedef struct sc_file {
 #define SC_APDU_FLAGS_CHAINING		0x00000001UL
 /* do not automatically call GET RESPONSE to read all available data */
 #define SC_APDU_FLAGS_NO_GET_RESP	0x00000002UL
-/* do not automatically try a re-transmit with a new length if the card 
+/* do not automatically try a re-transmit with a new length if the card
  * returns 0x6Cxx (wrong length)
  */
 #define SC_APDU_FLAGS_NO_RETRY_WL	0x00000004UL
@@ -275,7 +275,7 @@ typedef struct sc_apdu {
 	struct sc_apdu *next;
 } sc_apdu_t;
 
-/* Card manager Production Life Cycle data (CPLC) 
+/* Card manager Production Life Cycle data (CPLC)
  * (from the Open Platform specification) */
 #define SC_CPLC_TAG		0x9F7F
 #define SC_CPLC_DER_SIZE	45
@@ -314,10 +314,10 @@ typedef struct sc_serial_number {
 
 /**
  * @struct sc_remote_apdu data
- * Structure to supply the linked APDU data used in 
+ * Structure to supply the linked APDU data used in
  * communication with the external (SM) modules.
  */
-#define SC_REMOTE_APDU_FLAG_NOT_FATAL		0x01 
+#define SC_REMOTE_APDU_FLAG_NOT_FATAL		0x01
 #define SC_REMOTE_APDU_FLAG_RETURN_ANSWER	0x02
 struct sc_remote_apdu {
 	unsigned char sbuf[2*SC_MAX_APDU_BUFFER_SIZE];
@@ -330,7 +330,7 @@ struct sc_remote_apdu {
 };
 
 /**
- * @struct sc_remote_data 
+ * @struct sc_remote_data
  * Frame for the list of the @c sc_remote_apdu data with
  * the handlers to allocate and free.
  */
@@ -345,7 +345,7 @@ struct sc_remote_data {
   	 */
 	int (*alloc)(struct sc_remote_data *rdata, struct sc_remote_apdu **out);
 	/**
-         * Handler to free the list of @c sc_remote_apdu data 
+         * Handler to free the list of @c sc_remote_apdu data
  	 * @param rdata Self pointer to the @c sc_remote_data
   	 */
 	void (*free)(struct sc_remote_data *rdata);

@@ -494,7 +494,7 @@ static int rtecp_reset_retry_counter(sc_card_t *card, unsigned int type,
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "APDU transmit failed");
 	r = sc_check_sw(card, apdu.sw1, apdu.sw2);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "Unblock card failed");
-	
+
 	if (newref && newlen)   {
         	u8 tmp[2], buf[SC_MAX_APDU_BUFFER_SIZE];
 		u8 *p = buf;

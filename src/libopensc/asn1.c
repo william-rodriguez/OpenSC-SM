@@ -86,7 +86,7 @@ int sc_asn1_read_tag(const u8 ** buf, size_t buflen, unsigned int *cla_out,
 			/* either an invalid tag or it doesn't fit in
 			 * unsigned int */
 			return SC_ERROR_INVALID_ASN1_OBJECT;
-		
+
 	}
 	if (left == 0)
 		return SC_ERROR_INVALID_ASN1_OBJECT;
@@ -216,7 +216,7 @@ static void sc_asn1_print_object_id(const u8 * buf, size_t buflen)
 	sbuf[0] = 0;
 	while (oid.value[i] >= 0) {
 		char tmp[12];
-		
+
 		if (i)
 			strcat(sbuf, ".");
 		sprintf(tmp, "%d", oid.value[i]);
@@ -483,7 +483,7 @@ static int encode_bit_string(const u8 * inbuf, size_t bits_left, u8 **outbuf,
 	u8 *out;
 	size_t bytes;
 	int skipped = 0;
-	
+
 	bytes = (bits_left + 7)/8 + 1;
 	*outbuf = out = malloc(bytes);
 	if (out == NULL)
@@ -492,7 +492,7 @@ static int encode_bit_string(const u8 * inbuf, size_t bits_left, u8 **outbuf,
 	out += 1;
 	while (bits_left) {
 		int i, bits_to_go = 8;
-		
+
 		*out = 0;
 		if (bits_left < 8) {
 			bits_to_go = bits_left;
@@ -640,7 +640,7 @@ int sc_asn1_decode_object_id(const u8 * inbuf, size_t inlen,
 	int i, a;
 	const u8 *p = inbuf;
 	int *octet;
-	
+
 	if (inlen == 0 || inbuf == NULL || id == NULL)
 		return SC_ERROR_INVALID_ARGUMENTS;
 	octet = id->value;
@@ -650,7 +650,7 @@ int sc_asn1_decode_object_id(const u8 * inbuf, size_t inlen,
 	*octet++ = a / 40;
 	*octet++ = a % 40;
 	inlen--;
-	
+
 	while (inlen) {
 		p++;
 		a = *p & 0x7F;
@@ -665,7 +665,7 @@ int sc_asn1_decode_object_id(const u8 * inbuf, size_t inlen,
 		if (octet - id->value >= SC_MAX_OBJECT_ID_OCTETS-1)
 			return SC_ERROR_INVALID_ASN1_OBJECT;
 	};
-	
+
 	return 0;
 }
 
@@ -710,7 +710,7 @@ int sc_asn1_encode_object_id(u8 **buf, size_t *buflen,
 			break;
 		}
 	}
-	if (i == 1) 
+	if (i == 1)
 		/* an OID must have at least two components */
 		return SC_ERROR_INVALID_ARGUMENTS;
 	*buflen = count = p - temp;
@@ -746,7 +746,7 @@ int sc_asn1_put_tag(int tag, const u8 * data, size_t datalen, u8 * out, size_t o
 	outlen--;
 	if (outlen < datalen)
 		return SC_ERROR_INVALID_ARGUMENTS;
-		
+
 	memcpy(p, data, datalen);
 	p += datalen;
 	if (ptr != NULL)
@@ -763,7 +763,7 @@ static int asn1_write_element(sc_context_t *ctx, unsigned int tag,
 	unsigned short_tag;
 	unsigned char tag_char[3] = {0, 0, 0};
 	size_t tag_len, ii;
-	
+
 	short_tag = tag & SC_ASN1_TAG_MASK;
 	for (tag_len = 0; short_tag >> (8 * tag_len); tag_len++)
 		tag_char[tag_len] = (short_tag >> (8 * tag_len)) & 0xFF;
@@ -819,12 +819,12 @@ static int asn1_write_element(sc_context_t *ctx, unsigned int tag,
 		*p++ = 0x80 | c;
 		while (c--)
 			*p++ = (datalen >> (c << 3)) & 0xFF;
-	} 
+	}
 	else   {
 		*p++ = datalen & 0x7F;
 	}
 	memcpy(p, data, datalen);
-	
+
 	return SC_SUCCESS;
 }
 
@@ -837,10 +837,10 @@ static const struct sc_asn1_entry c_asn1_path[5] = {
 	{ "path",   SC_ASN1_OCTET_STRING, SC_ASN1_TAG_OCTET_STRING, SC_ASN1_OPTIONAL, NULL, NULL },
 	{ "index",  SC_ASN1_INTEGER, SC_ASN1_TAG_INTEGER, SC_ASN1_OPTIONAL, NULL, NULL },
 	{ "length", SC_ASN1_INTEGER, SC_ASN1_CTX | 0, SC_ASN1_OPTIONAL, NULL, NULL },
-/* For some multi-applications PKCS#15 card the ODF records can hold the references to 
+/* For some multi-applications PKCS#15 card the ODF records can hold the references to
  * the xDF files and objects placed elsewhere then under the application DF of the ODF itself.
  * In such a case the 'path' ASN1 data includes also the ID of the target application (AID).
- * This path extension do not make a part of PKCS#15 standard. 
+ * This path extension do not make a part of PKCS#15 standard.
  */
 	{ "pathExtended", SC_ASN1_STRUCT, SC_ASN1_CTX | 1 | SC_ASN1_CONS, SC_ASN1_OPTIONAL, NULL, NULL },
 	{ NULL, 0, 0, 0, NULL, NULL }
@@ -853,7 +853,7 @@ static int asn1_decode_path(sc_context_t *ctx, const u8 *in, size_t len,
 	struct sc_asn1_entry asn1_path_ext[3], asn1_path[5];
 	unsigned char path_value[SC_MAX_PATH_SIZE], aid_value[SC_MAX_AID_SIZE];
 	size_t path_len = sizeof(path_value), aid_len = sizeof(aid_value);
-	
+
 	memset(path, 0, sizeof(struct sc_path));
 
 	sc_copy_asn1_entry(c_asn1_path_ext, asn1_path_ext);
@@ -899,7 +899,7 @@ static int asn1_decode_path(sc_context_t *ctx, const u8 *in, size_t len,
 	if ((asn1_path[1].flags & SC_ASN1_PRESENT) && (asn1_path[2].flags & SC_ASN1_PRESENT)) {
 		path->index = idx;
 		path->count = count;
-	} 
+	}
 	else {
 		path->index = 0;
 		path->count = -1;
@@ -924,7 +924,7 @@ static int asn1_encode_path(sc_context_t *ctx, const sc_path_t *path,
 		sc_format_asn1_entry(asn1_path + 2, (void *) &tpath.count, NULL, 1);
 	}
 	r = asn1_encode(ctx, asn1_path, buf, bufsize, depth + 1);
-	return r;	
+	return r;
 }
 
 
@@ -992,9 +992,9 @@ err:
 			if (ses[i])
 				free(ses[i]);
 		free(ses);
-	} 
+	}
 
-	return ret;	
+	return ret;
 }
 
 
@@ -1115,7 +1115,7 @@ static int asn1_decode_p15_object(sc_context_t *ctx, const u8 *in,
 		sc_format_asn1_entry(asn1_ac_rules + ii, asn1_ac_rule[ii], NULL, 0);
 	}
 	sc_format_asn1_entry(asn1_c_attr + 4, asn1_ac_rules, NULL, 0);
-	
+
 	sc_format_asn1_entry(asn1_p15_obj + 0, asn1_c_attr, NULL, 0);
 	sc_format_asn1_entry(asn1_p15_obj + 1, obj->asn1_class_attr, NULL, 0);
 	sc_format_asn1_entry(asn1_p15_obj + 2, obj->asn1_subclass_attr, NULL, 0);
@@ -1186,7 +1186,7 @@ static int asn1_decode_entry(sc_context_t *ctx,struct sc_asn1_entry *entry,
 {
 	void *parm = entry->parm;
 	int (*callback_func)(sc_context_t *nctx, void *arg, const u8 *nobj,
-			     size_t nobjlen, int ndepth); 
+			     size_t nobjlen, int ndepth);
 	size_t *len = (size_t *) entry->arg;
 	int r = 0;
 
@@ -1215,7 +1215,7 @@ static int asn1_decode_entry(sc_context_t *ctx,struct sc_asn1_entry *entry,
 	case SC_ASN1_ENUMERATED:
 		if (parm != NULL) {
 			r = sc_asn1_decode_integer(obj, objlen, (int *) entry->parm);
-			sc_debug(ctx, SC_LOG_DEBUG_ASN1, "%*.*sdecoding '%s' returned %d\n", depth, depth, "", 
+			sc_debug(ctx, SC_LOG_DEBUG_ASN1, "%*.*sdecoding '%s' returned %d\n", depth, depth, "",
 					entry->name, *((int *) entry->parm));
 		}
 		break;
@@ -1330,7 +1330,7 @@ static int asn1_decode_entry(sc_context_t *ctx,struct sc_asn1_entry *entry,
 		if (entry->parm != NULL) {
 			struct sc_pkcs15_id *id = (struct sc_pkcs15_id *) parm;
 			size_t c = objlen > sizeof(id->value) ? sizeof(id->value) : objlen;
-			
+
 			memcpy(id->value, obj, c);
 			id->len = c;
 		}
@@ -1644,7 +1644,7 @@ no_object:
 		*objlen = 0;
 		r = asn1_write_element(ctx, entry->tag, buf, buflen, obj, objlen);
 		if (r)
-			sc_debug(ctx, SC_LOG_DEBUG_ASN1, "error writing ASN.1 tag and length: %s\n", sc_strerror(r)); 
+			sc_debug(ctx, SC_LOG_DEBUG_ASN1, "error writing ASN.1 tag and length: %s\n", sc_strerror(r));
 	} else if (buflen || entry->type == SC_ASN1_NULL || entry->tag & SC_ASN1_CONS) {
 		r = asn1_write_element(ctx, entry->tag, buf, buflen, obj, objlen);
 		if (r)
@@ -1738,7 +1738,7 @@ sc_der_copy(sc_pkcs15_der_t *dst, const sc_pkcs15_der_t *src)
 }
 
 int
-sc_encode_oid (struct sc_context *ctx, struct sc_object_id *id, 
+sc_encode_oid (struct sc_context *ctx, struct sc_object_id *id,
 		unsigned char **out, size_t *size)
 {
 	static const struct sc_asn1_entry c_asn1_object_id[2] = {

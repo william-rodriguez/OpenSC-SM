@@ -99,7 +99,7 @@ static int autodetect_class(sc_card_t *card)
 static int default_init(sc_card_t *card)
 {
 	int r;
-	
+
 	card->name = "Unsupported card";
 	card->drv_data = NULL;
 	r = autodetect_class(card);

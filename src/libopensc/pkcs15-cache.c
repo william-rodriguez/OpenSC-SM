@@ -61,7 +61,7 @@ static int generate_cache_filename(struct sc_pkcs15_card *p15card,
 	if (p15card->tokeninfo->serial_number != NULL) {
 		char *last_update = sc_pkcs15_get_lastupdate(p15card);
 		if (last_update != NULL)
-			r = snprintf(buf, bufsize, "%s/%s_%s_%s", dir, p15card->tokeninfo->serial_number, 
+			r = snprintf(buf, bufsize, "%s/%s_%s_%s", dir, p15card->tokeninfo->serial_number,
 					last_update, pathname);
 		else
 			r = snprintf(buf, bufsize, "%s/%s_DATE_%s", dir,

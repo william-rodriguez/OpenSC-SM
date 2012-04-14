@@ -1,7 +1,7 @@
 /*
  * card-westcos.c: support for westcos card
  *
- * Copyright (C) 2009 francois.leblanc@cev-sa.com 
+ * Copyright (C) 2009 francois.leblanc@cev-sa.com
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -111,7 +111,7 @@ static unsigned short westcos_update_crc(unsigned char ch, unsigned short *lpwCr
 	return (*lpwCrc);
 }
 
-static void westcos_compute_aetb_crc(int CRCType, 
+static void westcos_compute_aetb_crc(int CRCType,
 					unsigned char *Data,
 					size_t Length,
 					unsigned char * TransmitFirst,
@@ -176,9 +176,9 @@ static int westcos_match_card(sc_card_t * card)
 	i = _sc_match_atr(card, westcos_atrs, &card->type);
 	if (i < 0)
 		return 0;
-	
+
 	/* JAVACARD, look for westcos applet */
-	if (i == 1) { 
+	if (i == 1) {
 		int r;
 		sc_apdu_t apdu;
 		u8 aid[] = {
@@ -198,7 +198,7 @@ static int westcos_match_card(sc_card_t * card)
 		if (r)
 			return 0;
 	}
-	
+
 	return 1;
 }
 
@@ -211,24 +211,24 @@ static int westcos_init(sc_card_t * card)
 
 	if (card == NULL)
 		return SC_ERROR_INVALID_ARGUMENTS;
-		
+
 	card->drv_data = malloc(sizeof(priv_data_t));
 	if (card->drv_data == NULL)
 		return SC_ERROR_OUT_OF_MEMORY;
 	memset(card->drv_data, 0, sizeof(card->drv_data));
-	
+
 	priv_data = (priv_data_t *) card->drv_data;
 
 	if (card->type & JAVACARD) {
 		priv_data->flags |= JAVACARD;
 	}
-	
+
 	/* check for crypto component */
 	if(card->atr.value[9] == 0xD0)
 	{
 		priv_data->flags |= RSA_CRYPTO_COMPONENT;
 	}
-	
+
 	card->cla = 0x00;
 	card->max_send_size = 240;
 	card->max_recv_size = 240;
@@ -1051,7 +1051,7 @@ static int westcos_set_security_env(sc_card_t *card,
 		"westcos_set_security_env\n");
 	priv_data = (priv_data_t *) card->drv_data;
 	priv_data->env = *env;
-	
+
 	if(priv_data->flags & RSA_CRYPTO_COMPONENT)
 	{
 		sc_apdu_t apdu;
@@ -1066,7 +1066,7 @@ static int westcos_set_security_env(sc_card_t *card,
 		r = sc_path_print((char *)buf, sizeof(buf), &(env->file_ref));
 		if(r)
 			return r;
-			
+
 		sc_format_apdu(card, &apdu, SC_APDU_CASE_3_SHORT, 0x22, 0xf0, mode);
 		apdu.cla = 0x00;
 		apdu.lc = strlen((char *)buf);
@@ -1114,7 +1114,7 @@ static int westcos_sign_decipher(int mode, sc_card_t *card,
 	if(priv_data->flags & RSA_CRYPTO_COMPONENT)
 	{
 		sc_apdu_t apdu;
-		
+
 		sc_format_apdu(card, &apdu, SC_APDU_CASE_4_SHORT, 0x2A, 0x00, mode);
 		apdu.datalen = data_len;
 		apdu.data = data;
@@ -1122,19 +1122,19 @@ static int westcos_sign_decipher(int mode, sc_card_t *card,
 		apdu.le = outlen > 240 ? 240 : outlen;
 		apdu.resp = out;
 		apdu.resplen = outlen;
-		
+
 		r = sc_transmit_apdu(card, &apdu);
 		if (r)
 			goto out2;
 		r = sc_check_sw(card, apdu.sw1, apdu.sw2);
 		if(r)
 			goto out2;
-		
+
 		/* correct */
 		r = apdu.resplen;
 		goto out2;
 	}
-	
+
 #ifndef ENABLE_OPENSSL
 	r = SC_ERROR_NOT_SUPPORTED;
 #else

@@ -1,7 +1,7 @@
 /*
  * pkcs15-tccardos.c: PKCS#15 profile for TC CardOS M4 cards
  *
- * Copyright (C) 2005  Nils Larsch <nils@larsch.net> 
+ * Copyright (C) 2005  Nils Larsch <nils@larsch.net>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -73,7 +73,7 @@ static const char *get_keyholder(int fileId)
 		return "CA";
 	else if (tmp == 0x0e)
 		return "RCA";
-	else	
+	else
 		return "error";
 }
 
@@ -86,7 +86,7 @@ static const char *get_service(int fileId)
 	else if (tmp == 2 || tmp == 3)
 		return "KE";
 	else if (tmp == 5)
-		return "AUT";	
+		return "AUT";
 	else
 		return "error";
 }
@@ -161,7 +161,7 @@ static int create_pkey_obj(sc_pkcs15_card_t *p15card, int cert, int key_descr,
 
 	return sc_pkcs15emu_add_rsa_prkey(p15card, &p15obj, &pinfo);
 }
-	
+
 static int create_pin_obj(sc_pkcs15_card_t *p15card, int cert,
 	int key_descr, unsigned int pinId)
 {

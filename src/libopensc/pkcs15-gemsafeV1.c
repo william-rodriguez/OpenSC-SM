@@ -117,7 +117,7 @@ const prdata gemsafe_prkeys[] = {
 	{ NULL, NULL, 0, 0, NULL, 0, NULL, 0}
 };
 
-static int gemsafe_get_cert_len(sc_card_t *card, sc_path_t *path, 
+static int gemsafe_get_cert_len(sc_card_t *card, sc_path_t *path,
 	int *key_ref)
 {
 	const char *fn_name = "gemsafe_get_cert_len";
@@ -154,8 +154,8 @@ static int gemsafe_get_cert_len(sc_card_t *card, sc_path_t *path,
 	/*
 	 * We need to find the private key associated with the cert
 	 * It looks like the first thing in the block is a table of
-	 * which keys are allocated. 
-	 * We will look for the first allocated key, and save the 
+	 * which keys are allocated.
+	 * We will look for the first allocated key, and save the
 	 * key_ref. The table is small and is in the first 248 bytes.
 	 * If for some reason this is not true, we can still override
 	 * the key_ref in the opensc.conf with flag = n.
@@ -220,7 +220,7 @@ static int sc_pkcs15emu_gemsafeV1_init( sc_pkcs15_card_t *p15card)
     const char *fn_name = "sc_pkcs15emu_gemsafe_init";
 
     int    r, i;
-	int	   key_ref = 0x03; 
+	int	   key_ref = 0x03;
     struct sc_path path;
     struct sc_file *file = NULL;
     struct sc_card *card = p15card->card;
@@ -306,15 +306,15 @@ static int sc_pkcs15emu_gemsafeV1_init( sc_pkcs15_card_t *p15card)
 	    } else
 		    pauthId = NULL;
 			/*
-			 * the key ref may be different for different sites 
+			 * the key ref may be different for different sites
 			 * by adding flags=n where the low order 4 bits can be
-			 * the key ref we can force it. 
+			 * the key ref we can force it.
 			 */
 			if ( p15card->card->flags & 0x0F) {
 				key_ref = p15card->card->flags & 0x0F;
 				sc_debug(p15card->card->ctx, SC_LOG_DEBUG_NORMAL,
 					"Overriding key_ref  with %d\n", key_ref);
-			} 
+			}
 	    sc_pkcs15emu_add_prkey(p15card, &p15Id, gemsafe_prkeys[i].label,
 			    SC_PKCS15_TYPE_PRKEY_RSA,
 			    gemsafe_prkeys[i].modulus_len, gemsafe_prkeys[i].usage,

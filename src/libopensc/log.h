@@ -52,7 +52,7 @@ enum {
 #define sc_log _sc_log
 #endif
 
-void sc_do_log(struct sc_context *ctx, int level, const char *file, int line, const char *func, 
+void sc_do_log(struct sc_context *ctx, int level, const char *file, int line, const char *func,
 		const char *format, ...);
 void sc_do_log_noframe(sc_context_t *ctx, int level, const char *format, va_list args);
 void _sc_debug(struct sc_context *ctx, int level, const char *format, ...);

@@ -20,7 +20,7 @@ extern "C" {
 #define ISO7816_TAG_FCP_ID	0x83
 #define ISO7816_TAG_FCP_ACLS	0x86
 
-/* ISO7816 interindustry data tags */	
+/* ISO7816 interindustry data tags */
 #define ISO7816_II_CATEGORY_TLV		0x80
 #define ISO7816_II_CATEGORY_NOT_TLV	0x00
 

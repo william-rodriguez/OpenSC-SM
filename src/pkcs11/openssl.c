@@ -47,7 +47,7 @@ static sc_pkcs11_mechanism_type_t openssl_sha1_mech = {
 	NULL, NULL, NULL, NULL,	/* sign_* */
 #ifdef ENABLE_OPENSSL
 	NULL, NULL, NULL,	/* verif_* */
-#endif	
+#endif
 	NULL, NULL,		/* decrypt_* */
 	NULL,			/* derive */
 	NULL			/* mech_data */
@@ -66,7 +66,7 @@ static sc_pkcs11_mechanism_type_t openssl_sha256_mech = {
 	NULL, NULL, NULL, NULL,	/* sign_* */
 #ifdef ENABLE_OPENSSL
 	NULL, NULL, NULL,	/* verif_* */
-#endif	
+#endif
 	NULL, NULL,		/* decrypt_* */
 	NULL,			/* derive */
 	NULL			/* mech_data */
@@ -84,7 +84,7 @@ static sc_pkcs11_mechanism_type_t openssl_sha384_mech = {
 	NULL, NULL, NULL, NULL,	/* sign_* */
 #ifdef ENABLE_OPENSSL
 	NULL, NULL, NULL,	/* verif_* */
-#endif	
+#endif
 	NULL, NULL,		/* decrypt_* */
 	NULL,			/* derive */
 	NULL			/* mech_data */
@@ -102,7 +102,7 @@ static sc_pkcs11_mechanism_type_t openssl_sha512_mech = {
 	NULL, NULL, NULL, NULL,	/* sign_* */
 #ifdef ENABLE_OPENSSL
 	NULL, NULL, NULL,	/* verif_* */
-#endif	
+#endif
 	NULL, NULL,		/* decrypt_* */
 	NULL,			/* derive */
 	NULL			/* mech_data */
@@ -122,7 +122,7 @@ static sc_pkcs11_mechanism_type_t openssl_gostr3411_mech = {
 	NULL, NULL, NULL, NULL,	/* sign_* */
 #ifdef ENABLE_OPENSSL
 	NULL, NULL, NULL,	/* verif_* */
-#endif	
+#endif
 	NULL, NULL,		/* decrypt_* */
 	NULL,			/* derive */
 	NULL			/* mech_data */
@@ -141,7 +141,7 @@ static sc_pkcs11_mechanism_type_t openssl_md5_mech = {
 	NULL, NULL, NULL, NULL,	/* sign_* */
 #ifdef ENABLE_OPENSSL
 	NULL, NULL, NULL,	/* verif_* */
-#endif	
+#endif
 	NULL, NULL,		/* decrypt_* */
 	NULL,			/* derive */
 	NULL			/* mech_data */
@@ -159,7 +159,7 @@ static sc_pkcs11_mechanism_type_t openssl_ripemd160_mech = {
 	NULL, NULL, NULL, NULL,	/* sign_* */
 #ifdef ENABLE_OPENSSL
 	NULL, NULL, NULL,	/* verif_* */
-#endif	
+#endif
 	NULL, NULL,		/* decrypt_* */
 	NULL,			/* derive */
 	NULL			/* mech_data */
@@ -439,7 +439,7 @@ CK_RV sc_pkcs11_verify_data(const unsigned char *pubkey, int pubkey_len,
 			RSA_free(rsa);
 			return CKR_DEVICE_MEMORY;
 		}
-		
+
 		rsa_outlen = RSA_public_decrypt(signat_len, signat, rsa_out, rsa, pad);
 		RSA_free(rsa);
 		if(rsa_outlen <= 0) {

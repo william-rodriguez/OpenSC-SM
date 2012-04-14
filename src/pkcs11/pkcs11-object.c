@@ -46,10 +46,10 @@ static sc_pkcs11_mechanism_type_t find_mechanism = {
 
 static void sc_find_release(sc_pkcs11_operation_t *operation)
 {
-	struct sc_pkcs11_find_operation *fop = 
+	struct sc_pkcs11_find_operation *fop =
 				(struct sc_pkcs11_find_operation *)operation;
 
-	sc_log(context,"freeing %d handles used %d  at %p", 
+	sc_log(context,"freeing %d handles used %d  at %p",
 			fop->allocated_handles, fop->num_handles, fop->handles);
 	if (fop->handles) {
 		free(fop->handles);
@@ -73,8 +73,8 @@ static CK_RV get_object_from_session(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDL
 	*session = sess;
 	return CKR_OK;
 }
-		
-/* C_CreateObject can be called from C_DeriveKey 
+
+/* C_CreateObject can be called from C_DeriveKey
  * which is holding the sc_pkcs11_lock
  * So dont get the lock again.
  */
@@ -134,7 +134,7 @@ CK_RV C_CreateObject(CK_SESSION_HANDLE hSession,	/* the session's handle */
 {
     return sc_create_object_int(hSession, pTemplate, ulCount, phObject, 1);
 }
-		
+
 CK_RV C_CopyObject(CK_SESSION_HANDLE hSession,	/* the session's handle */
 		   CK_OBJECT_HANDLE hObject,	/* the object's handle */
 		   CK_ATTRIBUTE_PTR pTemplate,	/* template for new object */
@@ -150,7 +150,7 @@ CK_RV C_DestroyObject(CK_SESSION_HANDLE hSession,	/* the session's handle */
 	CK_RV rv;
 	struct sc_pkcs11_session *session;
 	struct sc_pkcs11_object *object;
-	
+
 	CK_BBOOL is_token = FALSE;
         CK_ATTRIBUTE token_attribure = {CKA_TOKEN, &is_token, sizeof(is_token)};
 
@@ -165,8 +165,8 @@ CK_RV C_DestroyObject(CK_SESSION_HANDLE hSession,	/* the session's handle */
 		goto out;
 
         object->ops->get_attribute(session, object, &token_attribure);
-	
-	if (is_token == TRUE) 
+
+	if (is_token == TRUE)
 	if (!(session->flags & CKF_RW_SESSION)) {
 		rv = CKR_SESSION_READ_ONLY;
 		goto out;
@@ -340,13 +340,13 @@ CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession,	/* the session's handle */
 	hide_private = 0;
 	if (slot->login_user != CKU_USER && (slot->token_info.flags & CKF_LOGIN_REQUIRED))
 		hide_private = 1;
-        
+
 	/* For each object in token do */
 	for (i=0; i<list_size(&slot->objects); i++) {
 		object = (struct sc_pkcs11_object *)list_get_at(&slot->objects, i);
 		sc_log(context, "Object with handle 0x%lx", object->handle);
 
-		/* User not logged in and private object? */ 
+		/* User not logged in and private object? */
 		if (hide_private) {
 			if (object->ops->get_attribute(session, object, &private_attribute) != CKR_OK)
 			        continue;
@@ -383,7 +383,7 @@ CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession,	/* the session's handle */
 				operation->allocated_handles += SC_PKCS11_FIND_INC_HANDLES;
 				sc_log(context, "realloc for %d handles",
 					 operation->allocated_handles);
-				operation->handles = realloc(operation->handles, 
+				operation->handles = realloc(operation->handles,
 					sizeof(CK_OBJECT_HANDLE) * operation->allocated_handles);
 				if (operation->handles == NULL) {
 					rv = CKR_HOST_MEMORY;
@@ -985,9 +985,9 @@ CK_RV C_GenerateKeyPair(CK_SESSION_HANDLE hSession,	/* the session's handle */
 	if (slot->card->framework->gen_keypair == NULL)
 		rv = CKR_FUNCTION_NOT_SUPPORTED;
 	else
-		rv = slot->card->framework->gen_keypair(slot, pMechanism, 
+		rv = slot->card->framework->gen_keypair(slot, pMechanism,
 				pPublicKeyTemplate, ulPublicKeyAttributeCount,
-				pPrivateKeyTemplate, ulPrivateKeyAttributeCount, 
+				pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
 				phPublicKey, phPrivateKey);
 
 out:	sc_pkcs11_unlock();
@@ -1023,9 +1023,9 @@ CK_RV C_DeriveKey(CK_SESSION_HANDLE hSession,	/* the session's handle */
 		  CK_ULONG ulAttributeCount,	/* # of attributes in template */
 		  CK_OBJECT_HANDLE_PTR phKey)
 {				/* gets handle of derived key */
-/* TODO: -DEE ECDH with Cofactor  on PIV is an example */ 
+/* TODO: -DEE ECDH with Cofactor  on PIV is an example */
 /* TODO: need to do a lot of checking, will only support ECDH for now.
-*/ 
+*/
 
 	CK_RV rv;
 	CK_BBOOL can_derive;
@@ -1066,7 +1066,7 @@ CK_RV C_DeriveKey(CK_SESSION_HANDLE hSession,	/* the session's handle */
 		goto out;
 	}
 	/* TODO DEE Should also check SENSITIVE, ALWAYS_SENSITIVE, EXTRACTABLE,
-	   NEVER_EXTRACTABLE of the BaseKey against the template for the newkey. 
+	   NEVER_EXTRACTABLE of the BaseKey against the template for the newkey.
 	*/
 
 	switch(key_type) {
@@ -1083,7 +1083,7 @@ CK_RV C_DeriveKey(CK_SESSION_HANDLE hSession,	/* the session's handle */
 			goto out;
 		}
 
-		rv = sc_pkcs11_deri(session, pMechanism, object, key_type, 
+		rv = sc_pkcs11_deri(session, pMechanism, object, key_type,
 			hSession, *phKey, key_object);
 		/* TODO if (rv != CK_OK) need to destroy the object */
 
@@ -1101,7 +1101,7 @@ CK_RV C_SeedRandom(CK_SESSION_HANDLE hSession,	/* the session's handle */
 		   CK_BYTE_PTR pSeed,	/* the seed material */
 		   CK_ULONG ulSeedLen)
 {				/* count of bytes of seed material */
-	return CKR_FUNCTION_NOT_SUPPORTED;	
+	return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
 CK_RV C_GenerateRandom(CK_SESSION_HANDLE hSession,	/* the session's handle */

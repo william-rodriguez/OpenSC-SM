@@ -58,7 +58,7 @@ void sc_format_asn1_entry(struct sc_asn1_entry *entry, void *parm, void *arg,
 			  int set_present);
 void sc_copy_asn1_entry(const struct sc_asn1_entry *src,
 			struct sc_asn1_entry *dest);
-			
+
 /* DER tag and length parsing */
 int sc_asn1_decode(struct sc_context *ctx, struct sc_asn1_entry *asn1,
 		   const u8 *in, size_t len, const u8 **newp, size_t *left);
@@ -99,7 +99,7 @@ int sc_asn1_decode_bit_string_ni(const u8 * inbuf, size_t inlen,
 int sc_asn1_decode_integer(const u8 * inbuf, size_t inlen, int *out);
 int sc_asn1_decode_object_id(const u8 * inbuf, size_t inlen,
 			     struct sc_object_id *id);
-int sc_asn1_encode_object_id(u8 **buf, size_t *buflen, 
+int sc_asn1_encode_object_id(u8 **buf, size_t *buflen,
 				const struct sc_object_id *id);
 
 /* algorithm encoding/decoding */

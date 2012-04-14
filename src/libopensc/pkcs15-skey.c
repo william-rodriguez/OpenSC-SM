@@ -72,8 +72,8 @@ int sc_pkcs15_decode_skdf_entry(struct sc_pkcs15_card *p15card,
 	struct sc_asn1_entry asn1_generic_skey_attr[2];
 	struct sc_asn1_entry asn1_skey_choice[5];
 	struct sc_asn1_entry asn1_skey[2];
-	struct sc_asn1_pkcs15_object skey_des_obj = { 
-		obj, asn1_com_key_attr, asn1_com_skey_attr, asn1_generic_skey_attr 
+	struct sc_asn1_pkcs15_object skey_des_obj = {
+		obj, asn1_com_key_attr, asn1_com_skey_attr, asn1_generic_skey_attr
 	};
 
 	SC_FUNC_CALLED(ctx, SC_LOG_DEBUG_ASN1);
@@ -84,7 +84,7 @@ int sc_pkcs15_decode_skdf_entry(struct sc_pkcs15_card *p15card,
 	sc_copy_asn1_entry(c_asn1_com_key_attr, asn1_com_key_attr);
 	sc_copy_asn1_entry(c_asn1_com_skey_attr, asn1_com_skey_attr);
 	sc_copy_asn1_entry(c_asn1_generic_skey_attr, asn1_generic_skey_attr);
-	
+
 	sc_format_asn1_entry(asn1_skey + 0, asn1_skey_choice, NULL, 0);
 	sc_format_asn1_entry(asn1_skey_choice + 0, &skey_des_obj, NULL, 0);
 	sc_format_asn1_entry(asn1_skey_choice + 1, &skey_des_obj, NULL, 0);
@@ -117,7 +117,7 @@ int sc_pkcs15_decode_skdf_entry(struct sc_pkcs15_card *p15card,
 	else
 		LOG_TEST_RET(ctx, SC_ERROR_NOT_SUPPORTED, "unsupported secret key type");
 
-	
+
 	obj->data = malloc(sizeof(info));
 	if (obj->data == NULL)
 		LOG_FUNC_RETURN(ctx, SC_ERROR_OUT_OF_MEMORY);
@@ -137,11 +137,11 @@ int sc_pkcs15_encode_skdf_entry(struct sc_context *ctx,
 	struct sc_asn1_entry asn1_skey_choice[5];
 	struct sc_asn1_entry asn1_skey[2];
 	struct sc_pkcs15_skey_info *skey = (struct sc_pkcs15_skey_info *) obj->data;
-	struct sc_asn1_pkcs15_object skey_des_obj = { 
+	struct sc_asn1_pkcs15_object skey_des_obj = {
 				(struct sc_pkcs15_object *) obj,
 				asn1_com_key_attr,
-				asn1_com_skey_attr, 
-				asn1_skey_des_type_attr 
+				asn1_com_skey_attr,
+				asn1_skey_des_type_attr
 	};
 	int r;
 	size_t af_len, usage_len;
@@ -165,7 +165,7 @@ int sc_pkcs15_encode_skdf_entry(struct sc_context *ctx,
 		sc_format_asn1_entry(asn1_skey_des_attr + 1, &skey->type, NULL, 1);
 		sc_format_asn1_entry(asn1_skey_des_attr + 2, &skey->size, NULL, 1);
 		break;
-		
+
 	default:
 		sc_log(ctx, "Unsupported skey type: %X\n", obj->type);
 		LOG_FUNC_RETURN(ctx, SC_ERROR_INTERNAL);

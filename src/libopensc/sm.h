@@ -54,12 +54,12 @@ extern "C" {
 #define SM_CMD_RSA_GENERATE 		0x101
 #define SM_CMD_RSA_UPDATE		0x102
 #define SM_CMD_RSA_READ_PUBLIC 		0x103
-#define SM_CMD_FILE			0x200   
+#define SM_CMD_FILE			0x200
 #define SM_CMD_FILE_READ		0x201
 #define SM_CMD_FILE_UPDATE 		0x202
 #define SM_CMD_FILE_CREATE 		0x203
-#define SM_CMD_FILE_DELETE		0x204	
-#define SM_CMD_PIN			0x300   
+#define SM_CMD_FILE_DELETE		0x204
+#define SM_CMD_PIN			0x300
 #define SM_CMD_PIN_VERIFY 		0x301
 #define SM_CMD_PIN_RESET		0x302
 #define SM_CMD_PIN_SET_PIN 		0x303
@@ -91,8 +91,8 @@ extern "C" {
 #define SM_GP_SECURITY_ENC		0x03
 
 /* Global Platform (SCP01) data types */
-/* 
- * @struct sm_type_params_gp 
+/*
+ * @struct sm_type_params_gp
  * 	Global Platform SM channel parameters
  */
 struct sm_type_params_gp {
@@ -133,14 +133,14 @@ struct sm_gp_session {
 
 /* CWA, IAS/ECC data types */
 
-/* 
- * @struct sm_type_params_cwa 
+/*
+ * @struct sm_type_params_cwa
  */
 struct sm_type_params_cwa {
 	struct sc_crt crt_at;
 };
 
-/* 
+/*
  * @struct sm_cwa_keyset
  * 	CWA keyset:
  * 	- SDO reference;
@@ -152,7 +152,7 @@ struct sm_cwa_keyset {
 	unsigned char mac[16];
 };
 
-/* 
+/*
  * @struct sm_cwa_token_data
  * 	CWA token data:
  * 	- serial;
@@ -165,7 +165,7 @@ struct sm_cwa_token_data  {
 	unsigned char k[32];
 };
 
-/* 
+/*
  * @struct sm_cwa_session
  * 	CWA working SM session data:
  * 	- ICC and IFD token data;
@@ -186,8 +186,8 @@ struct sm_cwa_session {
 	size_t mdata_len;
 };
 
-/* 
- * @struct sc_secure channel 
+/*
+ * @struct sc_secure channel
  * 	data type to open and maintain the Secure Messaging session.
  */
 struct sm_secure_channel {
@@ -206,8 +206,8 @@ struct sm_secure_channel {
 };
 
 
-/* 
- * @struct sc_info is the 
+/*
+ * @struct sc_info is the
  * 	placehold for the secure messaging working data:
  * 	- SM type;
  * 	- SM session state;
@@ -228,7 +228,7 @@ struct sm_info   {
 	} sm_params;
 
 	struct sc_serial_number serialnr;
-	   
+
 	unsigned security_condition;
 
 	struct sc_path current_path_df;
@@ -241,7 +241,7 @@ struct sm_info   {
 	struct sm_secure_channel schannel;
 };
 
-/* 
+/*
  * @struct sm_card_response
  * 	data type to return card response.
  */
@@ -263,7 +263,7 @@ typedef struct sm_card_response   {
 struct sc_context;
 struct sc_card;
 
-/* 
+/*
  * @struct sm_card_operations
  * 	card driver handlers related to secure messaging (in 'APDU TRANSMIT' mode)
  * 	- 'open' - initialize SM session;
@@ -283,7 +283,7 @@ struct sm_card_operations {
 			const unsigned char * buf, size_t count);
 };
 
-/* 
+/*
  * @struct sm_module_operations
  * 	API to use external SM modules:
  * 	- 'initiliaze' - get APDU(s) to initialize SM session;
@@ -295,7 +295,7 @@ struct sm_card_operations {
 struct sm_module_operations {
 	int (*initialize)(struct sc_context *ctx, struct sm_info *info,
 			struct sc_remote_data *out);
-	int (*get_apdus)(struct sc_context *ctx, struct sm_info *sm_info, 
+	int (*get_apdus)(struct sc_context *ctx, struct sm_info *sm_info,
 			unsigned char *init_data, size_t init_len,
 	                struct sc_remote_data *out);
 	int (*finalize)(struct sc_context *ctx, struct sm_info *info, struct sc_remote_data *rdata,
@@ -313,7 +313,7 @@ typedef struct sm_module {
 	struct sm_module_operations ops;
 } sm_module_t;
 
-/* @struct sm_context 
+/* @struct sm_context
  * 	SM context -- top level of the SM data type
  * 	- SM mode ('ACL' or 'APDU TRANSMIT'), flags;
  *	- working SM data;

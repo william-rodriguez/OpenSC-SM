@@ -97,13 +97,13 @@ static void sc_do_log_va(sc_context_t *ctx, int level, const char *file, int lin
 	left -= r;
 
 	if (file != NULL) {
-		r = snprintf(p, left, "[%s] %s:%d:%s: ", 
+		r = snprintf(p, left, "[%s] %s:%d:%s: ",
 			ctx->app_name, file, line, func ? func : "");
 		if (r < 0 || (unsigned int)r > sizeof(buf))
 			return;
 	} else {
 		r = 0;
-	}	
+	}
 	p += r;
 	left -= r;
 
@@ -136,7 +136,7 @@ static void sc_do_log_va(sc_context_t *ctx, int level, const char *file, int lin
 }
 
 void _sc_debug(struct sc_context *ctx, int level, const char *format, ...)
-{	
+{
 	va_list ap;
 
         va_start(ap, format);

@@ -60,7 +60,7 @@ static int miocos_init(sc_card_t *card)
 
 	if (1) {
 		unsigned long flags;
-		
+
 		flags = SC_ALGORITHM_RSA_RAW | SC_ALGORITHM_RSA_PAD_PKCS1;
 		flags |= SC_ALGORITHM_RSA_HASH_NONE | SC_ALGORITHM_RSA_HASH_SHA1;
 
@@ -322,7 +322,7 @@ static int miocos_get_acl(sc_card_t *card, sc_file_t *file)
 	size_t left;
 	int acl_types[16], r;
 	unsigned int i;
-	
+
 	sc_format_apdu(card, &apdu, SC_APDU_CASE_2_SHORT, 0xCA, 0x01, 0x01);
 	apdu.resp = rbuf;
 	apdu.resplen = sizeof(rbuf);
@@ -343,14 +343,14 @@ static int miocos_get_acl(sc_card_t *card, sc_file_t *file)
 		int j;
 		const u8 *tag;
 		size_t taglen;
-		
+
 		tag = sc_asn1_skip_tag(card->ctx, &seq, &left,
 				       SC_ASN1_CTX | i, &taglen);
 		if (tag == NULL || taglen == 0)
 			continue;
 		for (j = 0; j < SC_MAX_AC_OPS; j++) {
 			sc_acl_entry_t *e;
-			
+
 			e = (sc_acl_entry_t *) sc_file_get_acl_entry(file, j);
 			if (e == NULL)
 				continue;
@@ -419,7 +419,7 @@ static int miocos_delete_file(sc_card_t *card, const sc_path_t *path)
 	}
 	r = sc_select_file(card, path, NULL);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "Unable to select file to be deleted");
-	
+
 	sc_format_apdu(card, &apdu, SC_APDU_CASE_1, 0xE4, 0x00, 0x00);
 	apdu.cla = 0xA0;
 
@@ -435,7 +435,7 @@ static int miocos_create_ac(sc_card_t *card,
 	u8 sbuf[20];
 	int miocos_type, r;
 	size_t sendsize;
-	
+
 	if (ac->max_tries > 15)
 		SC_FUNC_RETURN(card->ctx, SC_LOG_DEBUG_NORMAL, SC_ERROR_INVALID_ARGUMENTS);
 	switch (ac->type) {
@@ -492,7 +492,7 @@ static struct sc_card_driver * sc_get_driver(void)
 	miocos_ops.list_files = miocos_list_files;
 	miocos_ops.delete_file = miocos_delete_file;
 	miocos_ops.card_ctl = miocos_card_ctl;
-	
+
         return &miocos_drv;
 }
 

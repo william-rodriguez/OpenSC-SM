@@ -74,7 +74,7 @@ static size_t sc_apdu_get_length(const sc_apdu_t *apdu, unsigned int proto)
  *  @param  ctx     sc_context_t object (used for logging)
  *  @param  apdu    APDU to be encoded as an octet string
  *  @param  proto   protocol version to be used
- *  @param  out     output buffer of size outlen. 
+ *  @param  out     output buffer of size outlen.
  *  @param  outlen  size of hte output buffer
  *  @return SC_SUCCESS on success and an error code otherwise
  */
@@ -122,7 +122,7 @@ static int sc_apdu2bytes(sc_context_t *ctx, const sc_apdu_t *apdu,
 			/* in case of T0 the command is transmitted in chunks
 			 * < 255 using the ENVELOPE command ... */
 			if (apdu->lc > 255) {
-				/* ... so if Lc is greater than 255 bytes 
+				/* ... so if Lc is greater than 255 bytes
 				 * an error has occurred on a higher level */
 				sc_debug(ctx, SC_LOG_DEBUG_NORMAL,
 					"invalid Lc length for CASE 3 "
@@ -234,15 +234,15 @@ int sc_apdu_set_resp(sc_context_t *ctx, sc_apdu_t *apdu, const u8 *buf,
 	return SC_SUCCESS;
 }
 
-#ifdef ENABLE_SM                               
+#ifdef ENABLE_SM
 static const struct sc_asn1_entry c_asn1_sm_response[4] = {
 	{ "encryptedData",	SC_ASN1_OCTET_STRING,   SC_ASN1_CTX | 7,        SC_ASN1_OPTIONAL,       NULL, NULL },
 	{ "statusWord",		SC_ASN1_OCTET_STRING,   SC_ASN1_CTX | 0x19,     0,                      NULL, NULL },
 	{ "mac",		SC_ASN1_OCTET_STRING,   SC_ASN1_CTX | 0x0E,     0,                      NULL, NULL },
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
-static int 
-sc_sm_parse_answer(struct sc_context *ctx, unsigned char *resp_data, size_t resp_len, 
+static int
+sc_sm_parse_answer(struct sc_context *ctx, unsigned char *resp_data, size_t resp_len,
 		struct sm_card_response *out)
 {
 	struct sc_asn1_entry asn1_sm_response[4];
@@ -252,7 +252,7 @@ sc_sm_parse_answer(struct sc_context *ctx, unsigned char *resp_data, size_t resp
 	size_t status_len = sizeof(status);
 	unsigned char mac[8];
 	size_t mac_len = sizeof(mac);
-	int r; 
+	int r;
 
 	if (!resp_data || !resp_len || !out)
 		return SC_ERROR_INVALID_ARGUMENTS;
@@ -378,7 +378,7 @@ static int sc_check_apdu(sc_card_t *card, const sc_apdu_t *apdu)
 		if (apdu->resplen == 0 || apdu->resp == NULL)
 			goto error;
 		/* return buffer to small */
-		if ((apdu->le == 0 && apdu->resplen < SC_MAX_APDU_BUFFER_SIZE-2) 
+		if ((apdu->le == 0 && apdu->resplen < SC_MAX_APDU_BUFFER_SIZE-2)
 				|| (apdu->resplen < apdu->le))
 			goto error;
 		break;
@@ -427,7 +427,7 @@ error:
 }
 
 /** Tries to determine the APDU type (short or extended) of the supplied
- *  APDU if one of the SC_APDU_CASE_? types is used. 
+ *  APDU if one of the SC_APDU_CASE_? types is used.
  *  @param  apdu  APDU object
  */
 static void sc_detect_apdu_cse(const sc_card_t *card, sc_apdu_t *apdu)
@@ -447,7 +447,7 @@ static void sc_detect_apdu_cse(const sc_card_t *card, sc_apdu_t *apdu)
 }
 
 
-/** Sends a single APDU to the card reader and calls 
+/** Sends a single APDU to the card reader and calls
  *  GET RESPONSE to get the return data if necessary.
  *  @param  card  sc_card_t object for the smartcard
  *  @param  apdu  APDU to be sent
@@ -471,7 +471,7 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 		r = card->sm_ctx.ops.get_sm_apdu(card, apdu, &sm_apdu);
 		if (r)
 			return r;
-		
+
 		if (sm_apdu)   {
 			r = sc_check_apdu(card, sm_apdu);
 			if (r < 0)   {
@@ -517,7 +517,7 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 				sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "cannot transmit APDU");
 				goto done;
 			}
-		} 
+		}
 		else {
 			/* we cannot re-transmit the APDU with the demanded
 			 * Le value as the buffer is too small => error */
@@ -540,10 +540,10 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 			 *        error */
 			apdu->sw1 = 0x90;
 			apdu->sw2 = 0x00;
-			
+
 		} else {
 			/* call GET RESPONSE until we have read all data
-			 * requested or until the card retuns 0x9000, 
+			 * requested or until the card retuns 0x9000,
 			 * whatever happens first.
 			 */
 			size_t le, minlen, buflen;
@@ -556,7 +556,7 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 				goto done;
 	                }
 
-			/* if the command already returned some data 
+			/* if the command already returned some data
 			 * append the new data to the end of the buffer
 			 */
 			buf = apdu->resp + apdu->resplen;
@@ -568,7 +568,7 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 
 			/* 0x6100 means at least 256 more bytes to read */
 			le = apdu->sw2 != 0 ? (size_t)apdu->sw2 : 256;
-			/* we try to read at least as much as bytes as 
+			/* we try to read at least as much as bytes as
 			 * promised in the response bytes */
 			minlen = le;
 
@@ -582,7 +582,7 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 				r = card->ops->get_response(card, &resp_len, resp);
 				if (r < 0)   {
 					sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "GET RESPONSE error %i", r);
-#ifdef ENABLE_SM                               
+#ifdef ENABLE_SM
 					if (sm_apdu && resp_len)   {
 						sc_log(ctx, "'ve got response data %s", sc_dump_hex(resp, resp_len));
 						sc_sm_update_apdu_response(card, resp, resp_len, r, apdu);
@@ -600,17 +600,17 @@ static int do_single_transmit(sc_card_t *card, sc_apdu_t *apdu)
 				buf    += le;
 				buflen -= le;
 
-				/* we have all the data the caller requested 
+				/* we have all the data the caller requested
 				 * even if the card has more data */
 				if (buflen == 0)
 					break;
 
 				minlen -= le;
-				if (r != 0) 
+				if (r != 0)
 					le = minlen = (size_t)r;
 				else
 					/* if the card has returned 0x9000 but
-					 * we still expect data ask for more 
+					 * we still expect data ask for more
 					 * until we have read enough bytes */
 					le = minlen;
 			} while (r != 0 || minlen != 0);
@@ -651,7 +651,7 @@ int sc_transmit_apdu(sc_card_t *card, sc_apdu_t *apdu)
 	if (r != SC_SUCCESS) {
 		sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "unable to acquire lock");
 		return r;
-	} 
+	}
 
 	if ((apdu->flags & SC_APDU_FLAGS_CHAINING) != 0) {
 		/* divide et impera: transmit APDU in chunks with Lc <= max_send_size
@@ -699,7 +699,7 @@ int sc_transmit_apdu(sc_card_t *card, sc_apdu_t *apdu)
 			if (r != SC_SUCCESS)
 				break;
 			if (last != 0) {
-				/* in case of the last APDU set the SW1 
+				/* in case of the last APDU set the SW1
 				 * and SW2 bytes in the original APDU */
 				apdu->sw1 = tapdu.sw1;
 				apdu->sw2 = tapdu.sw2;
@@ -713,7 +713,7 @@ int sc_transmit_apdu(sc_card_t *card, sc_apdu_t *apdu)
 			len -= plen;
 			buf += plen;
 		}
-	} else 
+	} else
 		/* transmit single APDU */
 		r = do_single_transmit(card, apdu);
 	/* all done => release lock */

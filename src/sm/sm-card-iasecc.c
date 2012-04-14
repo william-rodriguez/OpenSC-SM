@@ -91,7 +91,7 @@ sm_iasecc_get_apdu_read_binary(struct sc_context *ctx, struct sm_info *sm_info, 
 		offs += sz;
 		data_offs += sz;
 	}
-			
+
 	LOG_FUNC_RETURN(ctx, rv);
 }
 
@@ -139,7 +139,7 @@ sm_iasecc_get_apdu_update_binary(struct sc_context *ctx, struct sm_info *sm_info
 		offs += sz;
 		data_offs += sz;
 	}
-			
+
 	LOG_FUNC_RETURN(ctx, rv);
 }
 
@@ -331,7 +331,7 @@ sm_iasecc_get_apdu_sdo_update(struct sc_context *ctx, struct sm_info *sm_info, s
 
 		encoded_len = iasecc_sdo_encode_update_field(ctx, update->sdo_class, update->sdo_ref, &update->fields[ii], &encoded);
 		LOG_TEST_RET(ctx, encoded_len, "SM get 'SDO UPDATE' APDU: encode component error");
-			
+
 		sc_log(ctx, "SM IAS/ECC get APDUs: encoded component '%s'", sc_dump_hex(encoded, encoded_len));
 
 		for (offs = 0; offs < encoded_len; )   {
@@ -371,13 +371,13 @@ sm_iasecc_get_apdu_generate_rsa(struct sc_context *ctx, struct sm_info *sm_info,
 {
 	struct iasecc_sdo *sdo = (struct iasecc_sdo *)sm_info->cmd_data;
 	struct sc_remote_apdu *rapdu = NULL;
-	unsigned char put_exponent_data[14] = { 
-		0x70, 0x0C, 
-			IASECC_SDO_TAG_HEADER, IASECC_SDO_CLASS_RSA_PUBLIC | 0x80, sdo->sdo_ref & 0x7F, 0x08, 
-					0x7F, 0x49, 0x05, 0x82, 0x03, 0x01, 0x00, 0x01 
+	unsigned char put_exponent_data[14] = {
+		0x70, 0x0C,
+			IASECC_SDO_TAG_HEADER, IASECC_SDO_CLASS_RSA_PUBLIC | 0x80, sdo->sdo_ref & 0x7F, 0x08,
+					0x7F, 0x49, 0x05, 0x82, 0x03, 0x01, 0x00, 0x01
 	};
-	unsigned char generate_data[5] = { 
-		0x70, 0x03, 
+	unsigned char generate_data[5] = {
+		0x70, 0x03,
 			IASECC_SDO_TAG_HEADER, IASECC_SDO_CLASS_RSA_PRIVATE | 0x80, sdo->sdo_ref & 0x7F
 	};
 	int rv;
@@ -462,7 +462,7 @@ sm_iasecc_get_apdu_update_rsa(struct sc_context *ctx, struct sm_info *sm_info, s
 			encoded_len = iasecc_sdo_encode_update_field(ctx, to_update[jj]->sdo_class, to_update[jj]->sdo_ref,
 						&to_update[jj]->fields[ii], &encoded);
 			LOG_TEST_RET(ctx, encoded_len, "SM get 'UPDATE RSA' APDU: cannot encode key component");
-			
+
 			sc_log(ctx, "SM IAS/ECC get APDUs: component encoded %s", sc_dump_hex(encoded, encoded_len));
 
 			for (offs = 0; offs < encoded_len; )   {
@@ -588,13 +588,13 @@ sm_iasecc_get_apdu_raw_apdu(struct sc_context *ctx, struct sm_info *sm_info, str
 		data_offs += sz;
 		data_len -= sz;
 	}
-			
+
 	LOG_FUNC_RETURN(ctx, rv);
 }
 #endif
 
 int
-sm_iasecc_get_apdus(struct sc_context *ctx, struct sm_info *sm_info, 
+sm_iasecc_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
 	       unsigned char *init_data, size_t init_len, struct sc_remote_data *rdata, int release_sm)
 {
 	struct sm_cwa_session *session_data = &sm_info->schannel.session.cwa;
@@ -678,8 +678,8 @@ sm_iasecc_get_apdus(struct sc_context *ctx, struct sm_info *sm_info,
 }
 
 
-int 
-sm_iasecc_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata, 
+int
+sm_iasecc_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, struct sc_remote_data *rdata,
 		unsigned char *out, size_t out_len)
 {
 	struct sm_cwa_session *session_data = &sm_info->schannel.session.cwa;
@@ -698,7 +698,7 @@ sm_iasecc_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, stru
 		unsigned char status[2] = {0, 0};
 		size_t status_len = sizeof(status);
 		unsigned char ticket[8];
-		size_t ticket_len = sizeof(ticket); 
+		size_t ticket_len = sizeof(ticket);
 
 		sc_log(ctx, "IAS/ECC decode response(%i) %s", rapdu->apdu.resplen, sc_dump_hex(rapdu->apdu.resp, rapdu->apdu.resplen));
 
@@ -719,8 +719,8 @@ sm_iasecc_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, stru
 			if (resp_data[0] != 0x01)
 				LOG_TEST_RET(ctx, SC_ERROR_INVALID_DATA, "IAS/ECC decode answer(s): invalid encrypted data format");
 
-			decrypted_len = sizeof(decrypted);	
-			rv = sm_decrypt_des_cbc3(ctx, session_data->session_enc, &resp_data[1], resp_len - 1, 
+			decrypted_len = sizeof(decrypted);
+			rv = sm_decrypt_des_cbc3(ctx, session_data->session_enc, &resp_data[1], resp_len - 1,
 					&decrypted, &decrypted_len);
 			LOG_TEST_RET(ctx, rv, "IAS/ECC decode answer(s): cannot decrypt card answer data");
 
@@ -734,7 +734,7 @@ sm_iasecc_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, stru
 			if (out && out_len)   {
 				if (out_len < offs + decrypted_len)
 					LOG_TEST_RET(ctx, SC_ERROR_BUFFER_TOO_SMALL, "IAS/ECC decode answer(s): unsufficient output buffer size");
-				
+
 				memcpy(out + offs, decrypted, decrypted_len);
 
 				offs += decrypted_len;
@@ -744,6 +744,6 @@ sm_iasecc_decode_card_data(struct sc_context *ctx, struct sm_info *sm_info, stru
 			free(decrypted);
 		}
 	}
-	
+
 	LOG_FUNC_RETURN(ctx, offs);
 }

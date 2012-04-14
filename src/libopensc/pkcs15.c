@@ -139,7 +139,7 @@ int sc_pkcs15_parse_tokeninfo(sc_context_t *ctx,
 	sc_copy_asn1_entry(c_asn1_last_update, asn1_last_update);
 	sc_format_asn1_entry(asn1_twlabel, label, &label_len, 0);
 	sc_copy_asn1_entry(c_asn1_profile_indication, asn1_profile_indication);
-	
+
 	for (ii=0; ii<SC_MAX_SUPPORTED_ALGORITHMS; ii++)
 		sc_copy_asn1_entry(c_asn1_algorithm_info, asn1_algo_infos[ii]);
 	sc_copy_asn1_entry(c_asn1_supported_algorithms, asn1_supported_algorithms);
@@ -175,7 +175,7 @@ int sc_pkcs15_parse_tokeninfo(sc_context_t *ctx,
 	sc_format_asn1_entry(asn1_toki_attrs + 12, preferred_language, &lang_length, 0);
 	sc_format_asn1_entry(asn1_toki_attrs + 13, asn1_profile_indication, NULL, 0);
 	sc_format_asn1_entry(asn1_tokeninfo, asn1_toki_attrs, NULL, 0);
-	
+
 	r = sc_asn1_decode(ctx, asn1_tokeninfo, buf, blen, NULL, NULL);
 	LOG_TEST_RET(ctx, r, "ASN.1 parsing of EF(TokenInfo) failed");
 
@@ -245,13 +245,13 @@ int sc_pkcs15_parse_tokeninfo(sc_context_t *ctx,
 }
 
 
-int 
+int
 sc_pkcs15_encode_tokeninfo(sc_context_t *ctx, sc_pkcs15_tokeninfo_t *ti,
 		u8 **buf, size_t *buflen)
 {
 	int r, ii;
 	size_t serial_len, mnfid_len, label_len, flags_len, last_upd_len, pi_len;
-	
+
 	struct sc_asn1_entry asn1_toki_attrs[C_ASN1_TOKI_ATTRS_SIZE];
 	struct sc_asn1_entry asn1_tokeninfo[2];
 	struct sc_asn1_entry asn1_supported_algorithms[SC_MAX_SUPPORTED_ALGORITHMS + 1],
@@ -377,7 +377,7 @@ static const struct sc_asn1_entry c_asn1_ddo[] = {
 	{ "tokenInfoPath", SC_ASN1_PATH, SC_ASN1_CONS | SC_ASN1_CTX | 0, SC_ASN1_OPTIONAL, NULL, NULL },
 	{ "unusedPath",    SC_ASN1_PATH, SC_ASN1_CONS | SC_ASN1_CTX | 1, SC_ASN1_OPTIONAL, NULL, NULL },
 /* According to PKCS#15 v1.1 here is the place for the future extensions.
- * The following data are used when ODF record points to the xDF files in a different application. 
+ * The following data are used when ODF record points to the xDF files in a different application.
  */
 	{ "ddoIIN",	   SC_ASN1_OCTET_STRING, SC_ASN1_APP | 0x02, SC_ASN1_OPTIONAL, NULL, NULL },
 	{ "ddoAID",	   SC_ASN1_OCTET_STRING, SC_ASN1_APP | 0x0F, SC_ASN1_OPTIONAL, NULL, NULL },
@@ -512,7 +512,7 @@ static int encode_ddo(struct sc_pkcs15_card *p15card, u8 **buf, size_t *buflen)
 	struct sc_asn1_entry asn1_ddo[5];
 	int r;
 	size_t label_len;
-	
+
 	sc_copy_asn1_entry(c_asn1_ddo, asn1_ddo);
 
 	sc_format_asn1_entry(asn1_ddo + 1, &card->file_odf.path, NULL, 0);
@@ -540,7 +540,7 @@ sc_pkcs15_get_lastupdate(struct sc_pkcs15_card *p15card)
 	int r, content_len;
 
 	if (p15card->tokeninfo->last_update.gtime)
-		goto done; 
+		goto done;
 
 	if (!p15card->tokeninfo->last_update.path.len)
 		return NULL;
@@ -613,7 +613,7 @@ static int parse_odf(const u8 * buf, size_t buflen, struct sc_pkcs15_card *p15ca
 		{ NULL, 0, 0, 0, NULL, NULL }
 	};
 	struct sc_asn1_entry asn1_odf[10];
-	
+
 	sc_copy_asn1_entry(c_asn1_odf, asn1_odf);
 	for (i = 0; asn1_odf[i].name != NULL; i++)
 		sc_format_asn1_entry(asn1_odf + i, asn1_obj_or_path, NULL, 0);
@@ -648,7 +648,7 @@ int sc_pkcs15_encode_odf(sc_context_t *ctx,
 	int df_count = 0, r, c = 0;
 	const int nr_indexes = sizeof(odf_indexes)/sizeof(odf_indexes[0]);
 	struct sc_pkcs15_df *df;
-	
+
 	df = p15card->df_list;
 	while (df != NULL) {
 		df_count++;
@@ -698,7 +698,7 @@ err:
 struct sc_pkcs15_card * sc_pkcs15_card_new(void)
 {
 	struct sc_pkcs15_card *p15card;
-	
+
 	p15card = calloc(1, sizeof(struct sc_pkcs15_card));
 	if (p15card == NULL)
 		return NULL;
@@ -854,7 +854,7 @@ struct sc_app_info * sc_find_app(struct sc_card *card, struct sc_aid *aid)
 
 	if (!aid || !aid->len)
 		return card->app[0];
-		
+
 	for (ii=0; ii < card->app_count; ii++) {
 		if (card->app[ii]->aid.len != aid->len)
 			continue;
@@ -907,7 +907,7 @@ sc_pkcs15_get_application_by_type(struct sc_card * card, char *app_type)
 
 	conf_block = sc_get_conf_block(card->ctx, "framework", "pkcs15", 1);
 	if (!conf_block)
-		return NULL;	
+		return NULL;
 
 	for (i = 0; i < card->app_count; i++)   {
 		struct sc_app_info *app_info = card->app[i];
@@ -960,7 +960,7 @@ static int sc_pkcs15_bind_internal(sc_pkcs15_card_t *p15card, struct sc_aid *aid
 
 	info = sc_find_app(card, aid);
 	if (info)   {
-		sc_log(ctx, "bind to application('%s',aid:'%s')",  info->label, 
+		sc_log(ctx, "bind to application('%s',aid:'%s')",  info->label,
 				sc_dump_hex(info->aid.value, info->aid.len));
 		p15card->app = sc_dup_app_info(info);
 		if (!p15card->app)   {
@@ -1005,7 +1005,7 @@ static int sc_pkcs15_bind_internal(sc_pkcs15_card_t *p15card, struct sc_aid *aid
 		}
 		sc_log(ctx, "absolute path to EF(ODF) %s", sc_print_path(&tmppath));
 		err = sc_select_file(card, &tmppath, &p15card->file_odf);
-	} 
+	}
 	else {
 		tmppath = p15card->file_odf->path;
 		sc_file_free(p15card->file_odf);
@@ -1045,7 +1045,7 @@ static int sc_pkcs15_bind_internal(sc_pkcs15_card_t *p15card, struct sc_aid *aid
 
 	sc_log(ctx, "The following DFs were found:");
 	for (df = p15card->df_list; df; df = df->next)
-		sc_log(ctx, "  DF type %u, path %s, index %u, count %d", df->type, 
+		sc_log(ctx, "  DF type %u, path %s, index %u, count %d", df->type,
 				sc_print_path(&df->path), df->path.index, df->path.count);
 
 	if (p15card->file_tokeninfo == NULL) {
@@ -1056,7 +1056,7 @@ static int sc_pkcs15_bind_internal(sc_pkcs15_card_t *p15card, struct sc_aid *aid
 			goto end;
 		}
 		sc_log(ctx, "absolute path to EF(TokenInfo) %s", sc_print_path(&tmppath));
-	} 
+	}
 	else {
 		tmppath = p15card->file_tokeninfo->path;
 		sc_file_free(p15card->file_tokeninfo);
@@ -1092,7 +1092,7 @@ static int sc_pkcs15_bind_internal(sc_pkcs15_card_t *p15card, struct sc_aid *aid
 	if (!p15card->tokeninfo->serial_number && card->serialnr.len)   {
 		char *serial = calloc(1, card->serialnr.len*2 + 1);
 		size_t ii;
-		
+
 		for(ii=0;ii<card->serialnr.len;ii++)
 			sprintf(serial + ii*2, "%02X", *(card->serialnr.value + ii));
 
@@ -1282,7 +1282,7 @@ int sc_pkcs15_get_objects(struct sc_pkcs15_card *p15card, unsigned int type,
 static int compare_obj_id(struct sc_pkcs15_object *obj, const sc_pkcs15_id_t *id)
 {
 	void *data = obj->data;
-	
+
 	switch (obj->type) {
 	case SC_PKCS15_TYPE_CERT_X509:
 		return sc_pkcs15_compare_id(&((struct sc_pkcs15_cert_info *) data)->id, id);
@@ -1387,7 +1387,7 @@ static int compare_obj_reference(sc_pkcs15_object_t *obj, int value)
 static int compare_obj_path(sc_pkcs15_object_t *obj, const sc_path_t *path)
 {
 	void *data = obj->data;
-	
+
 	switch (obj->type) {
 	case SC_PKCS15_TYPE_CERT_X509:
 		return sc_compare_path(&((struct sc_pkcs15_cert_info *) data)->path, path);
@@ -1415,7 +1415,7 @@ static int compare_obj_data_name(sc_pkcs15_object_t *obj, const char *app_label,
 
 	if (obj->type != SC_PKCS15_TYPE_DATA_OBJECT)
 		return 0;
-	
+
 	return !strcmp(cinfo->app_label, app_label) &&
 		!strcmp(obj->label, label);
 }
@@ -1451,7 +1451,7 @@ static int find_by_key(struct sc_pkcs15_card *p15card,
 		       struct sc_pkcs15_object **out)
 {
 	int r;
-	
+
 	r = sc_pkcs15_get_objects_cond(p15card, type, compare_obj_key, sk, out, 1);
 	if (r < 0)
 		return r;
@@ -1588,11 +1588,11 @@ int sc_pkcs15_find_so_pin(struct sc_pkcs15_card *p15card, struct sc_pkcs15_objec
 
 	memset(&sk, 0, sizeof(sk));
 	sk.flags_mask = sk.flags_value = SC_PKCS15_PIN_FLAG_SO_PIN;
-	
+
 	return find_by_key(p15card, SC_PKCS15_TYPE_AUTH_PIN, &sk, out);
 }
 
-int sc_pkcs15_find_pin_by_flags(struct sc_pkcs15_card *p15card, 
+int sc_pkcs15_find_pin_by_flags(struct sc_pkcs15_card *p15card,
 		unsigned flags, unsigned mask, int *index,
 		struct sc_pkcs15_object **out)
 {
@@ -1612,7 +1612,7 @@ int sc_pkcs15_find_pin_by_flags(struct sc_pkcs15_card *p15card,
 
 	for (i=idx; i<num; i++)   {
 		struct sc_pkcs15_auth_info *pin_info = (struct sc_pkcs15_auth_info *)(*(auths + i))->data;
-		
+
 		if (!pin_info || pin_info->auth_type != SC_PKCS15_PIN_AUTH_TYPE_PIN)
 			continue;
 
@@ -1773,7 +1773,7 @@ void sc_pkcs15_free_object(struct sc_pkcs15_object *obj)
 int sc_pkcs15_add_df(struct sc_pkcs15_card *p15card, unsigned int type, const sc_path_t *path)
 {
 	struct sc_pkcs15_df *p, *newdf;
-	
+
 	newdf = calloc(1, sizeof(struct sc_pkcs15_df));
 	if (newdf == NULL)
 		return SC_ERROR_OUT_OF_MEMORY;
@@ -1861,8 +1861,8 @@ int sc_pkcs15_encode_df(sc_context_t *ctx,
 	}
 	*buf_out = buf;
 	*bufsize_out = bufsize;
-	
-	return 0;	
+
+	return 0;
 }
 
 int sc_pkcs15_parse_df(struct sc_pkcs15_card *p15card,
@@ -1918,7 +1918,7 @@ int sc_pkcs15_parse_df(struct sc_pkcs15_card *p15card,
 
 	p = buf;
 	while (bufsize && *p != 0x00) {
-		
+
 		obj = calloc(1, sizeof(struct sc_pkcs15_object));
 		if (obj == NULL) {
 			r = SC_ERROR_OUT_OF_MEMORY;
@@ -2158,7 +2158,7 @@ int sc_pkcs15_read_file(struct sc_pkcs15_card *p15card,
 		if (in_path->count < 0) {
 			len = file->size;
 			offset = 0;
-		} 
+		}
 		else {
 			offset = in_path->index;
 			len = in_path->count;
@@ -2294,7 +2294,7 @@ int sc_pkcs15_make_absolute_path(const sc_path_t *parent, sc_path_t *child)
 	/* a 0 length path stays a 0 length path */
 	if (child->len == 0)
 		return SC_SUCCESS;
-	
+
 	if (sc_compare_path_prefix(sc_get_mf_path(), child))
 		return SC_SUCCESS;
 
@@ -2349,24 +2349,24 @@ sc_pkcs15_get_supported_algo(struct sc_pkcs15_card *p15card,
 	struct sc_context *ctx = p15card->card->ctx;
 	struct sc_supported_algo_info *info = NULL;
 	int ii;
-	
+
 	for (ii=0;ii<SC_MAX_SUPPORTED_ALGORITHMS && p15card->tokeninfo->supported_algos[ii].reference; ii++)
-		if ((p15card->tokeninfo->supported_algos[ii].operations & operation) 
+		if ((p15card->tokeninfo->supported_algos[ii].operations & operation)
 				&& (p15card->tokeninfo->supported_algos[ii].mechanism == mechanism))
 			break;
-	
+
 	if (ii < SC_MAX_SUPPORTED_ALGORITHMS && p15card->tokeninfo->supported_algos[ii].reference)   {
         	info = &p15card->tokeninfo->supported_algos[ii];
-        	sc_log(ctx, "found supported algorithm (ref:%X,mech:%X,ops:%X,algo_ref:%X)", 
-				info->reference, info->mechanism, info->operations, info->algo_ref); 
+        	sc_log(ctx, "found supported algorithm (ref:%X,mech:%X,ops:%X,algo_ref:%X)",
+				info->reference, info->mechanism, info->operations, info->algo_ref);
 	}
-	
+
 	return info;
 }
 
 
-int 
-sc_pkcs15_add_supported_algo_ref(struct sc_pkcs15_object *obj, 
+int
+sc_pkcs15_add_supported_algo_ref(struct sc_pkcs15_object *obj,
 		struct sc_supported_algo_info *algo)
 {
 	unsigned int ii, *algo_refs = NULL;
@@ -2400,7 +2400,7 @@ sc_pkcs15_add_supported_algo_ref(struct sc_pkcs15_object *obj,
 }
 
 
-int 
+int
 sc_pkcs15_get_object_id(const struct sc_pkcs15_object *obj, struct sc_pkcs15_id *out)
 {
 	if (!obj || !out)
@@ -2443,14 +2443,14 @@ sc_pkcs15_get_object_id(const struct sc_pkcs15_object *obj, struct sc_pkcs15_id 
  *  that are described in RFC-4122 .
  */
 static int
-sc_pkcs15_serialize_guid(unsigned char *in, size_t in_size, unsigned flags, 
+sc_pkcs15_serialize_guid(unsigned char *in, size_t in_size, unsigned flags,
 		char *out, size_t out_size)
 {
 	int ii, jj, offs = 0;
 
 	if (in_size < 16)
 		return SC_ERROR_BUFFER_TOO_SMALL;
-	if (out_size < 39) 
+	if (out_size < 39)
 		return SC_ERROR_BUFFER_TOO_SMALL;
 
 	*out = '\0';
@@ -2472,7 +2472,7 @@ sc_pkcs15_serialize_guid(unsigned char *in, size_t in_size, unsigned flags,
 	return SC_SUCCESS;
 }
 
-int 
+int
 sc_pkcs15_get_guid(struct sc_pkcs15_card *p15card, const struct sc_pkcs15_object *obj,
 		                unsigned flags, char *out, size_t out_size)
 {
@@ -2500,7 +2500,7 @@ sc_pkcs15_get_guid(struct sc_pkcs15_card *p15card, const struct sc_pkcs15_object
 	if (rv)
 		return rv;
 
-	rv = sc_card_ctl(p15card->card, SC_CARDCTL_GET_SERIALNR, &serialnr);                                        
+	rv = sc_card_ctl(p15card->card, SC_CARDCTL_GET_SERIALNR, &serialnr);
 	if (rv)
 		return rv;
 
@@ -2519,7 +2519,7 @@ sc_pkcs15_get_guid(struct sc_pkcs15_card *p15card, const struct sc_pkcs15_object
 	return sc_pkcs15_serialize_guid(guid_bin, id.len + serialnr.len, flags, out, out_size);
 }
 
-void sc_pkcs15_free_key_params(struct sc_pkcs15_key_params *params)   
+void sc_pkcs15_free_key_params(struct sc_pkcs15_key_params *params)
 {
 	if (!params)
 		return;

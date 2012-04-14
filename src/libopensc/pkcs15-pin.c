@@ -90,7 +90,7 @@ int sc_pkcs15_decode_aodf_entry(struct sc_pkcs15_card *p15card,
 	struct sc_asn1_entry asn1_auth_type_choice[4];
 	struct sc_asn1_pkcs15_object pin_obj = { obj, asn1_com_ao_attr, NULL, asn1_type_pin_attr };
 	struct sc_asn1_pkcs15_object authkey_obj = { obj, asn1_com_ao_attr, NULL, asn1_type_authkey_attr };
-	
+
 	SC_FUNC_CALLED(ctx, SC_LOG_DEBUG_ASN1);
 
 	sc_copy_asn1_entry(c_asn1_auth_type, asn1_auth_type);
@@ -155,15 +155,15 @@ int sc_pkcs15_decode_aodf_entry(struct sc_pkcs15_card *p15card,
 
 		/* OpenSC 0.11.4 and older encoded "pinReference" as a negative
 		   value. Fixed in 0.11.5 we need to add a hack, so old cards
-		   continue to work. 
+		   continue to work.
 		   The same invalid encoding has some models of the proprietary PKCS#15 cards.
 		*/
 		if (info.attrs.pin.reference < 0)
 			info.attrs.pin.reference += 256;
 
 		if (info.attrs.pin.flags & SC_PKCS15_PIN_FLAG_LOCAL)   {
-			/* In OpenSC pkcs#15 framework 'path' is mandatory for the 'Local' PINs. 
-			 * If 'path' do not present in PinAttributes, 
+			/* In OpenSC pkcs#15 framework 'path' is mandatory for the 'Local' PINs.
+			 * If 'path' do not present in PinAttributes,
 			 * 	derive it from the PKCS#15 context. */
 			if (!info.path.len)   {
 				/* Give priority to AID defined in the application DDO */
@@ -258,14 +258,14 @@ static int _validate_pin(struct sc_pkcs15_card *p15card,
 	if (auth_info->auth_type != SC_PKCS15_PIN_AUTH_TYPE_PIN)
 		return SC_SUCCESS;
 
-	/* prevent buffer overflow from hostile card */	
+	/* prevent buffer overflow from hostile card */
 	if (auth_info->attrs.pin.stored_length > SC_MAX_PIN_SIZE)
 		return SC_ERROR_BUFFER_TOO_SMALL;
 
 	/* if we use pinpad, no more checks are needed */
 	if (p15card->card->reader->capabilities & SC_READER_CAP_PIN_PAD)
 		return SC_SUCCESS;
-		
+
 	/* If pin is given, make sure it is within limits */
 	max_length = auth_info->attrs.pin.max_length != 0 ? auth_info->attrs.pin.max_length : SC_MAX_PIN_SIZE;
 	if (pinlen > max_length || pinlen < auth_info->attrs.pin.min_length)
@@ -385,7 +385,7 @@ int sc_pkcs15_change_pin(struct sc_pkcs15_card *p15card,
 	sc_card_t *card;
 	struct sc_pin_cmd_data data;
 	struct sc_pkcs15_auth_info *auth_info = (struct sc_pkcs15_auth_info *)pin_obj->data;
-	
+
 	if (auth_info->auth_type != SC_PKCS15_PIN_AUTH_TYPE_PIN)
 		return SC_ERROR_NOT_SUPPORTED;
 
@@ -436,8 +436,8 @@ int sc_pkcs15_change_pin(struct sc_pkcs15_card *p15card,
 		data.pin2.encoding = SC_PIN_ENCODING_ASCII;
 		break;
 	}
-	
-	if((!oldpin || !newpin) 
+
+	if((!oldpin || !newpin)
 			&& p15card->card->reader->capabilities & SC_READER_CAP_PIN_PAD) {
 		data.flags |= SC_PIN_CMD_USE_PINPAD;
 		if (auth_info->attrs.pin.flags & SC_PKCS15_PIN_FLAG_SO_PIN) {
@@ -494,7 +494,7 @@ int sc_pkcs15_unblock_pin(struct sc_pkcs15_card *p15card,
 	if (!puk_info) {
 		sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "Unable to get puk object, using pin object instead!");
 		puk_info = auth_info;
-	
+
 		/* make sure the puk is in valid range */
 		r = _validate_pin(p15card, puk_info, puklen);
 		if (r != SC_SUCCESS)
@@ -504,7 +504,7 @@ int sc_pkcs15_unblock_pin(struct sc_pkcs15_card *p15card,
 		r = sc_pkcs15_verify_pin(p15card, puk_obj, puk, puklen);
 		SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "cannot verify PUK");
 	}
-	
+
 	r = sc_lock(card);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "sc_lock() failed");
 	/* the path in the pin object is optional */
@@ -552,7 +552,7 @@ int sc_pkcs15_unblock_pin(struct sc_pkcs15_card *p15card,
 		data.pin2.encoding = SC_PIN_ENCODING_ASCII;
 		break;
 	}
-	
+
 	if(p15card->card->reader->capabilities & SC_READER_CAP_PIN_PAD) {
 		data.flags |= SC_PIN_CMD_USE_PINPAD;
 		if (auth_info->attrs.pin.flags & SC_PKCS15_PIN_FLAG_SO_PIN) {
@@ -623,7 +623,7 @@ void sc_pkcs15_pincache_add(struct sc_pkcs15_card *p15card, struct sc_pkcs15_obj
 	if (r != SC_SUCCESS)   {
 		sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "Failed to allocate object content");
 		return;
-	} 
+	}
 
 	pin_obj->usage_counter = 0;
 	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "PIN(%s) cached", pin_obj->label);
@@ -652,7 +652,7 @@ int sc_pkcs15_pincache_revalidate(struct sc_pkcs15_card *p15card, const sc_pkcs1
 		sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "Could not find pin object for auth_id %s", sc_pkcs15_print_id(&obj->auth_id));
 		return SC_ERROR_SECURITY_STATUS_NOT_SATISFIED;
 	}
-	
+
 	if (pin_obj->usage_counter >= p15card->opts.pin_cache_counter) {
 		sc_pkcs15_free_object_content(pin_obj);
 		return SC_ERROR_SECURITY_STATUS_NOT_SATISFIED;
@@ -664,7 +664,7 @@ int sc_pkcs15_pincache_revalidate(struct sc_pkcs15_card *p15card, const sc_pkcs1
 	pin_obj->usage_counter++;
 	r = sc_pkcs15_verify_pin(p15card, pin_obj, pin_obj->content.value, pin_obj->content.len);
 	if (r != SC_SUCCESS) {
-		/* Ensure that wrong PIN isn't used again */ 
+		/* Ensure that wrong PIN isn't used again */
 		sc_pkcs15_free_object_content(pin_obj);
 
 		sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "Verify PIN error %i", r);

@@ -1,5 +1,5 @@
 /*
- * muscle.h: Support for MuscleCard Applet from musclecard.com 
+ * muscle.h: Support for MuscleCard Applet from musclecard.com
  *
  * Copyright (C) 2006, Identity Alliance, Thomas Harning <support@identityalliance.com>
  *
@@ -56,15 +56,15 @@ void msc_change_pin_apdu(sc_card_t *card, sc_apdu_t *apdu, u8* buffer, size_t bu
 int msc_get_challenge(sc_card_t *card, unsigned short dataLength, unsigned short seedLength, u8 *seedData, u8 *outputData);
 
 int msc_generate_keypair(sc_card_t *card, int privateKey, int publicKey, int algorithm, int keySize, int options);
-int msc_extract_rsa_public_key(sc_card_t *card, 
+int msc_extract_rsa_public_key(sc_card_t *card,
 			int keyLocation,
-			int* modLength, 
+			int* modLength,
 			u8** modulus,
 			int* expLength,
 			u8** exponent);
-int msc_extract_key(sc_card_t *card, 
+int msc_extract_key(sc_card_t *card,
 			int keyLocation);
-int msc_compute_crypt_init(sc_card_t *card, 
+int msc_compute_crypt_init(sc_card_t *card,
 			int keyLocation,
 			int cipherMode,
 			int cipherDirection,
@@ -73,20 +73,20 @@ int msc_compute_crypt_init(sc_card_t *card,
 			size_t dataLength,
 			size_t* outputDataLength);
 int msc_compute_crypt_process(
-			sc_card_t *card, 
+			sc_card_t *card,
 			int keyLocation,
 			const u8* inputData,
 			u8* outputData,
 			size_t dataLength,
 			size_t* outputDataLength);
 int msc_compute_crypt_final(
-			sc_card_t *card, 
+			sc_card_t *card,
 			int keyLocation,
 			const u8* inputData,
 			u8* outputData,
 			size_t dataLength,
 			size_t* outputDataLength);
-int msc_compute_crypt(sc_card_t *card, 
+int msc_compute_crypt(sc_card_t *card,
 			int keyLocation,
 			int cipherMode,
 			int cipherDirection,

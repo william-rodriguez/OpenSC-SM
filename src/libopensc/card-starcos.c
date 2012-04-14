@@ -1,7 +1,7 @@
 /*
  * card-starcos.c: Support for STARCOS SPK 2.3 cards
  *
- * Copyright (C) 2003  Jörn Zukowski <zukowski@trustcenter.de> and 
+ * Copyright (C) 2003  Jörn Zukowski <zukowski@trustcenter.de> and
  *                     Nils Larsch   <larsch@trustcenter.de>, TrustCenter AG
  *
  * This library is free software; you can redistribute it and/or
@@ -45,7 +45,7 @@ static struct sc_card_driver starcos_drv = {
 	NULL, 0, NULL
 };
 
-static const struct sc_card_error starcos_errors[] = 
+static const struct sc_card_error starcos_errors[] =
 {
 	{ 0x6600, SC_ERROR_INCORRECT_PARAMETERS, "Error setting the security env"},
 	{ 0x66F0, SC_ERROR_INCORRECT_PARAMETERS, "No space left for padding"},
@@ -94,7 +94,7 @@ static int starcos_init(sc_card_t *card)
 	card->cla  = 0x00;
 	card->drv_data = (void *)ex_data;
 
-	flags = SC_ALGORITHM_RSA_PAD_PKCS1 
+	flags = SC_ALGORITHM_RSA_PAD_PKCS1
 		| SC_ALGORITHM_ONBOARD_KEY_GEN
 		| SC_ALGORITHM_RSA_PAD_ISO9796
 		| SC_ALGORITHM_RSA_HASH_NONE
@@ -107,7 +107,7 @@ static int starcos_init(sc_card_t *card)
 	_sc_card_add_rsa_alg(card, 768, flags, 0x10001);
 	_sc_card_add_rsa_alg(card,1024, flags, 0x10001);
 
-	card->caps = SC_CARD_CAP_RNG; 
+	card->caps = SC_CARD_CAP_RNG;
 
 	/* we need read_binary&friends with max 128 bytes per read */
 	card->max_send_size = 128;
@@ -134,7 +134,7 @@ static int process_fci(sc_context_t *ctx, sc_file_t *file,
 
 	size_t taglen, len = buflen;
 	const u8 *tag = NULL, *p;
-  
+
 	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "processing FCI bytes\n");
 
 	if (buflen < 2)
@@ -152,7 +152,7 @@ static int process_fci(sc_context_t *ctx, sc_file_t *file,
 	file->shareable = 0;
 	file->record_length = 0;
 	file->size = 0;
-  
+
 	tag = sc_asn1_find_tag(ctx, p, len, 0x80, &taglen);
 	if (tag != NULL && taglen >= 2) {
 		int bytes = (tag[0] << 8) + tag[1];
@@ -235,7 +235,7 @@ static int starcos_select_aid(sc_card_t *card,
 	/* check return value */
 	if (!(apdu.sw1 == 0x90 && apdu.sw2 == 0x00) && apdu.sw1 != 0x61 )
     		SC_FUNC_RETURN(card->ctx, SC_LOG_DEBUG_VERBOSE, sc_check_sw(card, apdu.sw1, apdu.sw2));
-  
+
 	/* update cache */
 	card->cache.current_path.type = SC_PATH_TYPE_DF_NAME;
 	card->cache.current_path.len = len;
@@ -250,7 +250,7 @@ static int starcos_select_aid(sc_card_t *card,
 		file->path.len = 0;
 		file->size = 0;
 		/* AID */
-		for (i = 0; i < len; i++)  
+		for (i = 0; i < len; i++)
 			file->name[i] = aid[i];
 		file->namelen = len;
 		file->id = 0x0000;
@@ -342,7 +342,7 @@ static int starcos_select_fid(sc_card_t *card,
 			*file_out = file;
 		} else {
 			/* ok, assume we have a EF */
-			r = process_fci(card->ctx, file, apdu.resp, 
+			r = process_fci(card->ctx, file, apdu.resp,
 					apdu.resplen);
 			if (r != SC_SUCCESS) {
 				sc_file_free(file);
@@ -376,7 +376,7 @@ static int starcos_select_file(sc_card_t *card,
 		(card->cache.current_path.type==SC_PATH_TYPE_DF_NAME?"aid":"path"),
 		(card->cache.valid?"valid":"invalid"), pbuf,
 		card->cache.current_path.len);
-  
+
 	memcpy(path, in_path->value, in_path->len);
 	pathlen = in_path->len;
 
@@ -390,7 +390,7 @@ static int starcos_select_file(sc_card_t *card,
 	else if (in_path->type == SC_PATH_TYPE_DF_NAME)
       	{	/* SELECT DF with AID */
 		/* Select with 1-16byte Application-ID */
-		if (card->cache.valid 
+		if (card->cache.valid
 		    && card->cache.current_path.type == SC_PATH_TYPE_DF_NAME
 		    && card->cache.current_path.len == pathlen
 		    && memcmp(card->cache.current_path.value, pathbuf, pathlen) == 0 )
@@ -426,18 +426,18 @@ static int starcos_select_file(sc_card_t *card,
 			for (i=0; i< pathlen; i++)
 				n_pathbuf[i+2] = pathbuf[i];
 			path = n_pathbuf;
-			pathlen += 2; 
+			pathlen += 2;
 		}
-	
+
 		/* check current working directory */
-		if (card->cache.valid 
+		if (card->cache.valid
 		    && card->cache.current_path.type == SC_PATH_TYPE_PATH
 		    && card->cache.current_path.len >= 2
 		    && card->cache.current_path.len <= pathlen )
 		{
 			bMatch = 0;
 			for (i=0; i < card->cache.current_path.len; i+=2)
-				if (card->cache.current_path.value[i] == path[i] 
+				if (card->cache.current_path.value[i] == path[i]
 				    && card->cache.current_path.value[i+1] == path[i+1] )
 					bMatch += 2;
 		}
@@ -451,12 +451,12 @@ static int starcos_select_file(sc_card_t *card,
 			{
 				/* two more steps to go */
 				sc_path_t new_path;
-	
+
 				/* first step: change directory */
 				r = starcos_select_fid(card, path[bMatch], path[bMatch+1], NULL);
 				SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "SELECT FILE (DF-ID) failed");
-	
-				memset(&new_path, 0, sizeof(sc_path_t));	
+
+				memset(&new_path, 0, sizeof(sc_path_t));
 				new_path.type = SC_PATH_TYPE_PATH;
 				new_path.len  = pathlen - bMatch-2;
 				memcpy(new_path.value, &(path[bMatch+2]), new_path.len);
@@ -536,7 +536,7 @@ static u8 process_acl_entry(sc_file_t *in, unsigned int method, unsigned int in_
  *
  * This function tries to create a somewhat useable Starcos spk 2.3 acl
  * from the OpenSC internal acl (storing the result in the supplied
- * sc_starcos_create_data structure). 
+ * sc_starcos_create_data structure).
  */
 static int starcos_process_acl(sc_card_t *card, sc_file_t *file,
 	sc_starcos_create_data *data)
@@ -670,7 +670,7 @@ static int starcos_process_acl(sc_card_t *card, sc_file_t *file,
  * \param card pointer to the sc_card structure
  * \param data pointer to a sc_starcos_create_data object
  * \return SC_SUCCESS or error code
- * 
+ *
  * This function creates the MF based on the information stored
  * in the sc_starcos_create_data.mf structure. Note: CREATE END must be
  * called separately to activate the ACs.
@@ -690,7 +690,7 @@ static int starcos_create_mf(sc_card_t *card, sc_starcos_create_data *data)
 
 	r = sc_transmit_apdu(card, &apdu);
 	SC_TEST_RET(ctx, SC_LOG_DEBUG_NORMAL, r, "APDU transmit failed");
-	return sc_check_sw(card, apdu.sw1, apdu.sw2);	
+	return sc_check_sw(card, apdu.sw1, apdu.sw2);
 }
 
 /** starcos_create_df
@@ -748,7 +748,7 @@ static int starcos_create_df(sc_card_t *card, sc_starcos_create_data *data)
  * the sc_starcos_create_data.ef data structure.
  */
 static int starcos_create_ef(sc_card_t *card, sc_starcos_create_data *data)
-{	
+{
 	int    r;
 	sc_apdu_t       apdu;
 	sc_context_t   *ctx = card->ctx;
@@ -805,7 +805,7 @@ static int starcos_create_end(sc_card_t *card, sc_file_t *file)
  * information in the sc_file structure (using starcos_process_acl).
  */
 static int starcos_create_file(sc_card_t *card, sc_file_t *file)
-{	
+{
 	int    r;
 	sc_starcos_create_data data;
 
@@ -855,7 +855,7 @@ static int starcos_erase_card(sc_card_t *card)
 	apdu.lc   = 2;
 	apdu.datalen = 2;
 	apdu.data = sbuf;
-	
+
 	r = sc_transmit_apdu(card, &apdu);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "APDU transmit failed");
 	/* invalidate cache */
@@ -956,7 +956,7 @@ static int starcos_gen_key(sc_card_t *card, sc_starcos_gen_key_data *data)
 	u8 rbuf[SC_MAX_APDU_BUFFER_SIZE];
 	u8 sbuf[2], *p, *q;
 	/* generate key */
-	sc_format_apdu(card, &apdu, SC_APDU_CASE_3_SHORT, 0x46,  0x00, 
+	sc_format_apdu(card, &apdu, SC_APDU_CASE_3_SHORT, 0x46,  0x00,
 			data->key_id);
 	apdu.le      = 0;
 	sbuf[0] = (u8)(data->key_length >> 8);
@@ -1093,7 +1093,7 @@ static int starcos_set_security_env(sc_card_t *card,
 		apdu.datalen = p - sbuf;
 		apdu.lc      = p - sbuf;
 		apdu.le      = 0;
-		/* we don't know whether to use 
+		/* we don't know whether to use
 		 * COMPUTE SIGNATURE or INTERNAL AUTHENTICATE */
 		r = sc_transmit_apdu(card, &apdu);
 		SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "APDU transmit failed");
@@ -1109,7 +1109,7 @@ static int starcos_set_security_env(sc_card_t *card,
 	}
 try_authenticate:
 	/* try INTERNAL AUTHENTICATE */
-	if (operation == SC_SEC_OPERATION_AUTHENTICATE && 
+	if (operation == SC_SEC_OPERATION_AUTHENTICATE &&
 	    env->algorithm_flags & SC_ALGORITHM_RSA_PAD_PKCS1) {
 		*p++ = 0x80;
 		*p++ = 0x01;
@@ -1147,7 +1147,7 @@ static int starcos_compute_signature(sc_card_t *card,
 
 	if (ex_data->sec_ops == SC_SEC_OPERATION_SIGN) {
 		/* compute signature with the COMPUTE SIGNATURE command */
-		
+
 		/* set the hash value     */
 		sc_format_apdu(card, &apdu, SC_APDU_CASE_3_SHORT, 0x2A,
 			       0x90, 0x81);
@@ -1161,7 +1161,7 @@ static int starcos_compute_signature(sc_card_t *card,
 		r = sc_transmit_apdu(card, &apdu);
 		SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "APDU transmit failed");
 		if (apdu.sw1 != 0x90 || apdu.sw2 != 0x00)
-			SC_FUNC_RETURN(card->ctx, SC_LOG_DEBUG_VERBOSE, 
+			SC_FUNC_RETURN(card->ctx, SC_LOG_DEBUG_VERBOSE,
 				       sc_check_sw(card, apdu.sw1, apdu.sw2));
 
 		/* call COMPUTE SIGNATURE */
@@ -1230,7 +1230,7 @@ static int starcos_check_sw(sc_card_t *card, unsigned int sw1, unsigned int sw2)
 
 	sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL,
 		"sw1 = 0x%02x, sw2 = 0x%02x\n", sw1, sw2);
-  
+
 	if (sw1 == 0x90)
 		return SC_SUCCESS;
 	if (sw1 == 0x63 && (sw2 & ~0x0fU) == 0xc0 )
@@ -1239,7 +1239,7 @@ static int starcos_check_sw(sc_card_t *card, unsigned int sw1, unsigned int sw2)
 		(sw2 & 0x0f));
 		return SC_ERROR_PIN_CODE_INCORRECT;
 	}
-  
+
 	/* check starcos error messages */
 	for (i = 0; i < err_count; i++)
 		if (starcos_errors[i].SWs == ((sw1 << 8) | sw2))
@@ -1247,7 +1247,7 @@ static int starcos_check_sw(sc_card_t *card, unsigned int sw1, unsigned int sw2)
 			sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "%s\n", starcos_errors[i].errorstr);
 			return starcos_errors[i].errorno;
 		}
-  
+
 	/* iso error */
 	return iso_ops->check_sw(card, sw1, sw2);
 }
@@ -1328,7 +1328,7 @@ static int starcos_logout(sc_card_t *card)
 	apdu.data    = mf_buf;
 	apdu.datalen = 2;
 	apdu.resplen = 0;
-	
+
 	r = sc_transmit_apdu(card, &apdu);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "APDU re-transmit failed");
 
@@ -1346,7 +1346,7 @@ static struct sc_card_driver * sc_get_driver(void)
 	struct sc_card_driver *iso_drv = sc_get_iso7816_driver();
 	if (iso_ops == NULL)
 		iso_ops = iso_drv->ops;
-  
+
 	starcos_ops = *iso_drv->ops;
 	starcos_ops.match_card = starcos_match_card;
 	starcos_ops.init   = starcos_init;
@@ -1359,7 +1359,7 @@ static struct sc_card_driver * sc_get_driver(void)
 	starcos_ops.compute_signature = starcos_compute_signature;
 	starcos_ops.card_ctl    = starcos_card_ctl;
 	starcos_ops.logout      = starcos_logout;
-  
+
 	return &starcos_drv;
 }
 

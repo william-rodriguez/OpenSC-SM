@@ -1,6 +1,6 @@
 /*
  * authentic.h: Specific definitions for the Oberthur's card
- * 		'COSMO v7' with applet 'AuthentIC v3' 
+ * 		'COSMO v7' with applet 'AuthentIC v3'
  *
  * Copyright (C) 2010  Viktor Tarasov <vtarasov@opentrust.com>
  *                      OpenTrust <www.opentrust.com>
@@ -59,7 +59,7 @@
 
 #define AUTHENTIC_MECH_CRYPTO_DES	0x02
 #define AUTHENTIC_MECH_CRYPTO_2DES	0x03
-#define AUTHENTIC_MECH_CRYPTO_3DES	0x04	
+#define AUTHENTIC_MECH_CRYPTO_3DES	0x04
 #define AUTHENTIC_MECH_CRYPTO_AES128	0x05
 #define AUTHENTIC_MECH_CRYPTO_AES192	0x06
 #define AUTHENTIC_MECH_CRYPTO_AES256	0x07
@@ -119,11 +119,11 @@
 #define AUTHENTIC_AC_SM_MASK	0x60
 
 #define AUTHENTIC_GP_SM_LEVEL_MASK	0x6000
-#define AUTHENTIC_GP_SM_LEVEL_PLAIN	0x2000 
-#define AUTHENTIC_GP_SM_LEVEL_MAC	0x4000 
-#define AUTHENTIC_GP_SM_LEVEL_ENC_MAC	0x6000 
+#define AUTHENTIC_GP_SM_LEVEL_PLAIN	0x2000
+#define AUTHENTIC_GP_SM_LEVEL_MAC	0x4000
+#define AUTHENTIC_GP_SM_LEVEL_ENC_MAC	0x6000
 
-/* 
+/*
  * DOCP (Data Object Control Parameters)
  * Common holder for the all DOCP types.
  */

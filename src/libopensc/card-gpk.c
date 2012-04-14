@@ -119,7 +119,7 @@ gpk_match_card(sc_card_t *card)
 	if (i < 0) {
 		const u8 *hist_bytes = card->reader->atr_info.hist_bytes;
 
-		/* Gemplus GPK docs say we can use just the 
+		/* Gemplus GPK docs say we can use just the
 		 * FMN and PRN fields of the historical bytes
 		 * to recognize a GPK card
 		 *  See Table 43, pp. 188
@@ -993,7 +993,7 @@ gpk_select_key(sc_card_t *card, int key_sfi, const u8 *buf, size_t buflen)
 	apdu.resp = resp;
 	apdu.resplen = sizeof(resp);
 	apdu.le = 12;
-	
+
 	r = sc_transmit_apdu(card, &apdu);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "APDU transmit failed");
 	r = sc_check_sw(card, apdu.sw1, apdu.sw2);
@@ -1072,7 +1072,7 @@ gpk_set_security_env(sc_card_t *card,
 		/* Again, the following may not make any difference
 		 * because we don't do any hashing on-card. But
 		 * what the hell, we have all those nice macros,
-		 * so why not use them :) 
+		 * so why not use them :)
 		 */
 		if (env->algorithm_flags & SC_ALGORITHM_RSA_HASH_SHA1) {
 			context = GPK_SIGN_RSA_SHA;
@@ -1667,7 +1667,7 @@ static int gpk_get_info(sc_card_t *card, int p1, int p2, u8 *buf,
 	 * but the host failed to collect the results.
 	 *
 	 * Note the additional sc_lock/sc_unlock pair, which
-	 * is required to prevent sc_transmit_apdu from 
+	 * is required to prevent sc_transmit_apdu from
 	 * calling logout(), which in turn does a SELECT MF
 	 * without collecting the response :)
 	 */

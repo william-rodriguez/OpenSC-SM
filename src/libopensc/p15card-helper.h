@@ -68,11 +68,11 @@ typedef struct pdata_st {
 	unsigned int maxlen;
 	unsigned int minlen;
 	unsigned int storedlen;
-	int         flags;	
+	int         flags;
 	int         tries_left;
 	const char  pad_char;
 	int         obj_flags;
-} pindata; 
+} pindata;
 
 typedef struct pubdata_st {
 	const char *id;
@@ -116,7 +116,7 @@ struct p15data_items {
 	const pindata* pins;
 	const pubdata* public_keys;
 	const prdata* private_keys;
-	
+
 	cert_load_function cert_load;
 	cert_handle_function cert_handle;
 	int cert_continue; /* Continue after cert failure */

@@ -85,7 +85,7 @@ static int iso7816_check_sw(sc_card_t *card, unsigned int sw1, unsigned int sw2)
 {
 	const int err_count = sizeof(iso7816_errors)/sizeof(iso7816_errors[0]);
 	int i;
-	
+
 	/* Handle special cases here */
 	if (sw1 == 0x6C) {
 		sc_debug(card->ctx, SC_LOG_DEBUG_NORMAL, "Wrong length; correct length is %d", sw2);
@@ -162,7 +162,7 @@ static int iso7816_read_record(sc_card_t *card,
 	apdu.p2 = (flags & SC_RECORD_EF_ID_MASK) << 3;
 	if (flags & SC_RECORD_BY_REC_NR)
 		apdu.p2 |= 0x04;
-	
+
 	apdu.le = count;
 	apdu.resplen = count;
 	apdu.resp = recvbuf;
@@ -191,7 +191,7 @@ static int iso7816_write_record(sc_card_t *card, unsigned int rec_nr,
 	apdu.p2 = (flags & SC_RECORD_EF_ID_MASK) << 3;
 	if (flags & SC_RECORD_BY_REC_NR)
 		apdu.p2 |= 0x04;
-	
+
 	apdu.lc = count;
 	apdu.datalen = count;
 	apdu.data = buf;
@@ -216,7 +216,7 @@ static int iso7816_append_record(sc_card_t *card,
 	}
 	sc_format_apdu(card, &apdu, SC_APDU_CASE_3_SHORT, 0xE2, 0, 0);
 	apdu.p2 = (flags & SC_RECORD_EF_ID_MASK) << 3;
-	
+
 	apdu.lc = count;
 	apdu.datalen = count;
 	apdu.data = buf;
@@ -243,7 +243,7 @@ static int iso7816_update_record(sc_card_t *card, unsigned int rec_nr,
 	apdu.p2 = (flags & SC_RECORD_EF_ID_MASK) << 3;
 	if (flags & SC_RECORD_BY_REC_NR)
 		apdu.p2 |= 0x04;
-	
+
 	apdu.lc = count;
 	apdu.datalen = count;
 	apdu.data = buf;
@@ -386,16 +386,16 @@ static int iso7816_process_fci(sc_card_t *card, sc_file_t *file,
 	}
 	tag = sc_asn1_find_tag(ctx, p, len, 0x85, &taglen);
 	if (tag != NULL && taglen) {
-		sc_file_set_prop_attr(file, tag, taglen); 
+		sc_file_set_prop_attr(file, tag, taglen);
 	} else
 		file->prop_attr_len = 0;
 	tag = sc_asn1_find_tag(ctx, p, len, 0xA5, &taglen);
 	if (tag != NULL && taglen) {
-		sc_file_set_prop_attr(file, tag, taglen); 
+		sc_file_set_prop_attr(file, tag, taglen);
 	}
 	tag = sc_asn1_find_tag(ctx, p, len, 0x86, &taglen);
 	if (tag != NULL && taglen) {
-		sc_file_set_sec_attr(file, tag, taglen); 
+		sc_file_set_sec_attr(file, tag, taglen);
 	}
 	tag = sc_asn1_find_tag(ctx, p, len, 0x8A, &taglen);
 	if (tag != NULL && taglen==1) {
@@ -428,7 +428,7 @@ static int iso7816_select_file(sc_card_t *card,
 	pathlen = in_path->len;
 
 	sc_format_apdu(card, &apdu, SC_APDU_CASE_4_SHORT, 0xA4, 0, 0);
-	
+
 	switch (in_path->type) {
 	case SC_PATH_TYPE_FILE_ID:
 		apdu.p1 = 0;
@@ -526,7 +526,7 @@ static int iso7816_get_challenge(sc_card_t *card, u8 *rnd, size_t len)
 
 	while (len > 0) {
 		size_t n = len > 8 ? 8 : len;
-		
+
 		r = sc_transmit_apdu(card, &apdu);
 		SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "APDU transmit failed");
 		if (apdu.resplen != 8)
@@ -534,7 +534,7 @@ static int iso7816_get_challenge(sc_card_t *card, u8 *rnd, size_t len)
 		memcpy(rnd, apdu.resp, n);
 		len -= n;
 		rnd += n;
-	}	
+	}
 	return 0;
 }
 
@@ -548,7 +548,7 @@ static int iso7816_construct_fci(sc_card_t *card, const sc_file_t *file,
 		return SC_ERROR_BUFFER_TOO_SMALL;
 	*p++ = 0x6F;
 	p++;
-	
+
 	buf[0] = (file->size >> 8) & 0xFF;
 	buf[1] = file->size & 0xFF;
 	sc_asn1_put_tag(0x81, buf, 2, p, *outlen - (p - out), &p);
@@ -609,7 +609,7 @@ static int iso7816_create_file(sc_card_t *card, sc_file_t *file)
 		SC_FUNC_RETURN(card->ctx, SC_LOG_DEBUG_VERBOSE, SC_ERROR_NOT_SUPPORTED);
 	r = card->ops->construct_fci(card, file, sbuf, &len);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "construct_fci() failed");
-	
+
 	sc_format_apdu(card, &apdu, SC_APDU_CASE_3_SHORT, 0xE0, 0x00, 0x00);
 	apdu.lc = len;
 	apdu.datalen = len;
@@ -680,7 +680,7 @@ static int iso7816_delete_file(sc_card_t *card, const sc_path_t *path)
 	else /* No file ID given: means currently selected file */
 		sc_format_apdu(card, &apdu, SC_APDU_CASE_1, 0xE4, 0x00, 0x00);
 	apdu.data = sbuf;
-	
+
 	r = sc_transmit_apdu(card, &apdu);
 	SC_TEST_RET(card->ctx, SC_LOG_DEBUG_NORMAL, r, "APDU transmit failed");
 	return sc_check_sw(card, apdu.sw1, apdu.sw2);
@@ -771,7 +771,7 @@ static int iso7816_restore_security_env(sc_card_t *card, int se_num)
 	sc_apdu_t apdu;
 	int r;
 	u8 rbuf[SC_MAX_APDU_BUFFER_SIZE];
-	
+
 	assert(card != NULL);
 
 	sc_format_apdu(card, &apdu, SC_APDU_CASE_1, 0x22, 0xF3, se_num);
@@ -847,7 +847,7 @@ static int iso7816_decipher(sc_card_t *card,
 	/* Use APDU chaining with 2048bit RSA keys if the card does not do extended APDU-s */
 	if ((crgram_len+1 > 255) && !(card->caps & SC_CARD_CAP_APDU_EXT))
 		apdu.flags |= SC_APDU_FLAGS_CHAINING;
-	
+
 	sbuf[0] = 0; /* padding indicator byte, 0x00 = No further indication */
 	memcpy(sbuf + 1, crgram, crgram_len);
 	apdu.data = sbuf;
@@ -867,7 +867,7 @@ static int iso7816_build_pin_apdu(sc_card_t *card, sc_apdu_t *apdu,
 		struct sc_pin_cmd_data *data, u8 *buf, size_t buf_len)
 {
 	int r, len = 0, pad = 0, use_pin_pad = 0, ins, p1 = 0;
-	
+
 	switch (data->pin_type) {
 	case SC_AC_CHV:
 		break;
