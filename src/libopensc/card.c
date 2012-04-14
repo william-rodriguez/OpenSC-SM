@@ -35,7 +35,7 @@
 */
 
 #ifdef ENABLE_SM
-static int sc_card_sm_load(sc_card_t *card, const char *module);
+static int sc_card_sm_load(sc_card_t *card, const char *path, const char *module);
 static int sc_card_sm_unload(sc_card_t *card);
 static int sc_card_sm_check(sc_card_t *card);
 #endif
@@ -1063,7 +1063,7 @@ void sc_print_cache(struct sc_card *card)   {
 #ifdef ENABLE_SM
 static int sc_card_sm_unload(struct sc_card *card)
 {
-	if (card->sm_ctx.module.ops.module_cleanup) 
+	if (card->sm_ctx.module.ops.module_cleanup)
 		card->sm_ctx.module.ops.module_cleanup(card->ctx);
 
 	if (card->sm_ctx.module.handle)
@@ -1072,17 +1072,19 @@ static int sc_card_sm_unload(struct sc_card *card)
 	return 0;
 }
 
-static int sc_card_sm_load(struct sc_card *card, const char *in_module)
+static int sc_card_sm_load(struct sc_card *card, const char *module_path, const char *in_module)
 {
 	struct sc_context *ctx = NULL;
 	int rv = SC_ERROR_INTERNAL;
-	const char *module_path = NULL;
 	char *module = NULL;
 #ifdef _WIN32
 	char temp_path[PATH_MAX];
 	int temp_len;
 	long rc;
 	HKEY hKey;
+	const char path_delim = '\\';
+#else
+	const char path_delim = '/';
 #endif
 
 	assert(card != NULL);
@@ -1091,7 +1093,6 @@ static int sc_card_sm_load(struct sc_card *card, const char *in_module)
 	if (!in_module)
 		return sc_card_sm_unload(card);
 
-	module_path = getenv("OPENSC_SM_MODULE");
 #ifdef _WIN32
 	if (!module_path) {
 		rc = RegOpenKeyEx( HKEY_CURRENT_USER, "Software\\OpenSC Project\\OpenSC", 0, KEY_QUERY_VALUE, &hKey );
@@ -1103,7 +1104,6 @@ static int sc_card_sm_load(struct sc_card *card, const char *in_module)
 			RegCloseKey( hKey );
 		}
 	}
-	
 	if (!module_path) {
 		rc = RegOpenKeyEx( HKEY_LOCAL_MACHINE, "Software\\OpenSC Project\\OpenSC", 0, KEY_QUERY_VALUE, &hKey );
 		if( rc == ERROR_SUCCESS ) {
@@ -1115,13 +1115,12 @@ static int sc_card_sm_load(struct sc_card *card, const char *in_module)
 		}
 	}
 #endif
-	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SM module location '%s'", module_path);
-	if (module_path && !strchr(in_module,'\\'))   {
-		int sz = strlen(in_module) + (module_path ? strlen(module_path) : 0) + 0x10;
-
+	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SM module '%s' located in '%s'", in_module, module_path);
+	if (module_path)   {
+		int sz = strlen(in_module) + strlen(module_path) + 3;
 		module = malloc(sz);
 		if (module)
-			snprintf(module, sz, "%s\\%s", module_path, in_module);
+			snprintf(module, sz, "%s%c%s", module_path, path_delim, in_module);
 	}
 	else   {
 		module = strdup(in_module);
@@ -1129,7 +1128,7 @@ static int sc_card_sm_load(struct sc_card *card, const char *in_module)
 
 	if (!module)
 		return SC_ERROR_MEMORY_FAILURE;
-		
+
 	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "try to load SM module '%s'", module);
 	do  {
 		struct sm_module_operations *mod_ops = &card->sm_ctx.module.ops;
@@ -1141,7 +1140,7 @@ static int sc_card_sm_load(struct sc_card *card, const char *in_module)
 			break;
 		}
 		mod_handle = card->sm_ctx.module.handle;
-		
+
 		mod_ops->initialize = sc_dlsym(mod_handle, "initialize");
 		if (!mod_ops->initialize)   {
 			sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SM handler 'initialize' not exported: %s", sc_dlerror());
@@ -1185,9 +1184,9 @@ static int sc_card_sm_load(struct sc_card *card, const char *in_module)
 }
 
 /* get SM related configuration settings and initialize SM session, SM module, ... */
-static int sc_card_sm_check(struct sc_card *card)   
+static int sc_card_sm_check(struct sc_card *card)
 {
-	const char *sm = NULL, *module_filename = NULL, *module_data = NULL, *sm_mode = NULL;
+	const char *sm = NULL, *module_name = NULL, *module_path = NULL, *module_data = NULL, *sm_mode = NULL;
 	struct sc_context *ctx = card->ctx;
 	scconf_block *atrblock = NULL, *sm_conf_block = NULL;
 	int rv, ii;
@@ -1196,12 +1195,12 @@ static int sc_card_sm_check(struct sc_card *card)
 
 	/* get the name of card specific SM configuration section */
 	atrblock = _sc_match_atr_block(ctx, card->driver, &card->atr);
-	if (atrblock == NULL) 
+	if (atrblock == NULL)
 		SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, SC_SUCCESS);
 	sm = scconf_get_str(atrblock, "secure_messaging", NULL);
 	if (!sm)
 		SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, SC_SUCCESS);
-	
+
 	/* get SM configuration section by the name */
 	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "secure_messaging %s", sm);
         for (ii = 0; ctx->conf_blocks[ii]; ii++) {
@@ -1216,18 +1215,21 @@ static int sc_card_sm_check(struct sc_card *card)
 			break;
 	}
 
-	if (!sm_conf_block) 
-		SC_TEST_RET(ctx, SC_LOG_DEBUG_NORMAL, SC_ERROR_UNKNOWN, "SM configuration block not preset");
+	if (!sm_conf_block)
+		SC_TEST_RET(ctx, SC_LOG_DEBUG_NORMAL, SC_ERROR_INCONSISTENT_CONFIGURATION, "SM configuration block not preset");
 
 	/* check if an external SM module has to be used */
-	module_filename = scconf_get_str(sm_conf_block, "module", NULL);  
-	if (module_filename)   {
-		rv = sc_card_sm_load(card, module_filename);
-		SC_TEST_RET(ctx, SC_LOG_DEBUG_NORMAL, rv, "Failed to load SM module");
+	module_path = scconf_get_str(sm_conf_block, "module_path", NULL);
+	module_name = scconf_get_str(sm_conf_block, "module_name", NULL);
+	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "SM module '%s' in  '%s'", module_name, module_path);
+	if (!module_name)
+		SC_TEST_RET(ctx, SC_LOG_DEBUG_NORMAL, SC_ERROR_INCONSISTENT_CONFIGURATION, "Invalid SM configuration: module not defined");
 
-		strncpy(card->sm_ctx.module.filename, module_filename, sizeof(card->sm_ctx.module.filename));
-		strncpy(card->sm_ctx.config_section, sm, sizeof(card->sm_ctx.config_section));
-	}
+	rv = sc_card_sm_load(card, module_path, module_name);
+	SC_TEST_RET(ctx, SC_LOG_DEBUG_NORMAL, rv, "Failed to load SM module");
+
+	strncpy(card->sm_ctx.module.filename, module_name, sizeof(card->sm_ctx.module.filename));
+	strncpy(card->sm_ctx.config_section, sm, sizeof(card->sm_ctx.config_section));
 
 	/* allocate resources for the external SM module */
 	sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "'module_init' handler %p", card->sm_ctx.module.ops.module_init);
