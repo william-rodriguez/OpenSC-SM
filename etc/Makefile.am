@@ -17,6 +17,8 @@ opensc.conf: opensc.conf.in force
 		-e 's|@pkgdatadir[@]|$(pkgdatadir)|g' \
 		-e 's|@libdir[@]|$(libdir)|g' \
 		-e 's|@DEFAULT_PCSC_PROVIDER[@]|$(DEFAULT_PCSC_PROVIDER)|g' \
+		-e 's|@DEFAULT_SM_MODULE[@]|$(DEFAULT_SM_MODULE)|g' \
+		-e 's|@DEBUG_FILE[@]|$(DEBUG_FILE)|g' \
 		< $< > $@
 
 sysconf_DATA=#required in order to create dir

@@ -74,6 +74,16 @@ case "${host}" in
 	;;
 esac
 
+case "${host}" in
+	*-mingw*|*-winnt*|*-cygwin*)
+		DEBUG_FILE="%TEMP%\opensc-debug.log"
+	;;
+	*)
+		DEBUG_FILE="/tmp/opensc-debug.log"
+	;;
+esac
+AC_DEFINE_UNQUOTED([DEBUG_FILE], ["${DEBUG_FILE}"], [Debug file])
+
 AC_ARG_ENABLE(
 	[strict],
 	[AS_HELP_STRING([--enable-strict],[enable strict compile mode @<:@disabled@:>@])],
@@ -179,7 +189,7 @@ done
 if test "${reader_count}" != "x"; then
 	AC_MSG_ERROR([Only one of --enable-pcsc, --enable-openct, --enable-ctapi can be specified!])
 fi
-	 
+
 dnl Checks for programs.
 AC_PROG_CPP
 AC_PROG_INSTALL
@@ -315,6 +325,16 @@ fi
 
 if test "${enable_sm}" = "yes"; then
 	AC_DEFINE([ENABLE_SM], [1], [Enable secure messaging support])
+
+	case "${host}" in
+		*-mingw*|*-winnt*|*-cygwin*)
+			DEFAULT_SM_MODULE="smm-local.dll"
+                        ;;
+                *)
+                        DEFAULT_SM_MODULE="libsmm-local.so"
+                        ;;
+        esac
+	AC_DEFINE_UNQUOTED([DEFAULT_SM_MODULE], ["${DEFAULT_SM_MODULE}"], [Default SM module])
 fi
 
 AC_ARG_VAR([ZLIB_CFLAGS], [C compiler flags for zlib])
@@ -566,6 +586,8 @@ AC_SUBST([OPTIONAL_OPENCT_CFLAGS])
 AC_SUBST([OPTIONAL_OPENCT_LIBS])
 AC_SUBST([OPTIONAL_PCSC_CFLAGS])
 AC_SUBST([LIBRARY_BITNESS])
+AC_SUBST([DEFAULT_SM_MODULE])
+AC_SUBST([DEBUG_FILE])
 
 AM_CONDITIONAL([ENABLE_MAN], [test "${enable_man}" = "yes"])
 AM_CONDITIONAL([ENABLE_ZLIB], [test "${enable_zlib}" = "yes"])
@@ -640,6 +662,8 @@ OpenCT support:          ${enable_openct}
 CT-API support:          ${enable_ctapi}
 minidriver support:      ${enable_minidriver}
 SM support:              ${enable_sm}
+SM default module:       ${DEFAULT_SM_MODULE}
+Debug file:              ${DEBUG_FILE}
 
 PC/SC default provider:  ${DEFAULT_PCSC_PROVIDER}
 
