@@ -225,6 +225,10 @@ static int load_parameters(sc_context_t *ctx, scconf_block *block,
 	const char *val, *s_internal = "internal";
 	const char *debug = NULL;
 	int reopen;
+#ifdef _WIN32
+	char expanded_val[PATH_MAX];
+	DWORD expanded_len;
+#endif
 
 	ctx->debug = scconf_get_int(block, "debug", ctx->debug);
 	reopen = scconf_get_bool(block, "reopen_debug_file", 1);
@@ -235,6 +239,12 @@ static int load_parameters(sc_context_t *ctx, scconf_block *block,
 
 	val = scconf_get_str(block, "debug_file", NULL);
 	if (val)   {
+#ifdef _WIN32
+		expanded_len = PATH_MAX;
+		expanded_len = ExpandEnvironmentStrings(val, expanded_val, expanded_len);
+		if (expanded_len > 0)
+			val = expanded_val;
+#endif
 		if (reopen)
 			ctx->debug_filename = strdup(val);
 		sc_ctx_log_to_file(ctx, val);
