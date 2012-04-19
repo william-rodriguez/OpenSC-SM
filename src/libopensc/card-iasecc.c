@@ -700,8 +700,10 @@ _iasecc_sm_read_binary(struct sc_card *card, unsigned int offs,
 
 	if (card->cache.valid && card->cache.current_ef)   {
 		entry = sc_file_get_acl_entry(card->cache.current_ef, SC_AC_OP_READ);
-		sc_log(ctx, "READ method/reference %X/%X", entry->method, entry->key_ref);
+		if (!entry)
+			LOG_TEST_RET(ctx, SC_ERROR_OBJECT_NOT_FOUND, "iasecc_sm_read() 'READ' ACL not present");
 
+		sc_log(ctx, "READ method/reference %X/%X", entry->method, entry->key_ref);
 		if ((entry->method == SC_AC_SCB) && (entry->key_ref & IASECC_SCB_METHOD_SM))   {
 			unsigned char se_num = (entry->method == SC_AC_SCB) ? (entry->key_ref & IASECC_SCB_METHOD_MASK_REF) : 0;
 
@@ -731,8 +733,10 @@ _iasecc_sm_update_binary(struct sc_card *card, unsigned int offs,
 
 	if (card->cache.valid && card->cache.current_ef)   {
 		entry = sc_file_get_acl_entry(card->cache.current_ef, SC_AC_OP_UPDATE);
-		sc_log(ctx, "UPDATE method/reference %X/%X", entry->method, entry->key_ref);
+		if (!entry)
+			LOG_TEST_RET(ctx, SC_ERROR_OBJECT_NOT_FOUND, "iasecc_sm_update() 'UPDATE' ACL not present");
 
+		sc_log(ctx, "UPDATE method/reference %X/%X", entry->method, entry->key_ref);
 		if (entry->method == SC_AC_SCB && (entry->key_ref & IASECC_SCB_METHOD_SM))   {
 			unsigned char se_num = entry->method == SC_AC_SCB ? entry->key_ref & IASECC_SCB_METHOD_MASK_REF : 0;
 
@@ -1153,8 +1157,10 @@ iasecc_fcp_encode(struct sc_card *card, struct sc_file *file, unsigned char *out
 			continue;
 
 		entry = sc_file_get_acl_entry(file, ops[ii]);
-		sc_log(ctx, "method %X; reference %X", entry->method, entry->key_ref);
+		if (!entry)
+			continue;
 
+		sc_log(ctx, "method %X; reference %X", entry->method, entry->key_ref);
 		if (entry->method == SC_AC_NEVER)
 			continue;
 		else if (entry->method == SC_AC_NONE)
@@ -1251,6 +1257,9 @@ iasecc_create_file(struct sc_card *card, struct sc_file *file)
 
 	if (card->cache.valid && card->cache.current_df)   {
 		entry = sc_file_get_acl_entry(card->cache.current_df, SC_AC_OP_CREATE);
+		if (!entry)
+			LOG_TEST_RET(ctx, SC_ERROR_OBJECT_NOT_FOUND, "iasecc_create_file() 'CREATE' ACL not present");
+
 		sc_log(ctx, "iasecc_create_file() 'CREATE' method/reference %X/%X", entry->method, entry->key_ref);
 		sc_log(ctx, "iasecc_create_file() create data: '%s'", sc_dump_hex(sbuf, sbuf_len + 2));
 		if (entry->method == SC_AC_SCB && (entry->key_ref & IASECC_SCB_METHOD_SM))   {
@@ -1347,8 +1356,8 @@ iasecc_delete_file(struct sc_card *card, const struct sc_path *path)
 	entry = sc_file_get_acl_entry(file, SC_AC_OP_DELETE);
 	if (!entry)
 		LOG_TEST_RET(ctx, SC_ERROR_OBJECT_NOT_FOUND, "Cannot delete file: no 'DELETE' acl");
-	sc_log(ctx, "DELETE method/reference %X/%X", entry->method, entry->key_ref);
 
+	sc_log(ctx, "DELETE method/reference %X/%X", entry->method, entry->key_ref);
 	if (entry->method == SC_AC_SCB && (entry->key_ref & IASECC_SCB_METHOD_SM))   {
 		unsigned char se_num = (entry->method == SC_AC_SCB) ? (entry->key_ref & IASECC_SCB_METHOD_MASK_REF) : 0;
 		rv = iasecc_sm_delete_file(card, se_num, file->id);
