@@ -2327,6 +2327,8 @@ pkcs15_create_object(struct sc_pkcs11_slot *slot, CK_ATTRIBUTE_PTR pTemplate, CK
 
 	/* Dont need profile id creating session only objects */
 	if (_token == TRUE) {
+		struct sc_aid *aid = NULL;
+
 		rc = sc_lock(p11card->card);
 		if (rc < 0)
 			return sc_to_cryptoki_error(rc, "C_CreateObject");
@@ -2338,7 +2340,10 @@ pkcs15_create_object(struct sc_pkcs11_slot *slot, CK_ATTRIBUTE_PTR pTemplate, CK
 			return sc_to_cryptoki_error(rc, "C_CreateObject");
 		}
 
-		rc = sc_pkcs15init_finalize_profile(p11card->card, profile, &slot->app_info->aid);
+		if (slot->app_info)
+			aid = &slot->app_info->aid;
+
+		rc = sc_pkcs15init_finalize_profile(p11card->card, profile, aid);
 		if (rc != CKR_OK) {
 			sc_log(context, "Cannot finalize profile: %i", rc);
 			sc_unlock(p11card->card);
@@ -2475,7 +2480,8 @@ pkcs15_gen_keypair(struct sc_pkcs11_slot *slot, CK_MECHANISM_PTR pMechanism,
 {
 	struct sc_profile *profile = NULL;
 	struct sc_pkcs11_card *p11card = slot->card;
-	struct sc_pkcs15_auth_info *pin;
+	struct sc_pkcs15_auth_info *pin = NULL;
+	struct sc_aid *aid = NULL;
 	struct pkcs15_fw_data *fw_data = NULL;
 	struct sc_pkcs15init_keygen_args keygen_args;
 	struct sc_pkcs15init_pubkeyargs pub_args;
@@ -2507,7 +2513,10 @@ pkcs15_gen_keypair(struct sc_pkcs11_slot *slot, CK_MECHANISM_PTR pMechanism,
 		return sc_to_cryptoki_error(rc, "C_GenerateKeyPair");
 	}
 
-	rc = sc_pkcs15init_finalize_profile(p11card->card, profile, &slot->app_info->aid);
+	if(slot->app_info)
+		aid = &slot->app_info->aid;
+
+	rc = sc_pkcs15init_finalize_profile(p11card->card, profile, aid);
 	if (rc != CKR_OK) {
 		sc_log(context, "Cannot finalize profile: %i", rc);
 		return sc_to_cryptoki_error(rc, "C_GenerateKeyPair");
@@ -2767,6 +2776,7 @@ pkcs15_set_attrib(struct sc_pkcs11_session *session,
 	struct sc_pkcs11_slot *slot = session->slot;
 	struct sc_pkcs11_card *p11card = slot->card;
 	struct pkcs15_fw_data *fw_data = NULL;
+	struct sc_aid *aid = NULL;
 	struct sc_pkcs15_id id;
 	int rc = 0;
 	CK_RV rv = CKR_OK;
@@ -2783,7 +2793,10 @@ pkcs15_set_attrib(struct sc_pkcs11_session *session,
 		return sc_to_cryptoki_error(rc, "C_SetAttributeValue");
 	}
 
-	rc = sc_pkcs15init_finalize_profile(p11card->card, profile, &slot->app_info->aid);
+	if(slot->app_info)
+		aid = &slot->app_info->aid;
+
+	rc = sc_pkcs15init_finalize_profile(p11card->card, profile, aid);
 	if (rc != CKR_OK) {
 		sc_log(context, "Cannot finalize profile: %i", rc);
 		sc_unlock(p11card->card);
