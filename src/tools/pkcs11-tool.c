@@ -760,7 +760,7 @@ int main(int argc, char * argv[])
 		if (opt_login_type != -1
 				&& opt_login_type != CKU_CONTEXT_SPECIFIC)   {
 			printf("Invalid login type for 'Unlock User PIN' operation\n");
-                	util_print_usage_and_die(app_name, options, option_help);
+			util_print_usage_and_die(app_name, options, option_help);
 		}
 
 		return unlock_pin(opt_slot, session, opt_login_type);
@@ -840,9 +840,13 @@ int main(int argc, char * argv[])
 	if (do_test_ec)
 		test_ec(opt_slot, session);
 
-	if (do_test_restricted_usage_key)
+	if (do_test_restricted_usage_key)   {
+		if (!opt_login)
+			util_fatal("Needs authenticated session. Use -l and -p <pin> options\n");
+
 		test_restricted_usage_key(opt_slot, session,
 			opt_key_usage_sign, opt_key_usage_decrypt, opt_key_usage_nonrepudiation);
+	}
 
 	if (do_test_restricted_usage_object)
 		test_restricted_usage_object(session,
@@ -2344,28 +2348,26 @@ static void show_object(CK_SESSION_HANDLE sess, CK_OBJECT_HANDLE obj)
 		show_dobj(sess, obj);
 		break;
 	default:
-		printf("Object %u, type %u\n",
-				(unsigned int) obj,
-				(unsigned int) cls);
+		printf("Object %u, type %u\n", (unsigned int) obj, (unsigned int) cls);
 	}
 }
 
-static void derive_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session,
-		CK_OBJECT_HANDLE key)
+
+static void
+derive_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE key)
 {
-	unsigned char * value;
-	CK_LONG		value_len = 0;
-	unsigned char	otherPublicKeyValue[2048]; /* Other guys public key */
-	CK_ULONG	ulotherPublicKeyValue = 0;
-	CK_MECHANISM	mech;
+	unsigned char *value = NULL;
+	CK_ULONG value_len = 0;
+	CK_MECHANISM mech;
 	CK_OBJECT_CLASS newkey_class= CKO_SECRET_KEY;
 	CK_KEY_TYPE newkey_type = CKK_GENERIC_SECRET;
 	CK_BBOOL true = TRUE;
 	CK_BBOOL false = FALSE;
 	CK_OBJECT_HANDLE newkey = 0;
 	CK_ECDH1_DERIVE_PARAMS ecdh_parms;
-
-	CK_ATTRIBUTE 	newkey_template[] = {
+	CK_RV rv;
+	int fd, r;
+	CK_ATTRIBUTE newkey_template[] = {
 		{CKA_TOKEN, &false, sizeof(false)}, /* session only object */
 		{CKA_CLASS, &newkey_class, sizeof(newkey_class)},
 		{CKA_KEY_TYPE, &newkey_type, sizeof(newkey_type)},
@@ -2373,90 +2375,81 @@ static void derive_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session,
 		{CKA_DECRYPT, &true, sizeof(true)}
 	};
 
-	CK_RV		rv;
-	int		fd, r;
-
-	if (!opt_mechanism_used) {
+	if (!opt_mechanism_used)
 		opt_mechanism = find_mechanism(slot, CKF_DERIVE|CKF_HW, 1, &opt_mechanism);
-	}
-		printf("Using derive algorithm 0x%8.8lx %s\n",
-				opt_mechanism, p11_mechanism_to_name(opt_mechanism));
+	printf("Using derive algorithm 0x%8.8lx %s\n",
+			opt_mechanism, p11_mechanism_to_name(opt_mechanism));
 
 	memset(&mech, 0, sizeof(mech));
 	mech.mechanism = opt_mechanism;
 
 	switch(opt_mechanism) {
 #if defined(ENABLE_OPENSSL) && OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_EC) && !defined(OPENSSL_NO_ECDSA)
-		case CKM_ECDH1_COFACTOR_DERIVE:
-		case CKM_ECDH1_DERIVE:
-		    /*  Use OpenSSL to read the other public key, and get the raw verion */
-			{
-			unsigned char buf[512];
-			int len;
-			BIO     *bio_in = NULL;
-			EC_KEY  *eckey = NULL;
-			EC_GROUP *ecgroup = NULL;
-			EC_POINT * ecpoint = NULL;
+	case CKM_ECDH1_COFACTOR_DERIVE:
+	case CKM_ECDH1_DERIVE:
+		/*  Use OpenSSL to read the other public key, and get the raw verion */
+		{
+		unsigned char buf[512];
+		int len;
+		BIO     *bio_in = NULL;
+		const EC_KEY  *eckey = NULL;
+		const EC_GROUP *ecgroup = NULL;
+		const EC_POINT * ecpoint = NULL;
 
-			bio_in = BIO_new(BIO_s_file());
-			if (BIO_read_filename(bio_in, opt_input) <= 0)
-			    util_fatal("Cannot open %s: %m", opt_input);
+		bio_in = BIO_new(BIO_s_file());
+		if (BIO_read_filename(bio_in, opt_input) <= 0)
+			util_fatal("Cannot open %s: %m", opt_input);
 
-			eckey = d2i_EC_PUBKEY_bio(bio_in, NULL);
-			if (!eckey)
-			    util_fatal("Cannot read EC key from %s", opt_input);
+		eckey = d2i_EC_PUBKEY_bio(bio_in, NULL);
+		if (!eckey)
+			util_fatal("Cannot read EC key from %s", opt_input);
 
-			ecpoint = EC_KEY_get0_public_key(eckey);
-			ecgroup = EC_KEY_get0_group(eckey);
-			if (!ecpoint || !ecgroup)
-			    util_fatal("Failed to parse other EC kry from %s", opt_input);
+		ecpoint = EC_KEY_get0_public_key(eckey);
+		ecgroup = EC_KEY_get0_group(eckey);
+		if (!ecpoint || !ecgroup)
+			util_fatal("Failed to parse other EC kry from %s", opt_input);
 
-			len = EC_POINT_point2oct(ecgroup, ecpoint,
-			     POINT_CONVERSION_UNCOMPRESSED,
-			     buf, sizeof(buf),NULL);
+		len = EC_POINT_point2oct(ecgroup, ecpoint, POINT_CONVERSION_UNCOMPRESSED, buf, sizeof(buf),NULL);
 
-			memset(&ecdh_parms, 0, sizeof(ecdh_parms));
-			ecdh_parms.kdf = CKD_NULL;
-			ecdh_parms.ulSharedDataLen = 0;
-			ecdh_parms.pSharedData = NULL;
-			ecdh_parms.ulPublicDataLen = len; /* TODO drop header */
-			ecdh_parms.pPublicData = buf;       /* Cheat to test */
-			mech.pParameter = &ecdh_parms;
-			mech.ulParameterLen = sizeof(ecdh_parms);
-			}
-			break;
+		memset(&ecdh_parms, 0, sizeof(ecdh_parms));
+		ecdh_parms.kdf = CKD_NULL;
+		ecdh_parms.ulSharedDataLen = 0;
+		ecdh_parms.pSharedData = NULL;
+		ecdh_parms.ulPublicDataLen = len;	/* TODO drop header */
+		ecdh_parms.pPublicData = buf;		/* Cheat to test */
+		mech.pParameter = &ecdh_parms;
+		mech.ulParameterLen = sizeof(ecdh_parms);
+		}
+		break;
 #endif /* ENABLE_OPENSSL  && !OPENSSL_NO_EC && !OPENSSL_NO_ECDSA */
-		/* TODO add RSA  but do not have card to test */
-		default:
-			util_fatal("mechanisum not supported for derive\n");
-			break;
+	/* TODO add RSA  but do not have card to test */
+	default:
+		util_fatal("mechanisum not supported for derive\n");
+		break;
 	}
 
 	rv = p11->C_DeriveKey(session, &mech, key, newkey_template, 5, &newkey);
-
 	if (rv != CKR_OK)
 	    p11_fatal("C_DeriveKey", rv);
 
-/*TODO get the key value and write to stdout or file */
-
-
+	/*TODO get the key value and write to stdout or file */
 	value = getVALUE(session, newkey, &value_len);
 	if (value && value_len > 0) {
+		if (opt_output == NULL)   {
+			fd = 1;
+		}
+		else  {
+			fd = open(opt_output, O_CREAT|O_TRUNC|O_WRONLY|O_BINARY, S_IRUSR|S_IWUSR);
+			if (fd < 0)
+				util_fatal("failed to open %s: %m", opt_output);
+		}
 
-
-	    if (opt_output == NULL)
-	    	fd = 1;
-	    else if ((fd = open(opt_output, O_CREAT|O_TRUNC|O_WRONLY|O_BINARY,
-			     S_IRUSR|S_IWUSR)) < 0) {
-		util_fatal("failed to open %s: %m", opt_output);
-	    }
-
-	    r = write(fd, value, value_len);
-	    if (r < 0)
-		util_fatal("Failed to write to %s: %m", opt_output);
-	    if (fd != 1)
-		close(fd);
-    }
+		r = write(fd, value, value_len);
+		if (r < 0)
+			util_fatal("Failed to write to %s: %m", opt_output);
+		if (fd != 1)
+			close(fd);
+	}
 }
 
 
@@ -3545,7 +3538,7 @@ static int sign_verify(CK_SESSION_HANDLE session,
 
 		printf("    %s: ", p11_mechanism_to_name(*mech_type));
 		if (getALWAYS_AUTHENTICATE(session, priv_key))
-                	login(session,CKU_CONTEXT_SPECIFIC);
+			login(session,CKU_CONTEXT_SPECIFIC);
 
 		signat_len = sizeof(signat);
 		rv = p11->C_Sign(session, datas[j], data_lens[j], signat, &signat_len);
@@ -4080,7 +4073,7 @@ static void test_kpgen_certwrite(CK_SLOT_ID slot, CK_SESSION_HANDLE session)
 	while(find_object(session, CKO_PRIVATE_KEY, &priv_key, id, id_len, 0))
 		id[0]++;
 
-	printf("\n*** Generating a 1024 bit RSA key pair ***\n");
+	printf("\n*** Generating a %s key pair ***\n", opt_key_type);
 
 	if (!gen_keypair(session, &pub_key, &priv_key, opt_key_type))
 		return;
@@ -4429,8 +4422,10 @@ test_restricted_usage_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session,
 
 	if (!opt_key_type)
 		opt_key_type = "RSA:2048";
-	printf("*** SM generating RSA key pair: sign:%i, decrypt:%i, nonrepudiation:%i ***\n",
-			usage_sign, usage_decrypt, usage_nonrepudiation);
+	if (!usage_sign && !usage_decrypt && !usage_nonrepudiation)
+		usage_sign = 1, usage_decrypt = 1;
+	printf("*** Generating %s key pair: sign:%i, decrypt:%i, nonrepudiation:%i ***\n",
+			opt_key_type, usage_sign, usage_decrypt, usage_nonrepudiation);
 	if (!gen_restricted_usage_keypair(session, &pub_key, &priv_key, opt_key_type,
 				usage_sign, usage_decrypt, usage_nonrepudiation))
 		return;
@@ -4442,7 +4437,7 @@ test_restricted_usage_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session,
 	}
 	memcpy(opt_object_id, tmp, opt_object_id_len);
 
-	printf("*** SM changing the CKA_ID of private and public key into one of 20 bytes ***\n");
+	printf("*** Changing the CKA_ID of private and public key into one of 20 bytes ***\n");
 	rv = p11->C_SetAttributeValue(session, priv_key, attribs, 1);
 	if (rv != CKR_OK)
 		p11_fatal("C_SetAttributeValue(priv_key)", rv);
@@ -4454,25 +4449,20 @@ test_restricted_usage_key(CK_SLOT_ID slot, CK_SESSION_HANDLE session,
 	if (opt_mechanism_used)
 		mech_sign.mechanism = opt_mechanism;
 
-	printf("*** SM do a signature ***\n");
+	printf("*** Initialize signature operation ***\n");
 	data = data_to_sign;
 	data_len = strlen((char *)data_to_sign);
 	rv = p11->C_SignInit(session, &mech_sign, priv_key);
 	if (rv != CKR_OK)
 		p11_fatal("C_SignInit", rv);
+
+	printf("*** Length of data to sign %li ***\n", data_len);
 	rv = p11->C_Sign(session, data, data_len, NULL, &sig_len);
-	printf("*** SM do a signature(1): sig-len %li ***\n", sig_len);
 	if (rv != CKR_OK)
 		p11_fatal("C_Sign", rv);
-	sig_len = 20;
+
+	printf("*** Expected signature length %li\n", sig_len);
 	rv = p11->C_Sign(session, data, data_len, sig, &sig_len);
-	printf("*** SM do a signature(2): sig-len %li ***\n", sig_len);
-	if (rv != CKR_BUFFER_TOO_SMALL) {
-		printf("ERR: C_Sign() didn't return CKR_BUFFER_TO_SMALL but %s\n", CKR2Str(rv));
-		return;
-	}
-	rv = p11->C_Sign(session, data, data_len, sig, &sig_len);
-	printf("*** SM do a signature(3): sig-len %li ***\n", sig_len);
 	if (rv != CKR_OK)
 		p11_fatal("C_Sign", rv);
 
