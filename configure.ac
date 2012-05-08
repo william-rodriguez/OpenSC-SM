@@ -331,7 +331,7 @@ if test "${enable_sm}" = "yes"; then
 			DEFAULT_SM_MODULE="smm-local.dll"
                         ;;
                 *)
-                        DEFAULT_SM_MODULE="libsmm-local.so"
+                        DEFAULT_SM_MODULE="libsmm-local.so.3"
                         ;;
         esac
 	AC_DEFINE_UNQUOTED([DEFAULT_SM_MODULE], ["${DEFAULT_SM_MODULE}"], [Default SM module])
