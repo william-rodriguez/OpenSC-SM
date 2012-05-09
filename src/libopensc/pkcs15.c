@@ -105,6 +105,8 @@ static const struct sc_asn1_entry c_asn1_tokeninfo[] = {
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
 
+void sc_pkcs15_free_unusedspace(struct sc_pkcs15_card *p15card);
+
 int sc_pkcs15_parse_tokeninfo(sc_context_t *ctx,
 	sc_pkcs15_tokeninfo_t *ti, const u8 *buf, size_t blen)
 {
@@ -734,8 +736,7 @@ void sc_pkcs15_card_free(struct sc_pkcs15_card *p15card)
 	}
 	while (p15card->df_list)
 		sc_pkcs15_remove_df(p15card, p15card->df_list);
-	while (p15card->unusedspace_list)
-		sc_pkcs15_remove_unusedspace(p15card, p15card->unusedspace_list);
+	sc_pkcs15_free_unusedspace(p15card);
 	p15card->unusedspace_read = 0;
 	if (p15card->file_app != NULL)
 		sc_file_free(p15card->file_app);
@@ -1988,7 +1989,7 @@ int sc_pkcs15_add_unusedspace(struct sc_pkcs15_card *p15card,
 		return 0;
 	}
 	while (p->next != NULL)
- 		p = p->next;
+		p = p->next;
 	p->next = new_unusedspace;
 	new_unusedspace->prev = p;
 
@@ -2000,13 +2001,30 @@ void sc_pkcs15_remove_unusedspace(struct sc_pkcs15_card *p15card,
 {
 	if (!unusedspace)
 		return;
+
 	if (!unusedspace->prev)
 		p15card->unusedspace_list = unusedspace->next;
 	else
 		unusedspace->prev->next = unusedspace->next;
+
 	if (unusedspace->next)
 		unusedspace->next->prev = unusedspace->prev;
+
 	free(unusedspace);
+}
+
+void sc_pkcs15_free_unusedspace(struct sc_pkcs15_card *p15card)
+{
+	struct sc_pkcs15_unusedspace *cur = NULL, *next = NULL;
+
+	if (!p15card || !p15card->unusedspace_list)
+		return;
+	for (cur = p15card->unusedspace_list; cur; cur = next)   {
+		next = cur->next;
+		free(cur);
+	}
+
+	p15card->unusedspace_list = NULL;
 }
 
 int sc_pkcs15_encode_unusedspace(sc_context_t *ctx,
@@ -2099,8 +2117,7 @@ int sc_pkcs15_parse_unusedspace(const u8 * buf, size_t buflen, struct sc_pkcs15_
 	};
 
 	/* Clean the list if already present */
-	while (p15card->unusedspace_list)
-		sc_pkcs15_remove_unusedspace(p15card, p15card->unusedspace_list);
+	sc_pkcs15_free_unusedspace(p15card);
 
 	sc_format_path("3F00", &dummy_path);
 	dummy_path.index = dummy_path.count = 0;
