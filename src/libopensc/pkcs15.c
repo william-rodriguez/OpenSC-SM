@@ -1713,6 +1713,8 @@ int sc_pkcs15_add_object(struct sc_pkcs15_card *p15card,
 {
 	struct sc_pkcs15_object *p = p15card->obj_list;
 
+	if (!obj)
+		return 0;
 	obj->next = obj->prev = NULL;
 	if (p15card->obj_list == NULL) {
 		p15card->obj_list = obj;
@@ -1731,8 +1733,7 @@ void sc_pkcs15_remove_object(struct sc_pkcs15_card *p15card,
 {
 	if (!obj)
 		return;
-
-	if (obj->prev == NULL)
+	else if (obj->prev == NULL)
 		p15card->obj_list = obj->next;
 	else
 		obj->prev->next = obj->next;
@@ -1742,6 +1743,8 @@ void sc_pkcs15_remove_object(struct sc_pkcs15_card *p15card,
 
 void sc_pkcs15_free_object(struct sc_pkcs15_object *obj)
 {
+	if (!obj)
+		return;
 	switch (obj->type & SC_PKCS15_TYPE_CLASS_MASK) {
 	case SC_PKCS15_TYPE_PRKEY:
 		sc_pkcs15_free_prkey_info((sc_pkcs15_prkey_info_t *)obj->data);
@@ -1797,6 +1800,8 @@ int sc_pkcs15_add_df(struct sc_pkcs15_card *p15card, unsigned int type, const sc
 void sc_pkcs15_remove_df(struct sc_pkcs15_card *p15card,
 			 struct sc_pkcs15_df *obj)
 {
+	if (!obj)
+		return;
 	if (obj->prev == NULL)
 		p15card->df_list = obj->next;
 	else
@@ -1993,11 +1998,13 @@ int sc_pkcs15_add_unusedspace(struct sc_pkcs15_card *p15card,
 void sc_pkcs15_remove_unusedspace(struct sc_pkcs15_card *p15card,
 			 sc_pkcs15_unusedspace_t *unusedspace)
 {
-	if (unusedspace->prev == NULL)
+	if (!unusedspace)
+		return;
+	if (!unusedspace->prev)
 		p15card->unusedspace_list = unusedspace->next;
 	else
 		unusedspace->prev->next = unusedspace->next;
-	if (unusedspace->next != NULL)
+	if (!unusedspace->next)
 		unusedspace->next->prev = unusedspace->prev;
 	free(unusedspace);
 }
