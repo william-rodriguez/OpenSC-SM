@@ -2004,7 +2004,7 @@ void sc_pkcs15_remove_unusedspace(struct sc_pkcs15_card *p15card,
 		p15card->unusedspace_list = unusedspace->next;
 	else
 		unusedspace->prev->next = unusedspace->next;
-	if (!unusedspace->next)
+	if (unusedspace->next)
 		unusedspace->next->prev = unusedspace->prev;
 	free(unusedspace);
 }
