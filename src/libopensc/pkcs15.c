@@ -105,9 +105,9 @@ static const struct sc_asn1_entry c_asn1_tokeninfo[] = {
 	{ NULL, 0, 0, 0, NULL, NULL }
 };
 
-void sc_pkcs15_free_unusedspace(struct sc_pkcs15_card *p15card);
-void sc_pkcs15_remove_dfs(struct sc_pkcs15_card *p15card);
-void sc_pkcs15_remove_objects(struct sc_pkcs15_card *p15card);
+static void sc_pkcs15_free_unusedspace(struct sc_pkcs15_card *p15card);
+static void sc_pkcs15_remove_dfs(struct sc_pkcs15_card *p15card);
+static void sc_pkcs15_remove_objects(struct sc_pkcs15_card *p15card);
 
 int sc_pkcs15_parse_tokeninfo(sc_context_t *ctx,
 	sc_pkcs15_tokeninfo_t *ti, const u8 *buf, size_t blen)
@@ -1751,7 +1751,8 @@ void sc_pkcs15_remove_object(struct sc_pkcs15_card *p15card,
 		obj->next->prev = obj->prev;
 }
 
-void sc_pkcs15_remove_objects(struct sc_pkcs15_card *p15card)
+static void
+sc_pkcs15_remove_objects(struct sc_pkcs15_card *p15card)
 {
 	struct sc_pkcs15_object *cur = NULL, *next = NULL;
 
@@ -1821,7 +1822,8 @@ int sc_pkcs15_add_df(struct sc_pkcs15_card *p15card, unsigned int type, const sc
 	return 0;
 }
 
-void sc_pkcs15_remove_dfs(struct sc_pkcs15_card *p15card)
+static void
+sc_pkcs15_remove_dfs(struct sc_pkcs15_card *p15card)
 {
 	struct sc_pkcs15_df *cur = NULL, *next = NULL;
 
@@ -2037,7 +2039,8 @@ void sc_pkcs15_remove_unusedspace(struct sc_pkcs15_card *p15card,
 	free(unusedspace);
 }
 
-void sc_pkcs15_free_unusedspace(struct sc_pkcs15_card *p15card)
+static void
+sc_pkcs15_free_unusedspace(struct sc_pkcs15_card *p15card)
 {
 	struct sc_pkcs15_unusedspace *cur = NULL, *next = NULL;
 

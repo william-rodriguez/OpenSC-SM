@@ -846,13 +846,9 @@ int sc_pkcs15_add_object(struct sc_pkcs15_card *p15card,
 void sc_pkcs15_remove_object(struct sc_pkcs15_card *p15card,
 			     struct sc_pkcs15_object *obj);
 int sc_pkcs15_add_df(struct sc_pkcs15_card *, unsigned int, const sc_path_t *);
-void sc_pkcs15_remove_df(struct sc_pkcs15_card *p15card,
-			 struct sc_pkcs15_df *df);
 
 int sc_pkcs15_add_unusedspace(struct sc_pkcs15_card *p15card,
 		     const sc_path_t *path, const sc_pkcs15_id_t *auth_id);
-void sc_pkcs15_remove_unusedspace(struct sc_pkcs15_card *p15card,
-			 sc_pkcs15_unusedspace_t *obj);
 int sc_pkcs15_parse_unusedspace(const u8 * buf, size_t buflen,
 			struct sc_pkcs15_card *card);
 int sc_pkcs15_encode_unusedspace(sc_context_t *ctx,
