@@ -106,6 +106,8 @@ static const struct sc_asn1_entry c_asn1_tokeninfo[] = {
 };
 
 void sc_pkcs15_free_unusedspace(struct sc_pkcs15_card *p15card);
+void sc_pkcs15_remove_dfs(struct sc_pkcs15_card *p15card);
+void sc_pkcs15_remove_objects(struct sc_pkcs15_card *p15card);
 
 int sc_pkcs15_parse_tokeninfo(sc_context_t *ctx,
 	sc_pkcs15_tokeninfo_t *ti, const u8 *buf, size_t blen)
@@ -717,36 +719,11 @@ struct sc_pkcs15_card * sc_pkcs15_card_new(void)
 	return p15card;
 }
 
-void sc_pkcs15_card_free(struct sc_pkcs15_card *p15card)
+void sc_pkcs15_free_tokeninfo(struct sc_pkcs15_card *p15card)
 {
-	size_t i;
-
-	if (p15card == NULL)
+	if (!p15card || !p15card->tokeninfo)
 		return;
-	assert(p15card->magic == SC_PKCS15_CARD_MAGIC);
 
-	if (p15card->ops.clear)
-		p15card->ops.clear(p15card);
-
-	while (p15card->obj_list)   {
-		struct sc_pkcs15_object *obj = p15card->obj_list;
-
-		sc_pkcs15_remove_object(p15card, obj);
-		sc_pkcs15_free_object(obj);
-	}
-	while (p15card->df_list)
-		sc_pkcs15_remove_df(p15card, p15card->df_list);
-	sc_pkcs15_free_unusedspace(p15card);
-	p15card->unusedspace_read = 0;
-	if (p15card->file_app != NULL)
-		sc_file_free(p15card->file_app);
-	if (p15card->file_tokeninfo != NULL)
-		sc_file_free(p15card->file_tokeninfo);
-	if (p15card->file_odf != NULL)
-		sc_file_free(p15card->file_odf);
-	if (p15card->file_unusedspace != NULL)
-		sc_file_free(p15card->file_unusedspace);
-	p15card->magic = 0;
 	if (p15card->tokeninfo->label != NULL)
 		free(p15card->tokeninfo->label);
 	if (p15card->tokeninfo->serial_number != NULL)
@@ -760,18 +737,55 @@ void sc_pkcs15_card_free(struct sc_pkcs15_card *p15card)
 	if (p15card->tokeninfo->profile_indication.name != NULL)
 		free(p15card->tokeninfo->profile_indication.name);
 	if (p15card->tokeninfo->seInfo != NULL) {
+		unsigned i;
 		for (i = 0; i < p15card->tokeninfo->num_seInfo; i++)
 			free(p15card->tokeninfo->seInfo[i]);
 		free(p15card->tokeninfo->seInfo);
 	}
 	free(p15card->tokeninfo);
-	if (p15card->app)   {
-		if (p15card->app->label)
-			free(p15card->app->label);
-		if (p15card->app->ddo.value)
-			free(p15card->app->ddo.value);
-		free(p15card->app);
-	}
+
+	p15card->tokeninfo = NULL;
+}
+
+void sc_pkcs15_free_app(struct sc_pkcs15_card *p15card)
+{
+	if (!p15card || !p15card->app)
+		return;
+
+	if (p15card->app->label)
+		free(p15card->app->label);
+	if (p15card->app->ddo.value)
+		free(p15card->app->ddo.value);
+	free(p15card->app);
+	p15card->app = NULL;
+}
+
+void sc_pkcs15_card_free(struct sc_pkcs15_card *p15card)
+{
+	if (p15card == NULL)
+		return;
+	assert(p15card->magic == SC_PKCS15_CARD_MAGIC);
+
+	if (p15card->ops.clear)
+		p15card->ops.clear(p15card);
+
+	sc_pkcs15_remove_objects(p15card);
+	sc_pkcs15_remove_dfs(p15card);
+	sc_pkcs15_free_unusedspace(p15card);
+	p15card->unusedspace_read = 0;
+
+	if (p15card->file_app != NULL)
+		sc_file_free(p15card->file_app);
+	if (p15card->file_tokeninfo != NULL)
+		sc_file_free(p15card->file_tokeninfo);
+	if (p15card->file_odf != NULL)
+		sc_file_free(p15card->file_odf);
+	if (p15card->file_unusedspace != NULL)
+		sc_file_free(p15card->file_unusedspace);
+
+	p15card->magic = 0;
+	sc_pkcs15_free_tokeninfo(p15card);
+	sc_pkcs15_free_app(p15card);
 	free(p15card);
 }
 
@@ -786,15 +800,10 @@ void sc_pkcs15_card_clear(sc_pkcs15_card_t *p15card)
 	p15card->flags = 0;
 	p15card->tokeninfo->version = 0;
 	p15card->tokeninfo->flags   = 0;
-	while (p15card->obj_list)   {
-		struct sc_pkcs15_object *obj = p15card->obj_list;
 
-		sc_pkcs15_remove_object(p15card, obj);
-		sc_pkcs15_free_object(obj);
-	}
-	p15card->obj_list = NULL;
-	while (p15card->df_list != NULL)
-		sc_pkcs15_remove_df(p15card, p15card->df_list);
+	sc_pkcs15_remove_objects(p15card);
+	sc_pkcs15_remove_dfs(p15card);
+
 	p15card->df_list = NULL;
 	if (p15card->file_app != NULL) {
 		sc_file_free(p15card->file_app);
@@ -1742,6 +1751,20 @@ void sc_pkcs15_remove_object(struct sc_pkcs15_card *p15card,
 		obj->next->prev = obj->prev;
 }
 
+void sc_pkcs15_remove_objects(struct sc_pkcs15_card *p15card)
+{
+	struct sc_pkcs15_object *cur = NULL, *next = NULL;
+
+	if (!p15card || !p15card->obj_list)
+		return;
+	for (cur = p15card->obj_list; cur; cur = next)   {
+		next = cur->next;
+		sc_pkcs15_free_object(cur);
+	}
+
+	p15card->obj_list = NULL;
+}
+
 void sc_pkcs15_free_object(struct sc_pkcs15_object *obj)
 {
 	if (!obj)
@@ -1791,25 +1814,26 @@ int sc_pkcs15_add_df(struct sc_pkcs15_card *p15card, unsigned int type, const sc
 
 	p = p15card->df_list;
 	while (p->next != NULL)
- 		p = p->next;
+		p = p->next;
 	p->next = newdf;
 	newdf->prev = p;
 
 	return 0;
 }
 
-void sc_pkcs15_remove_df(struct sc_pkcs15_card *p15card,
-			 struct sc_pkcs15_df *obj)
+void sc_pkcs15_remove_dfs(struct sc_pkcs15_card *p15card)
 {
-	if (!obj)
+	struct sc_pkcs15_df *cur = NULL, *next = NULL;
+
+	if (!p15card || !p15card->df_list)
 		return;
-	if (obj->prev == NULL)
-		p15card->df_list = obj->next;
-	else
-		obj->prev->next = obj->next;
-	if (obj->next != NULL)
-		obj->next->prev = obj->prev;
-	free(obj);
+
+	for (cur = p15card->df_list; cur; cur = next)   {
+		next = cur->next;
+		free(cur);
+	}
+
+	p15card->df_list = NULL;
 }
 
 int sc_pkcs15_encode_df(sc_context_t *ctx,
