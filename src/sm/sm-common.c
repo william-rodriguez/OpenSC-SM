@@ -90,6 +90,7 @@ DES_3cbc_encrypt(DES_cblock *input, DES_cblock *output, long length,
 	long l8=((length+7)/8)*8;
 	DES_cblock icv_out;
 
+	memset(&icv_out, 0, sizeof(icv_out));
 	if (enc == DES_ENCRYPT)   {
 		DES_cbc_encrypt((unsigned char*)input,
 				(unsigned char*)output,length,ks1,iv,enc);

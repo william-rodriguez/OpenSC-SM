@@ -634,8 +634,8 @@ encode_apdu(struct sc_apdu *plain, struct sc_apdu *sm,
 	unsigned char le_tlv[256] = { 0 };
 	size_t le_tlv_len = 0;
 	size_t mac_tlv_len = 10;
-	size_t tmp_lc;
-	size_t tmp_le;
+	size_t tmp_lc = 0;
+	size_t tmp_le = 0;
 	unsigned char mac_tlv[256] = { 0 };
 
 	mac_tlv[0] = 0x8E;
@@ -1157,6 +1157,7 @@ epass2003_select_fid(struct sc_card *card, unsigned int id_hi, unsigned int id_l
 	sc_file_t *file = 0;
 	sc_path_t path;
 
+	memset(&path, 0, sizeof(path));
 	path.type = SC_PATH_TYPE_FILE_ID;
 	path.value[0] = id_hi;
 	path.value[1] = id_lo;

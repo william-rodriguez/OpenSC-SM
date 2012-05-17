@@ -1773,6 +1773,9 @@ write_object(CK_SESSION_HANDLE session)
 	memset(&rsa,  0, sizeof(rsa));
 	memset(&gost,  0, sizeof(gost));
 #endif
+	memset(contents, 0, sizeof(contents));
+	memset(certdata, 0, sizeof(certdata));
+
 	f = fopen(opt_file_to_write, "rb");
 	if (f == NULL)
 		util_fatal("Couldn't open file \"%s\"\n", opt_file_to_write);
@@ -4495,6 +4498,8 @@ test_restricted_usage_object(CK_SESSION_HANDLE session,
 
 	memset(&cert, 0, sizeof(cert));
 	memset(&rsa,  0, sizeof(rsa));
+	memset(contents, 0, sizeof(contents));
+	memset(certdata, 0, sizeof(certdata));
 
 	f = fopen(opt_file_to_write, "rb");
 	if (f == NULL)

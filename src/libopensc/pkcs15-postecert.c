@@ -185,6 +185,9 @@ static int sc_pkcs15emu_postecert_init(sc_pkcs15_card_t * p15card)
 	const char *authPRKEY = "Authentication Key";
 	const char *nonrepPRKEY = "Non repudiation Key";
 
+	memset(index_cert, 0, sizeof(index_cert));
+	memset(count_cert, 0, sizeof(count_cert));
+
 	/* Get the non-repudiation certificate length */
 	sc_format_path(postecert_auth_cert_path, &path);
 
