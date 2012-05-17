@@ -1752,7 +1752,7 @@ static int
 write_object(CK_SESSION_HANDLE session)
 {
 	CK_BBOOL _true = TRUE;
-	unsigned char contents[MAX_OBJECT_SIZE];
+	unsigned char contents[MAX_OBJECT_SIZE + 1];
 	int contents_len = 0;
 	unsigned char certdata[MAX_OBJECT_SIZE];
 	int certdata_len = 0;
@@ -1779,10 +1779,11 @@ write_object(CK_SESSION_HANDLE session)
 	f = fopen(opt_file_to_write, "rb");
 	if (f == NULL)
 		util_fatal("Couldn't open file \"%s\"\n", opt_file_to_write);
-	contents_len = fread(contents, 1, sizeof(contents), f);
+	contents_len = fread(contents, 1, sizeof(contents) - 1, f);
 	if (contents_len < 0)
 		util_fatal("Couldn't read from file \"%s\"\n", opt_file_to_write);
 	fclose(f);
+	contents[contents_len] = '\0';
 
 	if (opt_attr_from_file) {
 		if (!(f = fopen(opt_attr_from_file, "rb")))
@@ -4483,7 +4484,7 @@ test_restricted_usage_object(CK_SESSION_HANDLE session,
 		int usage_sign, int usage_decrypt, int usage_nonrepudiation)
 {
 	CK_BBOOL _true = TRUE;
-	unsigned char contents[MAX_OBJECT_SIZE], certdata[MAX_OBJECT_SIZE];
+	unsigned char contents[MAX_OBJECT_SIZE + 1], certdata[MAX_OBJECT_SIZE];
 	int contents_len = 0, certdata_len = 0;
 	FILE *f;
 	CK_OBJECT_HANDLE cert_obj, privkey_obj, pubkey_obj, data_obj;
@@ -4504,10 +4505,11 @@ test_restricted_usage_object(CK_SESSION_HANDLE session,
 	f = fopen(opt_file_to_write, "rb");
 	if (f == NULL)
 		util_fatal("SM: couldn't open file \"%s\"\n", opt_file_to_write);
-	contents_len = fread(contents, 1, sizeof(contents), f);
+	contents_len = fread(contents, 1, sizeof(contents) - 1, f);
 	if (contents_len < 0)
 		util_fatal("SM: couldn't read from file \"%s\"\n", opt_file_to_write);
 	fclose(f);
+	contents[contents_len] = '\0';
 
 	if (opt_attr_from_file) {
 		f = fopen(opt_attr_from_file, "rb");
