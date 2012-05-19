@@ -819,18 +819,19 @@ epass2003_sm_unwrap_apdu(struct sc_card *card, struct sc_apdu *sm, struct sc_apd
 		if (g_sm) {
 			if (0 != decrypt_response(sm->resp, plain->resp, &len))
 				return SC_ERROR_CARD_CMD_FAILED;
-
-			plain->resplen = len;
 		}
 		else {
 			memcpy(plain->resp, sm->resp, sm->resplen);
-			plain->resplen = sm->resplen;
+			len = sm->resplen;
 		}
 	}
+
+	plain->resplen = len;
 	plain->sw1 = sm->sw1;
 	plain->sw2 = sm->sw2;
 
-	return SC_SUCCESS;
+	sc_log(card->ctx, "unwrapped APDU: resplen %i, SW %02X%02X", plain->resplen, plain->sw1, plain->sw2);
+	LOG_FUNC_RETURN(card->ctx, SC_SUCCESS);
 }
 
 
@@ -1446,7 +1447,7 @@ static int epass2003_decipher(struct sc_card *card, const u8 * data, size_t data
 	u8 rbuf[SC_MAX_APDU_BUFFER_SIZE] = { 0 };
 	u8 sbuf[SC_MAX_APDU_BUFFER_SIZE] = { 0 };
 
-	sc_format_apdu(card, &apdu, SC_APDU_CASE_4_SHORT, 0x2A, 0x80, 0x86);
+	sc_format_apdu(card, &apdu, SC_APDU_CASE_4_EXT, 0x2A, 0x80, 0x86);
 	apdu.resp = rbuf;
 	apdu.resplen = sizeof(rbuf);
 	apdu.le = 256;
