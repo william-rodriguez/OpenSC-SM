@@ -29,8 +29,6 @@
 #include "pkcs15init/pkcs15-init.h"
 #endif
 
-extern int hack_enabled;
-
 struct pkcs15_slot_data {
 	struct sc_pkcs15_object *auth_obj;
 };
