@@ -26,16 +26,6 @@
 
 #include "sc-pkcs11.h"
 
-static struct sc_pkcs11_framework_ops *frameworks[] = {
-	&framework_pkcs15,
-#ifdef USE_PKCS15_INIT
-	/* This should be the last framework, because it
-	 * will assume the card is blank and try to initialize it */
-	&framework_pkcs15init,
-#endif
-	NULL
-};
-
 static struct sc_pkcs11_slot * reader_get_slot(sc_reader_t *reader)
 {
 	unsigned int i;
@@ -239,24 +229,17 @@ CK_RV card_detect(sc_reader_t *reader)
 	if (p11card->framework == NULL) {
 		sc_log(context, "%s: Detecting Framework\n", reader->name);
 
-		for (i = 0; frameworks[i]; i++) {
-			if (frameworks[i]->bind == NULL)
-				continue;
-			rv = frameworks[i]->bind(p11card);
-			if (rv == CKR_OK)
-				break;
-		}
-
-		if (frameworks[i] == NULL)
-			return CKR_TOKEN_NOT_RECOGNIZED;
-
-		/* Initialize framework */
-		sc_log(context, "%s: Detected framework %d. Creating tokens.\n", reader->name, i);
-		rv = frameworks[i]->create_tokens(p11card);
+		rv = framework_pkcs15.bind(p11card);
 		if (rv != CKR_OK)
 			return rv;
 
-		p11card->framework = frameworks[i];
+		/* Initialize framework */
+		sc_log(context, "%s: Detected framework %d. Creating tokens.\n", reader->name, i);
+		rv = framework_pkcs15.create_tokens(p11card);
+		if (rv != CKR_OK)
+			return rv;
+
+		p11card->framework = &framework_pkcs15;
 	}
 	sc_log(context, "%s: Detection ended\n", reader->name);
 	return CKR_OK;
